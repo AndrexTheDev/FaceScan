@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Farben der jamaikanischen Flagge. Text darauf ist immer SCHWARZ
+     (Kontrast: Gruen 5,75:1, Gold 14,37:1 – gemessen, WCAG 2.2 AA/AAA). -->
+<resources>
+    <color name="jamaica_black">#FF000000</color>
+    <color name="jamaica_green">#FF009B3A</color>
+    <color name="jamaica_gold">#FFFFD100</color>
+    <color name="day_green">#FF007A2E</color>
+    <color name="day_gold_text">#FF8A6A00</color>
+</resources>

@@ -1,0 +1,166 @@
+package com.andrexthedev.facescan.ui.screen
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.camera.view.PreviewView
+import com.andrexthedev.facescan.R
+import com.andrexthedev.facescan.capture.CameraController
+import com.andrexthedev.facescan.ui.theme.FaceScanColors
+
+/**
+ * Aufnahme-Assistent.
+ *
+ * Alles, was der Nutzer sieht: eine Kopf-Silhouette, ein Fortschrittsbogen und
+ * EINE Ampel mit EINEM Satz. Keine Zahlen, keine Fachbegriffe (docs/07).
+ */
+@Composable
+fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val controller = remember { CameraController(context) }
+
+    var progress by remember { mutableFloatStateOf(0.12f) }   // 0..1
+    var ampel by remember { mutableStateOf(Ampel.GREEN) }
+    var hinweis by remember { mutableStateOf("") }
+
+    DisposableEffect(Unit) {
+        onDispose { controller.shutdown() }
+    }
+
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                PreviewView(ctx).also { previewView ->
+                    controller.bind(lifecycleOwner, previewView.surfaceProvider) { /* Frame-Callback M1 */ }
+                }
+            }
+        )
+
+        // --- Fuehrungs-Overlay -------------------------------------------
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val centerX = size.width / 2f
+            val centerY = size.height * 0.42f
+            val radius = size.width * 0.34f
+
+            // Ziel-Silhouette (Kopf-Umriss)
+            drawOval(
+                color = Color.White.copy(alpha = 0.35f),
+                topLeft = Offset(centerX - radius * 0.78f, centerY - radius),
+                size = Size(radius * 1.56f, radius * 1.9f),
+                style = Stroke(width = 3.dp.toPx())
+            )
+
+            // Fortschrittsbogen (Gold)
+            drawArc(
+                color = FaceScanColors.JamaicaGold,
+                startAngle = -90f,
+                sweepAngle = 360f * progress,
+                useCenter = false,
+                topLeft = Offset(centerX - radius * 1.35f, centerY - radius * 1.35f),
+                size = Size(radius * 2.7f, radius * 2.7f),
+                style = Stroke(width = 10.dp.toPx())
+            )
+        }
+
+        // --- Ampel --------------------------------------------------------
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(20.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = ampel.symbol,
+                        color = ampel.color,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = hinweis.ifBlank { stringResource(R.string.capture_hint_default) },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = onCancel,
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = FaceScanColors.NightError
+                    )
+                ) { Text(stringResource(R.string.common_cancel)) }
+
+                Spacer(Modifier.width(12.dp))
+
+                Button(
+                    onClick = onFinished,
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = FaceScanColors.NightGreen,
+                        contentColor = Color.Black
+                    )
+                ) { Text(stringResource(R.string.capture_done)) }
+            }
+        }
+    }
+}
+
+enum class Ampel(val symbol: String, val color: Color) {
+    GREEN("✔", FaceScanColors.NightGreen),
+    YELLOW("!", FaceScanColors.Warn),
+    RED("✕", FaceScanColors.NightError)
+}

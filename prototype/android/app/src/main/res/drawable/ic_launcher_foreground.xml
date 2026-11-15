@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Vordergrund des Adaptive Icons.
+  Viewport 108x108 dp; der sichtbare Bereich ist der Kreis mit 66 dp
+  Durchmesser um die Mitte (54,54). Die Silhouette bleibt deshalb kompakt.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#000000"
+        android:pathData="M54,40c-9.4,0 -17,7.6 -17,17v13c0,3.3 2.7,6 6,6h22c3.3,0 6,-2.7 6,-6V57c0,-9.4 -7.6,-17 -17,-17zM54,44c7.2,0 13,5.8 13,13v12H41V57c0,-7.2 5.8,-13 13,-13z" />
+    <path android:fillColor="#000000"
+        android:pathData="M40,80c0,7.7 6.3,14 14,14s14,-6.3 14,-14H40z" />
+    <path android:fillColor="#FFD100"
+        android:pathData="M32,44c-2,3 -3,6 -3,9M76,44c2,3 3,6 3,9"
+        android:strokeColor="#FFD100"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+</vector>

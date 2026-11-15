@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Standard = Deutsch. Englisch liegt in values-en/strings.xml. -->
+<resources>
+    <string name="app_name">FaceScan</string>
+
+    <!-- Home -->
+    <string name="home_start_scan">NEU SCANNEN</string>
+    <string name="home_open_project">Projekt öffnen</string>
+    <string name="home_settings">Einstellungen</string>
+    <string name="home_empty">Noch kein Modell – scanne dich in einer Minute.</string>
+    <string name="home_offline_badge">Alles bleibt auf deinem Handy. Keine Cloud, kein Konto.</string>
+    <string name="cd_start_scan">Neuen Scan starten</string>
+
+    <!-- Capture -->
+    <string name="capture_hint_default">Perfekt – bleib so.</string>
+    <string name="capture_done">Fertig</string>
+    <string name="common_cancel">Abbrechen</string>
+
+    <!-- Processing -->
+    <string name="processing_title">Wir rechnen</string>
+    <string name="processing_subtitle">Das passiert komplett auf deinem Handy.</string>
+    <string name="processing_offline_note">Du kannst die App verlassen – wir machen weiter.</string>
+    <string name="processing_continue">Weiter</string>
+    <string name="stage_perception">Gesichtspunkte erkennen</string>
+    <string name="stage_calibration">Kameraposen berechnen</string>
+    <string name="stage_coarse_fit">Kopfform anpassen</string>
+    <string name="stage_refine">Details verfeinern</string>
+
+    <!-- Review -->
+    <string name="review_title">Dein 3D-Modell</string>
+    <string name="review_tips_title">So wird es noch besser</string>
+    <string name="review_animate">Animieren</string>
+    <string name="review_export">Exportieren</string>
+    <string name="review_done">Fertig</string>
+</resources>

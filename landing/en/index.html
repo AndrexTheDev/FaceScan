@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FaceScan – Offline 3D face scan (Android) | Face &amp; hair as a 3D model</title>
+<meta name="description" content="Scan your face and hair in 3D with your phone – fully offline, animatable and exportable to every professional 3D format (FBX, USD, ABC, GLB, OBJ). No ARCore, no cloud, no account.">
+<meta name="author" content="AndrexTheDev">
+<link rel="canonical" href="https://facescan.app/en/">
+<link rel="alternate" hreflang="de" href="https://facescan.app/">
+<link rel="alternate" hreflang="en" href="https://facescan.app/en/">
+<link rel="alternate" hreflang="x-default" href="https://facescan.app/">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="FaceScan – Offline 3D face scan (Android)">
+<meta property="og:description" content="Scan face &amp; hair in 3D, animate it and export to every professional 3D format – offline, no account, no ARCore.">
+<meta property="og:image" content="https://facescan.app/assets/img/og-image.png">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="de_DE">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#000000">
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "FaceScan",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Android 10+",
+  "description": "Offline-first 3D scanner for face and hair with animation and export to all common professional 3D formats.",
+  "author": { "@type": "Person", "name": "AndrexTheDev" },
+  "offers": [
+    { "@type": "Offer", "name": "Starter", "price": "0", "priceCurrency": "EUR" },
+    { "@type": "Offer", "name": "Creator", "price": "39.00", "priceCurrency": "EUR" },
+    { "@type": "Offer", "name": "Studio", "price": "129.00", "priceCurrency": "EUR" }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="../index.html">
+      <img src="../assets/img/logo.svg" alt="FaceScan logo" width="34" height="34">
+      <span>Face<span class="dot">Scan</span></span>
+    </a>
+    <nav class="nav" aria-label="Main navigation">
+      <a href="#funktionen">Features</a>
+      <a href="#formate">Formats</a>
+      <a href="#animation">Animation</a>
+      <a href="#preise">Pricing</a>
+      <a href="#faq">FAQ</a>
+      <a class="icon-btn" href="../index.html" hreflang="de" lang="de" aria-label="Zu Deutsch wechseln">DE</a>
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle day and night mode">☀/☾</button>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow">Android · Offline first · No ARCore</span>
+        <h1>Scan yourself in 3D.<br>In one minute.<em> Fully offline.</em></h1>
+        <p class="lead">
+          Face <strong>and</strong> hair as a detailed 3D model – animated with your phone camera and exported
+          to every common professional 3D format. No cloud. No account. No excuses.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-gold" href="https://play.google.com/store/apps/details?id=com.andrexthedev.facescan">
+            Start scanning free
+          </a>
+          <a class="btn btn-ghost" href="#wie">How it works</a>
+        </div>
+        <ul class="trust">
+          <li><span class="tick">✔</span> Nothing leaves your phone</li>
+          <li><span class="tick">✔</span> No account required</li>
+          <li><span class="tick">✔</span> No ARCore, no depth sensor</li>
+        </ul>
+      </div>
+      <div class="hero-art">
+        <img src="../assets/img/shot-render.svg" alt="FaceScan showing a face as a green 3D wireframe model" width="320" height="420">
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 STEPS -->
+  <section id="wie">
+    <div class="wrap">
+      <p class="kicker">Three steps</p>
+      <h2>From selfie to 3D model</h2>
+      <p class="section-lead">The app guides you. You don't need any 3D knowledge – just one minute and decent light.</p>
+      <div class="grid grid-3">
+        <article class="card">
+          <span class="step-num">1</span>
+          <h3>Record</h3>
+          <p>A guide shows you where to look. The app checks light, sharpness and motion and keeps only the
+             frames that are actually good.</p>
+        </article>
+        <article class="card">
+          <span class="step-num">2</span>
+          <h3>Compute</h3>
+          <p>Up to 120 frames become real 3D geometry – on your phone, with face and hair handled separately so
+             both come out right.</p>
+        </article>
+        <article class="card">
+          <span class="step-num">3</span>
+          <h3>Export</h3>
+          <p>Tell us what you need the model for, and FaceScan delivers the matching format including textures,
+             skeleton and expression shapes.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARE -->
+  <section id="vergleich">
+    <div class="wrap">
+      <p class="kicker">Result</p>
+      <h2>Photo in – 3D model out</h2>
+      <p class="section-lead">Drag the slider: the photo on the left, the computed 3D model on the right.</p>
+      <div class="compare" id="compare">
+        <img src="../assets/img/shot-photo.svg" alt="Photo of a face" width="320" height="420">
+        <img class="top" src="../assets/img/shot-render.svg" alt="The same face as a 3D wireframe" width="320" height="420">
+        <span class="handle" aria-hidden="true"></span>
+        <span class="tag left">Photo</span>
+        <span class="tag right">3D model</span>
+        <input type="range" min="0" max="100" value="50" aria-label="Compare photo and 3D model">
+      </div>
+      <p class="section-lead" style="margin-top:18px">
+        <small>Placeholder artwork – real sample scans arrive with the first beta.</small>
+      </p>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="funktionen">
+    <div class="wrap">
+      <p class="kicker">Features</p>
+      <h2>Everything a 3D portrait needs</h2>
+      <div class="grid grid-3">
+        <article class="card"><p class="emo">🧑</p><h3>Face &amp; hair</h3>
+          <p>Separate reconstruction for skin and hair – from pores to strands, in three honest quality levels.</p></article>
+        <article class="card"><p class="emo">😀</p><h3>Animatable</h3>
+          <p>52 expression shapes (ARKit standard) plus head and body motion – live from your phone camera,
+             markerless, without ARCore.</p></article>
+        <article class="card"><p class="emo">📦</p><h3>Every pro format</h3>
+          <p>GLB, FBX, USD/USDZ, Alembic, OBJ, Collada, PLY, STL – with textures, skeleton, morphs and animation.</p></article>
+        <article class="card"><p class="emo">🔒</p><h3>Offline &amp; private</h3>
+          <p>Computing, storage and export happen on the device. Encrypted vault, no upload, no tracking.</p></article>
+        <article class="card"><p class="emo">🧭</p><h3>Beginner friendly</h3>
+          <p>No jargon without an explanation. One guide, one traffic light, one button – and a format advisor
+             for your target app.</p></article>
+        <article class="card"><p class="emo">🛠️</p><h3>Ready for post-production</h3>
+          <p>Clean topology, fixed UVs, complete material maps – built for Blender, ZBrush, Maya or Substance
+             Painter.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- FORMATS -->
+  <section id="formate">
+    <div class="wrap">
+      <p class="kicker">Compatibility</p>
+      <h2>Your model, your software</h2>
+      <p class="section-lead">FaceScan asks what you need the model <em>for</em> – then picks the format, units,
+        axes and texture set to match.</p>
+      <ul class="chips">
+        <li class="strong">FBX</li><li class="strong">USD / USDZ</li><li class="strong">glTF / GLB</li>
+        <li class="strong">Alembic (ABC)</li><li>OBJ + MTL</li><li>Collada (DAE)</li><li>PLY</li><li>STL (3D print)</li>
+        <li>BVH / CSV (motion)</li><li>VRM (VTuber)</li><li>.fscan (lossless project)</li>
+      </ul>
+      <ul class="chips">
+        <li>Blender</li><li>Unreal Engine</li><li>Unity</li><li>Maya</li><li>3ds Max</li><li>Houdini</li>
+        <li>ZBrush</li><li>Substance Painter</li><li>Godot / Three.js</li><li>Apple AR Quick Look</li>
+        <li>Cura / PrusaSlicer</li>
+      </ul>
+      <p class="section-lead">Plus a full texture set: color, detail relief, roughness, AO, SSS mask and
+        displacement (up to 8K), with units and axes adapted to your target app on request.</p>
+    </div>
+  </section>
+
+  <!-- ANIMATION -->
+  <section id="animation">
+    <div class="wrap grid grid-2" style="align-items:center;gap:40px">
+      <div>
+        <p class="kicker">Animation</p>
+        <h2>Your avatar comes alive</h2>
+        <p class="section-lead">
+          FaceScan tracks your facial expression and body movement live – on the phone, no suit, no markers,
+          no ARCore. Record it and export the motion to BVH, Alembic, FBX or USD.
+        </p>
+        <ul class="chips">
+          <li class="strong">52 expression shapes</li><li>Head pose</li><li>Upper body &amp; arms</li>
+          <li>Hands &amp; fingers</li><li>Eye direction</li><li>Record as clip</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>How it runs</h3>
+        <ol>
+          <li>Calibrate once for 20 seconds (relaxed look, smile, eyes closed).</li>
+          <li>Camera on – your avatar follows in real time.</li>
+          <li>Hit record, trim the clip, export.</li>
+        </ol>
+        <p><small>Target: 25+ frames per second on mid-range phones.</small></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRIVACY -->
+  <section id="datenschutz" class="privacy">
+    <div class="wrap">
+      <p class="kicker">Privacy</p>
+      <h2>Nothing leaves your phone</h2>
+      <p class="section-lead">Your face is not a commodity. That's why FaceScan works strictly locally.</p>
+      <ul class="privacy-list">
+        <li><span class="tick">✔</span><span><strong>No cloud.</strong> Capture, compute, storage and export all
+          run on the device.</span></li>
+        <li><span class="tick">✔</span><span><strong>No account.</strong> No email, no password, no phone
+          number – nothing we could store.</span></li>
+        <li><span class="tick">✔</span><span><strong>Encrypted vault.</strong> Projects are stored with
+          AES-256-GCM, key protected by the Android Keystore.</span></li>
+        <li><span class="tick">✔</span><span><strong>No tracking.</strong> No ad, analytics or crash SDKs. An
+          optional telemetry opt-in exists – and defaults to off.</span></li>
+        <li><span class="tick">✔</span><span><strong>Full control.</strong> Export, delete, delete everything –
+          logged, anytime, no questions asked.</span></li>
+        <li><span class="tick">✔</span><span><strong>Open project format.</strong> <code>.fscan</code> is
+          documented: your data stays readable without us.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section id="preise">
+    <div class="wrap">
+      <p class="kicker">Pricing</p>
+      <h2>One-time purchase, not a subscription</h2>
+      <p class="section-lead">Pay with Solana, Bitcoin or Ethereum – and permanently keep the crypto bonus
+        (no payment-processor fees): <strong>−20 %</strong> off the calculated card price.</p>
+
+      <div class="price-grid">
+        <article class="tier">
+          <h3>Starter</h3>
+          <p class="price">€0 <small> · personal</small></p>
+          <ul>
+            <li><span class="tick">✔</span> Unlimited scans</li>
+            <li><span class="tick">✔</span> 3 saved avatars</li>
+            <li><span class="tick">✔</span> 52 expression shapes</li>
+            <li><span class="tick">✔</span> Export: GLB, OBJ, PLY, STL, .fscan</li>
+            <li><span class="tick">✔</span> 2K textures</li>
+            <li><span class="tick">✔</span> Hair level 1 (volume)</li>
+          </ul>
+          <a class="btn btn-ghost" href="https://play.google.com/store/apps/details?id=com.andrexthedev.facescan">Start free</a>
+        </article>
+
+        <article class="tier featured">
+          <span class="badge">Recommended</span>
+          <h3>Creator</h3>
+          <p class="price">€39 <small> · one-time · lifetime</small></p>
+          <ul>
+            <li><span class="tick">✔</span> Everything in Starter, unlimited</li>
+            <li><span class="tick">✔</span> <strong>+ FBX, USD, USDZ, Collada</strong></li>
+            <li><span class="tick">✔</span> 4K textures, displacement, pro maps</li>
+            <li><span class="tick">✔</span> Hair level 2 (hair cards)</li>
+            <li><span class="tick">✔</span> Record and export animation</li>
+            <li><span class="tick">✔</span> Commercial indie licence (&lt; €100k revenue)</li>
+            <li><span class="tick">✔</span> No watermark</li>
+          </ul>
+          <a class="btn btn-green" href="#krypto">Unlock with crypto</a>
+        </article>
+
+        <article class="tier">
+          <h3>Studio</h3>
+          <p class="price">€129 <small> · one-time · lifetime</small></p>
+          <ul>
+            <li><span class="tick">✔</span> Everything in Creator</li>
+            <li><span class="tick">✔</span> <strong>+ Alembic, BVH, VRM, CSV/JSON</strong></li>
+            <li><span class="tick">✔</span> 8K textures, pore detail</li>
+            <li><span class="tick">✔</span> Hair level 3 (real strands)</li>
+            <li><span class="tick">✔</span> Full-body mocap &amp; export</li>
+            <li><span class="tick">✔</span> Unlimited commercial studio licence</li>
+            <li><span class="tick">✔</span> Update pass included</li>
+          </ul>
+          <a class="btn btn-ghost" href="#krypto">Unlock with crypto</a>
+        </article>
+      </div>
+
+      <p class="credits">
+        <strong>Credit packs</strong> (for occasional users, never expire): Export pack (10 exports) €4.90 ·
+        Hair detail pack €3.90 · Motion pack (30 min) €6.90 · Print pack €2.90.
+        All prices are EUR equivalents; the crypto amount is calculated at the exchange rate on the day of payment.
+      </p>
+    </div>
+  </section>
+
+  <!-- CRYPTO -->
+  <section id="krypto">
+    <div class="wrap">
+      <p class="kicker">Payment</p>
+      <h2>Paid in crypto</h2>
+      <p class="section-lead">
+        No card, no account, no chargeback data. You pay straight from your wallet to one of three addresses.
+        <strong>Important:</strong> always send the exact amount the app shows you – the last digits are your
+        order number.
+      </p>
+      <div class="crypto-grid">
+        <article class="coin">
+          <h3>Solana (SOL) <span class="pill">Recommended</span></h3>
+          <p><small>Confirmed in ~10 seconds, cent-level fees, automatic matching.</small></p>
+          <div class="qr"><img src="../assets/img/qr-sol.svg" alt="QR code of the Solana address" width="150" height="150"></div>
+          <code>79KsqtJJdhKFJ9woxnYgtf3nq7HxQveafWBCtC3mxWi8</code>
+          <button class="btn btn-ghost btn-sm" type="button" data-copy="79KsqtJJdhKFJ9woxnYgtf3nq7HxQveafWBCtC3mxWi8">Copy address</button>
+        </article>
+        <article class="coin">
+          <h3>Bitcoin (BTC)</h3>
+          <p><small>Native SegWit (bech32). Confirmed after 1–3 blocks.</small></p>
+          <div class="qr"><img src="../assets/img/qr-btc.svg" alt="QR code of the Bitcoin address" width="150" height="150"></div>
+          <code>bc1qeqzrlfg3edrydk4s0hecakc82gp26n5p7hkc7f</code>
+          <button class="btn btn-ghost btn-sm" type="button" data-copy="bc1qeqzrlfg3edrydk4s0hecakc82gp26n5p7hkc7f">Copy address</button>
+        </article>
+        <article class="coin">
+          <h3>Ethereum (ETH)</h3>
+          <p><small>Gas fees vary; matched by amount and transfer log.</small></p>
+          <div class="qr"><img src="../assets/img/qr-eth.svg" alt="QR code of the Ethereum address" width="150" height="150"></div>
+          <code>0xBC3fab34f69bc9f6661608C3FB36dDdC313C42F7</code>
+          <button class="btn btn-ghost btn-sm" type="button" data-copy="0xBC3fab34f69bc9f6661608C3FB36dDdC313C42F7">Copy address</button>
+        </article>
+      </div>
+      <p class="note">
+        Purchases happen <strong>inside the app</strong>: it shows the exact amount, a QR code and a direct
+        link to your wallet. The blockchain transaction is your receipt – you can take your purchase to a new
+        phone with it.
+        <br><br>
+        <strong>Security note:</strong> always check the first and last characters of the address in your
+        wallet before sending. We will never contact you about “new” addresses.
+      </p>
+    </div>
+  </section>
+
+  <!-- BEGINNERS -->
+  <section id="einsteiger">
+    <div class="wrap grid grid-2" style="align-items:center;gap:40px">
+      <div class="card">
+        <h3>What's a “mesh”? What's a “UV”?</h3>
+        <p>We translate every term: <em>mesh</em> = your 3D model (a net of triangles). <em>UV</em> = the
+          unwrapped layout, so it can be painted. <em>Rig</em> = the invisible skeleton used to move it. Each
+          of these terms has an in-app “ⓘ What's this?”.</p>
+        <p>And at export time FaceScan doesn't ask for a format – it asks for your destination: “Blender”,
+          “Unreal”, “3D print”, “Web”. The app handles the rest.</p>
+      </div>
+      <div>
+        <p class="kicker">For beginners</p>
+        <h2>You don't need any 3D skills</h2>
+        <p class="section-lead">Six minutes from opening the app to a finished file – that's the promise we
+          test for.</p>
+        <ul class="chips">
+          <li>Guided capture with a traffic light</li><li>Voice guidance (DE/EN)</li><li>Practice mode with a mannequin</li>
+          <li>Format advisor</li><li>Night and day mode</li><li>Accessible (WCAG 2.2 AA)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="wrap">
+      <p class="kicker">FAQ</p>
+      <h2>Frequently asked questions</h2>
+      <details><summary>Do I need a special phone?</summary>
+        <p>Android 10 or newer. On mid-range devices a standard scan takes about three minutes, on flagships
+           less. A depth sensor or ARCore is <strong>not</strong> required.</p></details>
+      <details><summary>How good is the hair?</summary>
+        <p>Honestly: reconstructing individual hairs from phone photos is unsolved worldwide. FaceScan works in
+           three levels instead: volume (free), hair cards with strand structure (Creator) and real strand
+           curves (Studio). The app tells you up front which level is possible.</p></details>
+      <details><summary>Does it really work without internet?</summary>
+        <p>Yes. Scanning, computing, animating and exporting run entirely on the device. The app only needs a
+           network when you decide to buy something – and even then it stays fully usable.</p></details>
+      <details><summary>What happens to my photos?</summary>
+        <p>They stay on your phone, encrypted inside the app vault. You decide whether the source frames are
+           kept after the scan or deleted. There is no upload and no account.</p></details>
+      <details><summary>Can I sell the models?</summary>
+        <p>With Creator, yes – for your own commercial projects up to €100,000 annual revenue; with Studio,
+           without a limit. Biometric identification, surveillance and deceptive or derogatory depictions are
+           not allowed – and you need the consent of the person depicted (the app includes a model-release
+           generator for that).</p></details>
+      <details><summary>Which formats does the app deliver?</summary>
+        <p>GLB, OBJ+MTL, PLY, STL (free), FBX, USD, USDZ, Collada (Creator), Alembic, BVH, VRM, CSV/JSON
+           (Studio) – each with a texture set and, on request, skeleton, morph targets and animation.</p></details>
+      <details><summary>How does animation work without ARCore?</summary>
+        <p>FaceScan uses on-device face and body tracking: 478 points on the face, 52 expression values,
+           33 body points in real metres. That's enough to drive your avatar – no markers, no suit, no Google
+           Play services.</p></details>
+      <details><summary>Why crypto only?</summary>
+        <p>Because it fits the product: no accounts, no card data, no chargebacks, no payment processor in the
+           loop. As a bonus we pass the saved fees on as a 20 % discount.</p></details>
+      <details><summary>Can I get my money back?</summary>
+        <p>Yes. Voluntary 14-day refund to the sending address, minus network fees. Just contact us with your
+           transaction ID.</p></details>
+      <details><summary>Will there be an iPhone version?</summary>
+        <p>It's planned after the Android launch. The compute core is written in C++ and can be reused – but
+           camera work and app review remain real effort.</p></details>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section id="roadmap">
+    <div class="wrap">
+      <p class="kicker">Roadmap</p>
+      <h2>Where this is going</h2>
+      <div class="roadmap">
+        <div class="row"><span class="when">2027 Q3</span><span>Closed beta: scan, hair level 2, animation, export suite</span></div>
+        <div class="row"><span class="when">2028 Q1</span><span>Public release on Google Play + crypto checkout</span></div>
+        <div class="row"><span class="when">2028 Q2</span><span>Blender add-on “FaceScan Link” (lossless import)</span></div>
+        <div class="row"><span class="when">2028 Q3</span><span>Hair level 3 strand export, VRM 1.0</span></div>
+        <div class="row"><span class="when">2028 Q4</span><span>Desktop companion app (Windows/macOS/Linux) + iOS trial</span></div>
+      </div>
+      <p class="section-lead" style="margin-top:20px">Got a wish? Write to us:
+        <a href="mailto:hippie.highho@gmail.com">hippie.highho@gmail.com</a></p>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="final">
+    <div class="wrap">
+      <h2>Your face in 3D.<br>In one minute.</h2>
+      <p class="section-lead" style="margin-inline:auto">Start free, stay offline, export to every professional format.</p>
+      <div class="cta-row">
+        <a class="btn btn-gold" href="https://play.google.com/store/apps/details?id=com.andrexthedev.facescan">Start scanning free</a>
+        <a class="btn btn-ghost" href="#preise">See pricing</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <a class="brand" href="../index.html">
+          <img src="../assets/img/logo.svg" alt="" width="30" height="30">
+          <span>Face<span class="dot">Scan</span></span>
+        </a>
+        <p>Offline-first 3D scanning for face and hair.<br>Developed by AndrexTheDev.</p>
+        <p><a href="mailto:hippie.highho@gmail.com">hippie.highho@gmail.com</a></p>
+      </div>
+      <div>
+        <strong>Product</strong>
+        <ul>
+          <li><a href="#funktionen">Features</a></li>
+          <li><a href="#formate">Formats</a></li>
+          <li><a href="#animation">Animation</a></li>
+          <li><a href="#preise">Pricing</a></li>
+          <li><a href="#roadmap">Roadmap</a></li>
+        </ul>
+      </div>
+      <div>
+        <strong>Legal</strong>
+        <ul>
+          <li><a href="../impressum/index.html">Imprint</a></li>
+          <li><a href="../privacy/index.html">Privacy policy</a></li>
+          <li><a href="../terms/index.html">Terms &amp; licence</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="legal-note">
+      Payments in Solana (SOL), Bitcoin (BTC) and Ethereum (ETH) are one-time payments. All prices are EUR
+      equivalents; the rate at the time of receipt applies. No crypto assets are custodied – payments are
+      received in self-owned wallets.
+    </p>
+  </div>
+</footer>
+
+<script src="../assets/js/main.js" defer></script>
+</body>
+</html>

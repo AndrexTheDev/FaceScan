@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 420" width="320" height="420" role="img" aria-label="Ergebnis: 3D-Modell als Drahtgitter">
+  <defs>
+    <radialGradient id="bg2" cx="50%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#0c2015"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+  </defs>
+  <rect width="320" height="420" fill="url(#bg2)"/>
+  <g stroke="#009B3A" stroke-width="0.9" fill="none" opacity="0.95">
+    <!-- head wireframe: latitude lines -->
+    <ellipse cx="160" cy="170" rx="72" ry="92"/>
+    <ellipse cx="160" cy="170" rx="72" ry="60"/>
+    <ellipse cx="160" cy="170" rx="72" ry="30"/>
+    <ellipse cx="160" cy="170" rx="72" ry="8"/>
+    <ellipse cx="160" cy="170" rx="30" ry="92"/>
+    <ellipse cx="160" cy="170" rx="58" ry="92"/>
+    <ellipse cx="160" cy="170" rx="14" ry="92"/>
+    <path d="M88 170h144M88 140h144M88 200h144M88 110h144M88 230h144"/>
+    <path d="M136 262h48v58h-48z"/>
+    <path d="M40 420c0-70 40-100 120-100s120 30 120 100"/>
+  </g>
+  <g fill="#FFD100">
+    <circle cx="136" cy="168" r="3"/><circle cx="184" cy="168" r="3"/>
+    <circle cx="160" cy="196" r="3"/><circle cx="160" cy="226" r="3"/>
+    <circle cx="160" cy="78" r="3"/><circle cx="160" cy="262" r="3"/>
+  </g>
+  <g stroke="#FFD100" stroke-width="1" fill="none" opacity="0.8">
+    <path d="M60 60h24v-24M260 60h-24v-24M60 360h24v24M260 360h-24v24"/>
+  </g>
+  <text x="160" y="404" font-family="sans-serif" font-size="16" fill="#FFD100" text-anchor="middle">3D-Modell</text>
+</svg>

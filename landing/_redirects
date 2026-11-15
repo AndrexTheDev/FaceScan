@@ -1,0 +1,7 @@
+# Sprache: Englisch hat eine eigene URL, Deutsch ist die Standardfassung.
+/en            /en/index.html   200
+/de            /                301
+/index         /                301
+
+# 404-Fallback (statische Seite ohne serverseitige Logik)
+/*              /404.html        404

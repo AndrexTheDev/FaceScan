@@ -270,10 +270,10 @@ liefern wir ein **eigenes Blender-Add-on** (Python, GPL-kompatibel, da add-on):
 | Welle | Formate | Begründung |
 |---|---|---|
 | 1 | `.fscan`, OBJ+MTL, PLY, STL, GLB/glTF | Einfach, deckt 3D-Druck, Web, Godot, Unity, Substance |
-| 2 | USDA + USDZ, DAE | Text-/XML-basiert, kein Fremdcode, deckt Apple/Houdini/Alt-DCC |
-| 3 | FBX (binär) | Größter Aufwand, größter Nutzen (Blender/Maya/Max/Unreal/Unity) |
-| 4 | ABC (libalembic) | Für Houdini/Point-Cache/Haar-Kurven |
-| 5 | BVH, CSV/JSON, VRM | Motion-/VTuber-Spezialfälle |
+| 2 | USDA + USDZ, DAE | Text-/XML-basiert, kein Fremdcode, deckt Apple/Houdini/Alt-DCC | **USDA + USDZ fertig**, DAE offen |
+| 3 | FBX (binär) | Größter Aufwand, größter Nutzen (Blender/Maya/Max/Unreal/Unity) | **fertig** (7.5 binär) |
+| 4 | ABC (libalembic) | Für Houdini/Point-Cache/Haar-Kurven | **fertig** (Ogawa, eigener Schreiber) |
+| 5 | BVH, CSV/JSON, VRM | Motion-/VTuber-Spezialfälle | offen |
 
 ## 11. Lizenz-Hinweise der eingesetzten Fremd-Bibliotheken (Kurzfassung, Detail in `09`)
 
@@ -287,3 +287,95 @@ liefern wir ein **eigenes Blender-Add-on** (Python, GPL-kompatibel, da add-on):
 | Eigen (MPL-2) | MPL-2 (dateibezogen) | Lineare Algebra im C++-Kern | dynamisch linken, unverändert verwenden |
 | **Assimp** | BSD-3-Clause | **nur für Tests/Referenz**, nicht im Produkt (schreibt nur FBX-ASCII) | bestätigt [16](http://www.assimp.org/index.php?id=11:faq) |
 | **GPL/AGPL-Code (VCGLib, MeshLab, Blender-Quelltext)** | **verboten** | – | Ausschluss in der Build-Pipeline erzwungen (siehe `09`) |
+
+## 12. Umsetzungsstand M2 (Prototyp, gemessen)
+
+Stand: `prototype/reference/python/facescan_ref/export_more.py`, geprüft mit
+`prototype/reference/python/validate_exports.py`.
+
+| Format | Writer | Rücklese (eigen) | Fremdleser |
+|---|---|---|---|
+| OBJ | `export_mesh.py` | identisch bis 5e-7 mm | trimesh ✔ |
+| PLY (binär) | `export_mesh.py` | identisch bis 4e-6 mm | trimesh ✔ |
+| GLB | `export_mesh.py` | identisch bis 4e-6 mm | trimesh ✔ |
+| STL (binär + ASCII) | `export_more.py` | 257.044 Facetten, 4e-6 mm | trimesh ✔ |
+| USDA | `export_more.py` | Indizes identisch | `usd-core` (Pixar) ✔ |
+| USDZ | `export_more.py` | 5 Apple-Regeln nachgemessen | `usd-core` ✔ |
+| FBX 7.5 (binär) | `export_more.py` | 130.829 Punkte, Polygon-Konvention ✔ | assimp ✔ |
+| Alembic (ABC, Ogawa) | `export_more.py` | `AbcGeom_PolyMesh_v1` | Alembic 1.8.12 ✔ |
+| DAE (Collada) | – | – | offen |
+| BVH / CSV / JSON | – | – | offen (Motion, erst mit M3) |
+
+**Entscheidung gegen libalembic im Produkt:** §4.7 sah die Bibliothek vor. Im
+Prototyp ist der Ogawa-Container selbst geschrieben (~250 Zeilen). Grund: die
+Abhängigkeit (Alembic + Imath) kostet mehrere Megabyte Binary und ein
+CMake-Build pro Plattform; der Container selbst ist trivial. Für den
+Point-Cache-Modus mit vielen Frames (§4.7) ist die Bibliothek trotzdem die
+bessere Wahl – das ist eine M3-Entscheidung, hier bewusst offengehalten.
+
+### 12.1 Harte Details, die in keinem Tutorial stehen
+
+Wer diese Writer nach Kotlin oder C++ portiert, braucht diese Liste – sie ist
+aus echten Fehlermeldungen fremder Leser entstanden:
+
+**FBX 7.5 (binär)**
+1. Property-Typcodes: **Großbuchstabe = ein Wert, Kleinbuchstabe = Array.**
+   `Y`(int16) `C`(bool) `I`(int32) `F`(float) `D`(double) `L`(int64)
+   `S`(String, 4-Byte-Länge vorab) `R`(Raw). Arrays: `y c i f d l`, je
+   gefolgt aus `uint32 Anzahl, uint32 Kodierung, uint32 Bytezahl, Daten`.
+2. `EndOffset` ist eine **absolute Dateiposition**, keine Länge.
+3. Die Kinderliste wird von einem **25-Byte-Nullknoten abgeschlossen** (bei
+   FBX < 7.5: 13 Byte). Der Nullknoten steht **hinter** den Kindern.
+4. Knotennamen dürfen **kein 0x00** enthalten. Im `Objects`-Abschnitt heißen
+   die Knoten `Geometry` / `Model`; der Objektname steht in Property 1 in der
+   Form `Name 0x00 0x01 Klasse`, Property 2 ist das Klassen-Tag (`"Mesh"`).
+   Der Trenner ist **0x00 0x01**, nicht 0x00 0x00.
+5. `Vertices` und `PolygonVertexIndex` sind **Unterknoten** von `Geometry`.
+6. Der **letzte** Index jedes Polygons wird negiert und um 1 verringert
+   (aus `i` wird `-i-1`).
+7. `Connections` braucht **beide** Kanten: `Geometry → Model` **und**
+   `Model → 0` (Wurzel). Ohne die zweite hängt das Modell nirgends.
+8. `GlobalSettings`: `UnitScaleFactor = 0.1` (wir schreiben mm, FBX rechnet
+   intern in cm) plus Achsen (`UpAxis 1`, `FrontAxis 2`, `CoordAxis 0`).
+
+**Alembic / Ogawa**
+9. Dateikopf: `"Ogawa"` + **frozen-Byte 0xff** + `uint16` Version (big-endian,
+   Wert 1) + `uint64` Position der Wurzelgruppe. Mit frozen = 0 lehnt die
+   echte Bibliothek die Datei ab: *„Ogawa file not cleanly closed while being
+   written“*.
+10. Kindpositionen in einer Gruppe sind **absolut**; oberstes Bit gesetzt =
+    Datenblock, nicht gesetzt = Gruppe. Position 0 = leere Gruppe,
+    `1<<63` = leere Daten.
+11. Property-Header sind **bitgepackt** in einem `uint32` (Typ, POD, Extent,
+    „konstant“, „homogen“, Metadaten-Index, Größen-Hint). Ein falsches Bit und
+    der Leser glaubt, es gebe null Samples.
+12. `.selfBnds` liegt **innerhalb** von `.geom`, nicht daneben.
+13. Der 16-Byte-Digest vor jedem Sample ist ein SpookyHash der Nutzlast. Wir
+    schreiben Nullen – kein Leser prüft ihn beim Öffnen, aber `abcinfo` zeigt
+    ihn falsch an.
+
+**USD / USDZ**
+14. USDZ: alle Einträge `ZIP_STORED`, erster Eintrag = Primär-Asset, und der
+    **Datenanfang auf 64-Byte-Grenze**. Die Ausrichtung erreicht man über das
+    ZIP-Extra-Field (Pixar `usdzip` benutzt Kennung `0x1986` mit Nullen),
+    **nicht** durch Auffüllen mit Nullen.
+15. USDZ mit `.usda`-Nutzlast ist **nicht** AR-Quick-Look-fähig – Apple
+    verlangt ein binäres `.usdc`-Krate (M2b). Für Android-AR ist GLB das
+    Format, dort besteht das Problem nicht.
+16. USDA: `%g` sind 6 signifikante Stellen. Bei ±108 mm sind das 0,5 µm
+    Rauschen – für einen Round-Trip-Test zu grob. `%.17g` schreiben.
+
+**STL**
+17. Binäres STL: 80-Byte-Header (mit 0x00 auffüllen, nicht mit Leerzeichen) +
+    `uint32` Dreieckszahl + 50 Byte je Dreieck (Normalen-`float3`, drei
+    `float3`-Ecken, `uint16` Attribute). Keine Farben, keine Einheiten.
+18. STL speichert Punkte **pro Dreieck**, nicht geteilt: ein Leser bekommt
+    `3 × Dreiecke` Punkte, nicht `n_v`. Das ist kein Fehler des Schreibers.
+
+### 12.2 Offen
+* STL für den 3D-Druck braucht eine **wasserdichte** Variante (Poisson, §4.3)
+  und eine Sockel-/Wandstärkenprüfung. Aktuell ist das STL nicht watertight.
+* USDZ als `.usdc` (AR Quick Look).
+* Quadric Decimation (das Haar-Volumen hat 180k Dreiecke).
+* UV-Atlas (xatlas) statt Vertexfarben.
+* DAE, BVH, CSV/JSON.

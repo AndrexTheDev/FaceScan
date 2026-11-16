@@ -89,38 +89,44 @@
   "hair_mesh_voxel_mm": 3.0,
   "export": [
     {
-      "file": "/home/user/FaceScan/prototype/reference/python/../meshes/facescan_m1_skin.obj",
-      "vertices_ok": true,
-      "faces_ok": true,
-      "max_vertex_error_mm": 4.999938596483844e-07,
-      "face_index_match": true,
-      "max_color_error": 0.000125000000011255,
-      "passed": true
+      "file": "facescan_m1.obj",
+      "passed": true,
+      "note": "130,829 Punkte / 257,044 Dreiecke, max. Abweichung 5.0e-07 mm"
     },
     {
-      "file": "/home/user/FaceScan/prototype/reference/python/../meshes/facescan_m1_skin.ply",
-      "vertices_ok": true,
-      "faces_ok": true,
-      "max_vertex_error_mm": 3.8141133700264618e-06,
-      "face_index_match": true,
-      "max_color_error": 0.0,
-      "passed": true
+      "file": "facescan_m1.ply",
+      "passed": true,
+      "note": "130,829 Punkte / 257,044 Dreiecke, max. Abweichung 3.8e-06 mm"
     },
     {
-      "file": "/home/user/FaceScan/prototype/reference/python/../meshes/facescan_m1_skin.glb",
-      "vertices_ok": true,
-      "faces_ok": true,
-      "max_vertex_error_mm": 3.8141133700264618e-06,
-      "face_index_match": true,
-      "passed": true
+      "file": "facescan_m1.glb",
+      "passed": true,
+      "note": "130,829 Punkte / 257,044 Dreiecke, max. Abweichung 3.8e-06 mm"
     },
     {
-      "file": "/home/user/FaceScan/prototype/reference/python/../meshes/facescan_m1_full.glb",
-      "vertices_ok": true,
-      "faces_ok": true,
-      "max_vertex_error_mm": 3.8141133700264618e-06,
-      "face_index_match": true,
-      "passed": true
+      "file": "facescan_m1.stl",
+      "passed": true,
+      "note": "257,044 Dreiecke (je 3 Punkte), max. Abweichung 3.8e-06 mm"
+    },
+    {
+      "file": "facescan_m1.usda",
+      "passed": true,
+      "note": "130,829 Punkte, Indizes identisch, metersPerUnit=0.001, upAxis=Y"
+    },
+    {
+      "file": "facescan_m1.usdz",
+      "passed": true,
+      "note": "ZIP mit 1 Eintrag(en), primaer facescan.usda, STORED=True, 64-Byte-ausgerichtet=True"
+    },
+    {
+      "file": "facescan_m1.fbx",
+      "passed": true,
+      "note": "Version 7500, 130,829 Punkte, PolygonIndex-Konvention korrekt"
+    },
+    {
+      "file": "facescan_m1.abc",
+      "passed": true,
+      "note": "Ogawa v1, 130,829 Punkte (float32, max. Abweichung 3.8e-06 mm), Schema PolyMesh_v1"
     }
   ],
   "gates": {
@@ -130,5 +136,5 @@
     "export_roundtrip_ok": true,
     "no_degenerate_triangles": true
   },
-  "runtime_s": 109.95071959495544
+  "runtime_s": 121.49916529655457
 }

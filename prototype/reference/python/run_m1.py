@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from facescan_ref import headmesh as hm          # noqa: E402
 from facescan_ref import export_mesh as ex       # noqa: E402
+from facescan_ref import export_more as em       # noqa: E402
 from facescan_ref import hair as hairmod         # noqa: E402
 from facescan_ref import metrics as mt           # noqa: E402
 from facescan_ref.fusion import TsdfVolume, marching_tetrahedra  # noqa: E402
@@ -50,6 +51,75 @@ VOXEL_MM = 1.5
 TRUNC_MM = 6.0
 BBOX = ([-155, -170, -155], [155, 170, 155])
 SEED = 2026
+
+
+def verify_export(path: str, v: np.ndarray, f: np.ndarray,
+                  colors: np.ndarray) -> dict:
+    """Liest eine geschriebene Datei zurueck und vergleicht.
+
+    Jedes Format hat seine eigenen Fallen -- deshalb prueft jedes Format
+    etwas anderes. Wichtig ist nur: es wird WIRKLICH gelesen, nicht bloss
+    die Groesse geprueft.
+    """
+    res = {"file": os.path.basename(path), "passed": False, "note": ""}
+    n_v, n_f = len(v), len(f)
+    try:
+        if path.endswith((".obj", ".ply", ".glb")):
+            r = ex.roundtrip_check(path, v, f, colors)
+            res["passed"] = bool(r["passed"])
+            res["note"] = (f"{n_v:,} Punkte / {n_f:,} Dreiecke, "
+                           f"max. Abweichung {r['max_vertex_error_mm']:.1e} mm")
+        elif path.endswith(".stl"):
+            r = em.read_stl(path)
+            want = v[f].reshape(-1, 3)
+            ok_pts = r["vertices"].shape == want.shape
+            err = float(np.abs(r["vertices"] - want).max()) if ok_pts else float("inf")
+            res["passed"] = ok_pts and err < 1e-2 and r["faces"].shape == f.shape
+            res["note"] = f"{n_f:,} Dreiecke (je 3 Punkte), max. Abweichung {err:.1e} mm"
+        elif path.endswith(".usda"):
+            r = em.read_usda(path)
+            ok = (np.array_equal(r["faceVertexIndices"], f.reshape(-1))
+                  and r["vertices"].shape == v.shape
+                  and abs(r["metersPerUnit"] - 0.001) < 1e-12
+                  and r["upAxis"] == "Y")
+            err = float(np.abs(r["vertices"] - v).max()) if r["vertices"].shape == v.shape else float("inf")
+            res["passed"] = bool(ok and err < 1e-6)
+            res["note"] = (f"{n_v:,} Punkte, Indizes identisch, "
+                           f"metersPerUnit={r['metersPerUnit']}, upAxis={r['upAxis']}")
+        elif path.endswith(".usdz"):
+            r = em.read_usdz(path)
+            ok = (np.array_equal(r["faceVertexIndices"], f.reshape(-1))
+                  and r["crc_ok"] and r["all_stored"] and r["aligned64"]
+                  and r["primary"] == r["entries"][0])
+            res["passed"] = bool(ok)
+            res["note"] = (f"ZIP mit {len(r['entries'])} Eintrag(en), primaer "
+                           f"{r['primary']}, STORED={r['all_stored']}, "
+                           f"64-Byte-ausgerichtet={r['aligned64']}")
+        elif path.endswith(".abc"):
+            r = em.read_abc(path)
+            ok = (r["version"] == 1 and r["vertices"].shape == v.shape
+                  and np.array_equal(r["faces"], f)
+                  and np.all(r["face_counts"] == 3)
+                  and "AbcGeom_PolyMesh_v1" in r["schema"])
+            err = float(np.abs(r["vertices"] - v).max()) if r["vertices"].shape == v.shape else float("inf")
+            res["passed"] = bool(ok and err < 1e-3)
+            res["note"] = (f"Ogawa v{r['version']}, {n_v:,} Punkte (float32, "
+                           f"max. Abweichung {err:.1e} mm), Schema PolyMesh_v1")
+        elif path.endswith(".fbx"):
+            r = em.read_fbx(path)
+            ok = (r["version"] == 7500 and "vertices" in r
+                  and r["vertices"].shape == v.shape)
+            err = float(np.abs(r["vertices"] - v).max()) if ok else float("inf")
+            poly = r.get("polygonVertexIndex")
+            ok_poly = poly is not None and len(poly) == 3 * n_f and poly[2] < 0
+            res["passed"] = bool(ok and err < 1e-9 and ok_poly)
+            res["note"] = (f"Version {r['version']}, {n_v:,} Punkte, "
+                           f"PolygonIndex-Konvention {'korrekt' if ok_poly else 'FALSCH'}")
+        else:
+            res["note"] = "unbekanntes Format"
+    except Exception as exc:                       # noqa: BLE001
+        res["note"] = "Lesefehler: %s" % exc
+    return res
 
 
 def _view_counts(points, frames, fx, fy, cx, cy, label):
@@ -304,35 +374,41 @@ def main() -> int:
     print(f"  mittlere Sichtungen je Punkt: {tex['mean_views']:.1f}")
 
     # ------------------------------------------------------- G4: Export --
-    banner("G4  Export mit Ruecklese-Test (OBJ, PLY, GLB)")
+    banner("G4  Export mit Ruecklese-Test (8 Formate)")
     os.makedirs(OUT, exist_ok=True)
     colors = tex["colors"]
     checks = []
-    for name, fn, path in [
-        ("OBJ", ex.write_obj, os.path.join(OUT, "facescan_m1_skin.obj")),
-        ("PLY", ex.write_ply, os.path.join(OUT, "facescan_m1_skin.ply")),
-        ("GLB", ex.write_glb, os.path.join(OUT, "facescan_m1_skin.glb")),
-    ]:
-        fn(path, sv, sf, colors)
-        size = os.path.getsize(path)
-        check = ex.roundtrip_check(path, sv, sf, colors)
-        checks.append(check)
-        print(f"  {name}: {size / 1024:8.1f} kB | Ruecklese "
-              f"{'OK' if check['passed'] else 'FEHLGESCHLAGEN'} | "
-              f"Punkte {check['vertices_ok']}, Dreiecke {check['faces_ok']}, "
-              f"max. Abweichung {check['max_vertex_error_mm']:.2e} mm")
-    # kombiniertes Modell (Haut + Haar) als ein Mesh
+
+    # Zusammengesetztes Modell: Haut (mit Projektionsfarbe) + Haare (L1).
+    # Das ist genau das, was der Nutzer am Ende exportiert.
     if len(hv2):
         cv = np.vstack([sv, hv2])
         cf = np.vstack([sf, hf2 + len(sv)])
         cc = np.vstack([colors, np.tile(np.array([58, 41, 31], dtype=np.uint8),
                                         (len(hv2), 1))])
-        p = os.path.join(OUT, "facescan_m1_full.glb")
-        ex.write_glb(p, cv, cf, cc)
-        chk = ex.roundtrip_check(p, cv, cf, cc)
-        checks.append(chk)
-        print(f"  GLB (Haut+Haar): {os.path.getsize(p) / 1024:.1f} kB | "
-              f"Ruecklese {'OK' if chk['passed'] else 'FEHLGESCHLAGEN'}")
+    else:
+        cv, cf, cc = sv, sf, colors
+    print(f"  Modell: {len(cv):,} Punkte / {len(cf):,} Dreiecke")
+
+    jobs = [
+        ("OBJ", lambda p: ex.write_obj(p, cv, cf, cc), "facescan_m1.obj"),
+        ("PLY (binär)", lambda p: ex.write_ply(p, cv, cf, cc), "facescan_m1.ply"),
+        ("GLB", lambda p: ex.write_glb(p, cv, cf, cc), "facescan_m1.glb"),
+        ("STL (binär)", lambda p: em.write_stl(p, cv, cf), "facescan_m1.stl"),
+        ("USDA", lambda p: em.write_usda(p, cv, cf, cc), "facescan_m1.usda"),
+        ("USDZ", lambda p: em.write_usdz(p, cv, cf, cc), "facescan_m1.usdz"),
+        ("FBX 7.5 (binär)", lambda p: em.write_fbx(p, cv, cf, cc), "facescan_m1.fbx"),
+        ("Alembic (ABC)", lambda p: em.write_abc(p, cv, cf), "facescan_m1.abc"),
+    ]
+    for label, writer, fname in jobs:
+        path = os.path.join(OUT, fname)
+        writer(path)
+        size = os.path.getsize(path)
+        check = verify_export(path, cv, cf, cc)
+        checks.append(check)
+        status = "OK" if check["passed"] else "FEHLGESCHLAGEN"
+        print(f"  {label:16s} {size / 1024:9.1f} kB | Ruecklese {status:15s} | "
+              f"{check['note']}")
 
     # ---------------------------------------------------------- Bericht --
     report = {

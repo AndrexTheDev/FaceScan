@@ -1,4 +1,4 @@
-# FaceScan – Prototyp (M0)
+# FaceScan – Prototyp (M0 + M1 + M2)
 
 **Zweck:** der ehrliche Machbarkeitsnachweis. Nicht hübsch, nicht vollständig – sondern die
 Antwort auf die eine Frage, an der das ganze Produkt hängt:
@@ -17,6 +17,7 @@ prototype/
 ├── reference/python/          Referenz-Implementierung (Python + NumPy) – läuft hier
 │   ├── run_m0.py              M0: Pose + Modell-Fit (F1–F4) + Fixture-Erzeugung
 │   ├── run_m1.py              M1: Rendern → Fusion → Mesh → Haare → Kennzahlen → Export
+│   ├── validate_exports.py    Gegenprobe mit FREMDEN Lesern (trimesh, pxr, Alembic, assimp)
 │   ├── kotlin_mirror.py       Nachbau des Kotlin-Kerns in reinem Python (s. §5)
 │   └── facescan_ref/
 │       ├── math3d.py          Rodrigues, Projektion, Pose-Jacobi-Matrix, Orthonormalisierung
@@ -48,6 +49,13 @@ python3 -m venv /tmp/qrenv && /tmp/qrenv/bin/pip install numpy
 ```
 
 Beide Skripte sind deterministisch (Seed 2026) und brauchen kein Netz.
+
+Gegenprobe der Exporte mit fremden Lesern (optional, s. §7):
+
+```bash
+/tmp/qrenv/bin/pip install trimesh usd-core
+/tmp/qrenv/bin/python prototype/reference/python/validate_exports.py
+```
 
 ## 3. Ergebnisse (Stand dieses Commits)
 
@@ -153,7 +161,7 @@ Modell ausdrücken kann), `raster.py`, `fusion.py`, `hair.py`, `refine.py`,
 | Chamfer-Abstand Haut | **0,745 mm** (p95 1,56) | ≤ 0,8 mm | bestanden |
 | Haar-IoU (Volumen, L1) | **0,871** (Treffer 0,884 / Abdeckung 0,983) | ≥ 0,85 | bestanden |
 | Textur-Vollständigkeit | **99,9 %** (≥ 3 Sichtungen: 96,3 %) | ≥ 95 % | bestanden |
-| Export-Rücklese (OBJ/PLY/GLB) | identisch bis 4e-6 mm | – | bestanden |
+| Export-Rücklese (8 Formate, s. §7) | identisch bis 4e-6 mm | – | bestanden |
 | Entartete Dreiecke | 0 | 0 | bestanden |
 
 **Was unterwegs schiefging und behoben wurde** (das ist der eigentliche Ertrag):
@@ -191,9 +199,80 @@ Modell ausdrücken kann), `raster.py`, `fusion.py`, `hair.py`, `refine.py`,
   steckt in der Dickenschranke, nicht in der Sichtbarkeit.
 * Vertexfarben statt UV-Atlas: die Atlas-Packung (xatlas) kommt in M2, sie ist
   unabhängig von der Korrektheit der Schreiber.
-* Export noch ohne FBX, USD/USDA/USDZ, Alembic, STL (M2).
+* Export noch ohne FBX, USD/USDA/USDZ, Alembic, STL → nachgeholt in **M2 (§7)**.
 
-## 7. Was M0 und M1 bewusst NICHT enthalten
+## 7. M2: die restlichen Exportformate
+
+`facescan_ref/export_more.py` schreibt und liest STL (binär und ASCII), USDA,
+USDZ, **binäres FBX 7.5** und **Alembic (Ogawa)**. Kein assimp, keine
+Bibliothek – nur stdlib und NumPy, damit die Schreiber später 1:1 nach Kotlin
+und C++ portiert werden können.
+
+Zu jedem Schreiber gehört ein Leser. Ein Test, der nur „Datei existiert“
+prüft, beweist nichts.
+
+| Format | Zweck | Größe | Rücklese |
+|---|---|---|---|
+| OBJ | Universaltausch | 12,8 MB | identisch bis 5e-7 mm |
+| PLY (binär) | Punktwolken/Mesh | 5,2 MB | identisch bis 4e-6 mm |
+| GLB (glTF) | Android-AR, Web | 4,9 MB | identisch bis 4e-6 mm |
+| STL (binär) | 3D-Druck | 12,6 MB | 257.044 Facetten, 4e-6 mm |
+| USDA | USD-Text, Pipeline | 14,3 MB | Indizes identisch, `metersPerUnit=0.001` |
+| USDZ | Apple AR Quick Look | 14,3 MB | ZIP, ein Eintrag, unkomprimiert |
+| FBX 7.5 (binär) | Blender/Maya/Unity | 9,1 MB | 130.829 Punkte, Polygon-Konvention ok |
+| Alembic (ABC) | Houdini/Nuke/Katana | 5,6 MB | `AbcGeom_PolyMesh_v1`, float32, 4e-6 mm |
+
+**Die Gegenprobe mit fremden Lesern** ist der eigentliche Ertrag von M2.
+`validate_exports.py` öffnet jede Datei mit einem Programm, das wir nicht
+geschrieben haben:
+
+| Format | fremder Leser | Ergebnis |
+|---|---|---|
+| OBJ, PLY, GLB, STL | trimesh | bestanden |
+| USDA, USDZ | `pxr` (Pixars USD-Referenz) | bestanden |
+| Alembic (ABC) | echte Alembic 1.8.12 (`tools/abc_check.cpp`) | bestanden |
+| FBX 7.5 | assimp | bestanden |
+
+**Sieben echte Fehler, die erst die fremden Leser gefunden haben** – unser
+eigener Rücklese-Test hatte alle sieben durchgewinkt:
+
+1. **FBX: `d` ist ein Array, `D` ist ein Double.** Großbuchstabe = ein Wert,
+   Kleinbuchstabe = Array (Anzahl, Kodierung, Bytezahl, Daten). Wir hatten für
+   alle skalaren Properties „i“ und „d“ geschrieben. assimp las daraufhin drei
+   uint32 aus den Nutzdaten und landete im Nirgendwo:
+   `FBX-Tokenize (offset 0x4b) cannot ReadWord, out of bounds`.
+2. **FBX: der 25-Byte-Nullknoten steht HINTER den Kindern, nicht davor.** Mit
+   einem Platzhalter vorn liest assimp ihn als Knoten mit EndOffset 0, rutscht
+   8 Bytes weiter und synchronisiert irgendwann mitten in einem echten Knoten
+   wieder auf: `block offset is out of range`.
+3. **FBX: Knotennamen dürfen kein 0x00 enthalten.** Die Objekte im
+   `Objects`-Abschnitt heißen schlicht `Geometry` / `Model`; der Name steckt in
+   Property 1 und ist `Name 0x00 0x01 Klasse` – der Trenner ist **0x00 0x01**,
+   nicht 0x00 0x00. Sonst: `unexpected NUL character in string`.
+4. **FBX: `Vertices` und `PolygonVertexIndex` sind Unterknoten**, nicht
+   Properties des Geometry-Knotens.
+5. **Alembic: Byte 5 des Ogawa-Kopfes muss 0xff sein** („frozen“). Mit 0 lehnt
+   die echte Bibliothek die Datei ab: *„Ogawa file not cleanly closed while
+   being written“* – der Schutz gegen halb geschriebene Dateien.
+6. **USDA: `%g` sind 6 signifikante Stellen.** Bei ±108 mm sind das 0,5 µm
+   Rauschen; der Rücklese-Test schlug fehl, weil wir 4e-6 mm verlangten. Jetzt
+   `%.17g`.
+7. **STL: der Leser verglich in der falschen Reihenfolge.** Erst alle a, dann
+   alle b, dann alle c statt a,b,c je Dreieck – ein Artefakt des Lesers, nicht
+   des Schreibers, aber es hat eine Zeit lang einen echten Fehler vorgetäuscht.
+
+**Bekannte Grenzen von M2:**
+
+* **Alembic-Digests sind Nullen.** Die 16 Byte SpookyHash vor jedem Sample
+  dienen nur `abcinfo` und dem Wiederverwenden identischer Samples; beim
+  Öffnen prüft sie niemand. Wer sie braucht, muss SpookyHash V2 nachrüsten.
+* **USDZ mit `.usda`-Nutzlast ist nicht AR-Quick-Look-fähig.** Apple
+  verlangt ein binäres `.usdc`-Krate als primäres Asset. Wir schreiben absichtlich
+  Text, weil ein eigener Krate-Schreiber ein Projekt für sich ist (M2b). Für
+  Android-AR ist das unerheblich: dort ist **GLB** das Format.
+* FBX hat keine Materialien und keine Texturen – nur Vertexfarben.
+
+## 8. Was M0, M1 und M2 bewusst NICHT enthalten
 
 Keine echte Gesichtserkennung (Landmarks und Tiefen kommen aus der synthetischen
 Ground Truth), keine Animation, kein Mocap, keine Freemium-/Krypto-Kasse, kein
@@ -201,10 +280,11 @@ Gerätetest. M0 + M1 beweisen, dass die **Geometrie-Basis** trägt: Pose, Modell
 Tiefenfusion, Haar-Volumen und die ersten drei Exportformate. Alles andere baut darauf
 auf (siehe `docs/11-roadmap.md`, `docs/03-scan-pipeline.md`).
 
-Export-Formate: **fertig** = OBJ, PLY (binär), GLB (binäres glTF).
-**Offen (M2)** = STL, USD/USDA, USDZ, Alembic (ABC), binäres FBX 7.5.
+Export-Formate: **fertig** = OBJ, PLY (binär), GLB (binäres glTF), STL,
+USDA, USDZ, Alembic (ABC), binäres FBX 7.5. **Offen** = USDZ mit `.usdc`
+für AR Quick Look, Quadric Decimation, UV-Atlas.
 
-## 8. Rechtliches
+## 9. Rechtliches
 
 Der Prototyp nutzt ausschließlich selbst erzeugte, synthetische Daten. Für das Produkt
 gilt: die 3DMM-Basis wird aus eigenen, schriftlich lizenzierten Aufnahmen gebaut.
@@ -228,8 +308,16 @@ landmarks alone – no ARCore, no SLAM, no depth sensor.
   palette, night + day mode, German + English strings) and JVM unit tests.
 
 **M1 results:** Chamfer distance 0.745 mm (target ≤ 0.8), hair IoU 0.871 (target ≥ 0.85),
-texture completeness 99.9 %, and OBJ/PLY/GLB exports that read back identical to 4e-6 mm.
-All five acceptance gates pass.
+texture completeness 99.9 %, and exports that read back identical to 4e-6 mm. All five
+acceptance gates pass.
+
+**M2 results (export formats):** added writers *and readers* for STL (binary/ASCII),
+USDA, USDZ, binary FBX 7.5 and Alembic/Ogawa. All 8 formats (OBJ, PLY, GLB, STL, USDA,
+USDZ, FBX, ABC) round-trip identical. `validate_exports.py` re-opens every file with a
+reader we did not write: trimesh, Pixar's `pxr`, real Alembic 1.8.12 and assimp — 7 of 7
+confirmed. That external check found seven real bugs our own reader had passed, most
+importantly the FBX case-sensitivity of property type codes (`D` = one double, `d` = an
+array) and the Alembic "frozen" byte.
 
 **Known limitation:** there is no JDK/Gradle in this environment, so the Kotlin sources
 have never been compiled. The algorithms and index arithmetic are verified by the mirror;

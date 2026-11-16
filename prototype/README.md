@@ -447,6 +447,24 @@ Zwei Ehrlichkeiten dazu, die man sonst beim Lesen der Tabelle verpasst:
   nicht, es rundet die Fläche zur Kugel – deshalb der negative
   Schrumpffaktor µ = −0,53.
 
+Wie viel davon ergänzt ist, zeigt `tools/preview_watertight.py`
+(`results/watertight_preview.png`, vier Ansichten, offenes Netz links,
+geschlossenes rechts; Rückseiten sind verworfen, damit Löcher als Löcher
+erscheinen). Deckung der Bildfläche, beide Netze im selben Maßstab:
+
+| Ansicht | offenes Hautnetz | geschlossene Variante |
+|---|---|---|
+| von vorn | 28,3 % | 30,7 % |
+| seitlich | 20,8 % | 27,1 % |
+| von hinten | **0,9 %** | 28,4 % |
+| von hinten oben | **1,0 %** | 30,2 % |
+
+Von vorn sind es 8 % Unterschied, von hinten 97 %: die Rückseite des Kopfes
+ist im wörtlichen Sinne **ergänzt**, nicht gemessen. Wer das Ergebnis
+druckt, druckt dort eine glatte Vermutung. Das ist die ehrliche Beschreibung
+dessen, was ein 16-Kamera-Orbit mit ±75° Gier hergeben kann – und der Grund,
+warum die Rückseite nicht als Formfehler in die Kennzahlen eingeht.
+
 Offen an dieser Stelle: eine Sockel- und Wandstärkenprüfung für den Druck
 (das Netz ist geschlossen, aber nichts prüft bisher, ob eine Wand stark genug
 ist), und 8 Dreiecke liegen mit einer kürzesten Kante von 1,4e-5 mm unter der

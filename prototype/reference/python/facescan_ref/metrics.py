@@ -96,8 +96,15 @@ def triangle_areas(v: np.ndarray, f: np.ndarray) -> np.ndarray:
 
 
 def sample_surface(v: np.ndarray, f: np.ndarray, n_points: int,
-                   seed: int = 2026) -> np.ndarray:
-    """Flaechengewichtet auf der Oberflaeche ziehen (deterministisch)."""
+                   seed: int = 2026, return_index: bool = False):
+    """Flaechengewichtet auf der Oberflaeche ziehen (deterministisch).
+
+    Mit `return_index=True` kommt auch die Nummer des Dreiecks zurueck,
+    aus dem die Probe stammt. Wer die Normale am Stichpunkt braucht -- und
+    das braucht jeder, der dort einen Strahl in den Koerper schickt --,
+    kommt sonst nicht an sie heran: der naechste Gitterpunkt ist bei
+    dichtem Netz ein anderer als der, aus dem die Probe gezogen wurde.
+    """
     rng = np.random.default_rng(seed)
     area = triangle_areas(v, f)
     prob = area / max(area.sum(), 1e-12)
@@ -110,7 +117,10 @@ def sample_surface(v: np.ndarray, f: np.ndarray, n_points: int,
     flip = (u + w) > 1
     u = np.where(flip, 1 - u, u)
     w = np.where(flip, 1 - w, w)
-    return a + u * (b - a) + w * (c - a)
+    pts = a + u * (b - a) + w * (c - a)
+    if return_index:
+        return pts, idx
+    return pts
 
 
 def _brute_fill(query: np.ndarray, cloud: np.ndarray, dist: np.ndarray,

@@ -78,9 +78,15 @@ M2b, Teil 2 – die wasserdichte Variante für den 3D-Druck (s. §7d):
 /tmp/qrenv/bin/python prototype/reference/tools/build_watertight.py --fresh  # alles neu
 ```
 
-Das Skritt legt `meshes/watertight_skin.npz` (Hautnetz nach Stufe 2) und
+Das Skript legt `meshes/watertight_skin.npz` (Hautnetz nach Stufe 2) und
 `meshes/watertight_poisson.npz` (Poisson-Feld vor dem Aufräumen) daneben; wer
 nur an Stufe 3 etwas ändert, rechnet damit in Sekunden statt in Minuten weiter.
+
+M2b, Teil 3 – Sockel und Druckprüfung (s. §7e):
+
+```bash
+/tmp/qrenv/bin/python prototype/reference/tools/build_print.py           # ~100 s
+```
 
 ## 3. Ergebnisse (Stand dieses Commits)
 
@@ -470,6 +476,68 @@ Offen an dieser Stelle: eine Sockel- und Wandstärkenprüfung für den Druck
 ist), und 8 Dreiecke liegen mit einer kürzesten Kante von 1,4e-5 mm unter der
 Nachweisschwelle für Fläche – sie stören die Wasserdichtheit nicht, ein
 Slicer kann aber darüber stolpern.
+
+### 7e. M2b, Teil 3: Sockel und Druckprüfung (`build_print.py`)
+
+Ein geschlossenes Netz ist noch kein druckbares. Es hat keine Standfläche,
+und niemand hat gemessen, ob irgendwo ein Nasenflügel dünner ist als eine
+Düse breit. `tools/build_print.py` setzt den Sockel an und rechnet die drei
+Prüfungen, die docs/05 (12.2) verlangt. `facescan_ref/printcheck.py`
+enthält die Messungen.
+
+**Der Sockel entsteht am Feld, nicht am Netz.** Unterhalb der Schnitthöhe
+wird das Indikatorfeld durch einen Kegelstumpf ersetzt; danach läuft
+derselbe Marcher noch einmal. Dadurch verschmelzen Kopf und Sockel zu
+*einem* Körper – ohne Boolesche Operation, ohne Naht, ohne Netzreparatur.
+Ein Netz zu zerschneiden hieße, danach Löcher zu flicken und
+Umlaufrichtungen zu reparieren.
+
+| Schritt | gemessen |
+|---|---|
+| Querschnittsprofil | Kopf reicht von z = −31,1 mm bis 99,3 mm, größter Querschnitt 121 cm² bei z = 36 mm |
+| Schnitthöhe (Regel: tiefste Stelle mit ≥ 25 % des Maximums) | z = 0,8 mm, Querschnitt dort 33,4 cm² |
+| Achse | der Halsausschnitt sitzt **34,1 mm neben der Gittermitte** – der Kopf steht schief im Gitter |
+| Sockel | r = 58,0 mm auf 70,0 mm, 35 mm hoch, Standfläche bei z = −34,2 mm |
+| Ergebnis | 387.431 Punkte / 774.858 Dreiecke, Volumen 1171,2 cm³, 134,5 mm hoch |
+| Gegenprobe trimesh | `is_watertight = True`, `euler_number = 2`, Volumen 1171,2 cm³ |
+
+Prüfungen, Kopf gegen Büste:
+
+| Prüfung | Kopf | Büste |
+|---|---|---|
+| Standfläche | **0,00 cm²** – steht nicht | 152,1 cm², Ebenheit 0,00 mm |
+| Schwerpunkt neben der Mitte / Rand der Standfläche | – | 18,6 mm / 51,2 mm → **steht** |
+| kleinste lokale Dicke (ohne Nadeldreiecke) | 1,83 mm | 1,82 mm |
+| p01 / p05 / median der Dicke | 8,4 / 35,2 / 83,4 mm | 2,0 / 12,9 / 81,7 mm |
+| Überhänge steiler als 45° | 111,3 cm² (24,4 %) | 227,1 cm² (27,9 %) |
+
+Vier Dinge, die beim ersten Lauf schiefgegangen sind und die man sonst
+nirgends nachlesen kann:
+
+1. **Der Sockel braucht mehr Platz, als das Gitter hergibt.** Der Kopf ist
+   55 mm dick an der Schnittebene, aber 34 mm neben der Gittermitte –
+   zusammen 89 mm, bei 87 mm Platz bis zum Rand. Der erste Sockel lief über
+   den Gitterrand, wurde abgeschnitten und das Ergebnis war offen (1.076
+   Randkanten). Gelöst durch seitliches **Erweitern des Feldes** (21 Zellen,
+   192³ → 234×234×192) statt die Rekonstruktion auf einem gröberen Gitter
+   zu wiederholen – die Kantenlänge von 0,91 mm bleibt dabei, was sie war.
+2. **Die Achse ist die Schnittebene, nicht das Gitter.** Wer den Sockel auf
+   die Gittermitte stellt, bekommt bei schief stehendem Kopf einen Sockel
+   von 70 mm Radius für einen 30 mm dicken Hals.
+3. **Der Radius wird am Netz gemessen, nicht am Feld.** Das Feld enthält zu
+   jeder Rauschmessung in der Luft eine kleine Insel, und der *weiteste*
+   Innenknoten einer Schicht war beim ersten Versuch so eine Insel: 75 statt
+   30 mm.
+4. **Flächennormalen sind flächengewichtet** (`meshopt.face_normals`, Länge
+   = 2 × Fläche). Wer damit einen Strahl um `s` Millimeter weiterlaufen
+   läßt, kommt nur halb so weit und mißt die doppelte Dicke. Auf der Kugel
+   r = 30 mm hat das 120 statt 60 mm ergeben – unauffällig genug, um es für
+   eine echte Messung zu halten. Geprüft wird gegen die Kugel: 59,97 mm bei
+   einem Soll von 60,00 mm.
+
+Offen: eine Wandstärke im Sinne eines **Hohlkörpers** wird nicht geprüft –
+der Prototyp druckt massiv. Und das Netz ist mit 775 k Dreiecken für einen
+Druck unnötig fein; eine vereinfachte Fassung gibt es noch nicht.
 
 ## 8. Was M0, M1 und M2 bewusst NICHT enthalten
 

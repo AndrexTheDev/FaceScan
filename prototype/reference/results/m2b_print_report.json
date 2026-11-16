@@ -1,0 +1,109 @@
+{
+  "cut": {
+    "rule": "niedrigste Hoehe mit >= 25 % des groessten Querschnitts",
+    "cut_frac": 0.25,
+    "z_cut_mm": 0.7953315854435701,
+    "area_at_cut_cm2": 33.42172578321373,
+    "head_radius_at_cut_mm": 54.958509484294474,
+    "z_range_mm": [
+      -31.14164471972052,
+      99.34371561280705
+    ],
+    "max_area_cm2": 121.1308586682096
+  },
+  "plinth": {
+    "axis_xy_mm": [
+      0.3366234405670649,
+      -35.77904186841148
+    ],
+    "height_mm": 35.0,
+    "r_top_mm": 57.958509484294474,
+    "r_bottom_mm": 69.95850948429447,
+    "z_base_mm": -34.20466841455643,
+    "nodes_changed": 2303397
+  },
+  "bust": {
+    "vertices": 387431,
+    "faces": 774858,
+    "volume_cm3": 1171.1957842642353,
+    "height_mm": 134.48847,
+    "watertight": true,
+    "boundary_edges": 0,
+    "non_manifold_edges": 0,
+    "components": 1,
+    "euler": 2,
+    "trimesh_watertight": true,
+    "trimesh_volume_cm3": 1171.1957632768563
+  },
+  "thickness": {
+    "head": {
+      "min_mm": 0.9124850372904025,
+      "p01_mm": 8.429948431258719,
+      "p05_mm": 35.20277356130361,
+      "median_mm": 83.39163833848002,
+      "at_mm": [
+        51.53629271479456,
+        40.436335075693336,
+        44.618593983126964
+      ],
+      "samples": 20000,
+      "artefacts": 15,
+      "min_solid_mm": 1.8310919818678892
+    },
+    "bust": {
+      "min_mm": 0.9124850372904025,
+      "p01_mm": 1.9546712555023147,
+      "p05_mm": 12.848149866966246,
+      "median_mm": 81.74023191076961,
+      "at_mm": [
+        17.576995235744132,
+        65.99882858445912,
+        54.69448489127904
+      ],
+      "samples": 20000,
+      "artefacts": 183,
+      "min_solid_mm": 1.824972350236928
+    }
+  },
+  "overhang": {
+    "head": {
+      "limit_deg": 45.0,
+      "area_total_cm2": 456.2011493366145,
+      "area_overhang_cm2": 111.28773835045155,
+      "fraction": 0.2439444497504681,
+      "triangles_overhang": 103429
+    },
+    "bust": {
+      "limit_deg": 45.0,
+      "area_total_cm2": 814.7245393412354,
+      "area_overhang_cm2": 227.12634566175038,
+      "fraction": 0.278776856095925,
+      "triangles_overhang": 215867
+    },
+    "limit_deg": 45.0
+  },
+  "standing": {
+    "head": {
+      "z_min_mm": -31.50704,
+      "contact_cm2": 0.0,
+      "triangles_contact": 0,
+      "com_offset_mm": null,
+      "tilt_margin_mm": null,
+      "contact_center_mm": null,
+      "stands": null
+    },
+    "bust": {
+      "z_min_mm": -34.33534,
+      "contact_cm2": 152.1004966170745,
+      "triangles_contact": 146140,
+      "contact_center_mm": [
+        0.11312119009874047,
+        -36.0198091320502
+      ],
+      "com_offset_mm": 18.626811249611222,
+      "tilt_margin_mm": 51.231668200356594,
+      "stands": true,
+      "flatness_mm": 0.0
+    }
+  }
+}

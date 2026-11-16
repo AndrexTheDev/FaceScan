@@ -27,6 +27,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from .fusion import TsdfVolume, marching_tetrahedra
+
 
 # -------------------------------------------------------------- Ränder ----
 
@@ -359,10 +361,88 @@ def flip_outward(v, f):
     return (np.asarray(v), np.asarray(f)[:, ::-1])
 
 
+def march_indicator(chi: np.ndarray, lo: np.ndarray, h: float,
+                    level: float, tie_eps: float = 1e-5):
+    """Schneidet die Isofläche aus einem Indikatorfeld.
+
+    Derselbe Schritt, mit dem `poisson_grid` endet, nur auf einem Feld,
+    das von anderswoher kommt -- etwa nach dem Beschneiden und nach dem
+    Ansetzen eines Sockels. Wer das Netz zerschneiden würde, müßte
+    danach Löcher flicken und Umlaufrichtungen reparieren; wer das Feld
+    ändert, läßt einfach denselben Marcher noch einmal laufen und
+    bekommt wieder eine geschlossene Fläche.
+
+    Vorzeichenkonvention wie in `poisson_grid`: `chi` ist INNEN kleiner
+    als das Level. Heraus kommt ein Netz, dessen Normalen nach innen
+    zeigen -- `flip_outward` dreht es um.
+    """
+    chi = np.asarray(chi, dtype=np.float64)
+    lo = np.asarray(lo, dtype=np.float64)
+    sdf = float(level) - chi
+    amp = float(np.abs(sdf).max())
+    eps = float(tie_eps) * max(amp, 1e-30)
+    ties = np.abs(sdf) <= eps
+    n_ties = int(ties.sum())
+    if n_ties:
+        sdf = np.where(ties, eps, sdf)
+    vol = TsdfVolume(lo, lo + float(h) * np.asarray(chi.shape), float(h),
+                     3.0 * float(h))
+    # float64 bleibt float64 -- in float32 wären die Werte, die wir gerade
+    # erst aus dem Nullbereich geholt haben, wieder genau null.
+    vol.sdf = sdf
+    vol.weight = np.ones(sdf.shape, dtype=np.float32)
+    vol.dims = np.asarray(sdf.shape, dtype=np.int64)
+    v_out, f_out = marching_tetrahedra(vol, min_weight=0.5)
+    return v_out, f_out, n_ties
+
+
+def clean_mesh(v: np.ndarray, f: np.ndarray, max_fill_mm: float = 50.0):
+    """Die Standard-Aufräumkette für ein Netz aus einem Isofeld.
+
+    Fünf Schritte, in dieser Reihenfolge, und die Reihenfolge ist der
+    Grund, warum sie funktioniert:
+
+    1. Umlaufrichtung per Breitensuche vereinheitlichen.
+    2. Nulldreiecke herauswerfen (entstehen an Gitterknoten).
+    3. Die Löcher stopfen, die Schritt 2 gerissen hat.
+    4. Noch einmal orientieren -- die neuen Dreiecke müssen mit.
+    5. Nur die größte Insel behalten und nach außen drehen.
+
+    Rückgabe: (v, f, info) mit den gemessenen Zwischenzahlen.
+    """
+    from . import meshopt as mo
+    v = np.asarray(v, dtype=np.float64)
+    f = np.asarray(f, dtype=np.int64)
+    info = {}
+    n_wind = mo.winding_errors(f)
+    v, f = mo.orient_mesh(v, f)
+    info["winding_edges_before"] = int(n_wind)
+    info["winding_edges_after"] = int(mo.winding_errors(f))
+    v, f, _, _ = remove_degenerate(v, f)
+    info["triangles"] = int(len(f))
+    hole_report = watertight_report(f)
+    info["boundary_edges_after_drop"] = int(hole_report["boundary_edges"])
+    v, f, _, fill = fill_holes(v, f, max_perimeter_mm=max_fill_mm)
+    v, f = mo.orient_mesh(v, f)
+    info["loops_filled"] = int(fill["filled"])
+    info["triangles_added"] = int(fill["triangles"])
+    info["open_perimeter_mm"] = float(fill["open_perimeter_mm"])
+    lab, _ = mo.connected_components(v, f)
+    sizes = np.bincount(lab[f[:, 0]])
+    order = np.argsort(sizes)[::-1]
+    info["islands"] = int(len(sizes))
+    info["islands_other_triangles"] = int(sizes[order[1:]].sum())
+    info["island_next"] = int(sizes[order[1]]) if len(sizes) > 1 else 0
+    v, f, _, _ = largest_component(v, f)
+    v, f = flip_outward(v, f)
+    return v, f, info
+
+
 def poisson_grid(points: np.ndarray, normals: np.ndarray,
                  bbox_min, bbox_max, res: int = 192,
                  samples_per_axis: int = 1,
-                 tie_eps: float = 1e-9) -> dict:
+                 tie_eps: float = 1e-9,
+                 return_grid: bool = False) -> dict:
     """Poisson Surface Reconstruction auf einem regelmäßigen Gitter.
 
     Ablauf (Kazhdan/Hoppe: "Poisson Surface Reconstruction", 2006):
@@ -399,6 +479,12 @@ def poisson_grid(points: np.ndarray, normals: np.ndarray,
 
     Rückgabe: dict mit `vertices`, `faces`, `level`, `res`, `voxel_mm`,
     `ties` (Anzahl der Gitterknoten, an denen gebrochen werden musste).
+
+    Mit `return_grid=True` kommen `grid` (der Indikator chi selbst, nicht
+    die daraus gemachte Abstandsfunktion), `lo` und `h` dazu. Wer das Feld
+    behält, kann die Fläche nachträglich beschneiden oder einen Sockel
+    ansetzen, ohne das Netz zerschneiden zu müssen -- beides sind
+    Änderungen am Feld, und danach läuft wieder derselbe Marcher.
     """
     from .fusion import TsdfVolume, marching_tetrahedra
 
@@ -475,20 +561,9 @@ def poisson_grid(points: np.ndarray, normals: np.ndarray,
     kk = np.clip(np.rint((p[:, 2] - lo[2]) / h).astype(np.int64), 0, d - 1)
     level = float(np.median(chi[ii, jj, kk]))
 
-    # float64 bleibt float64 -- in float32 wären die Werte, die wir unten
-    # gerade erst aus dem Nullbereich geholt haben, wieder genau null.
-    sdf = level - chi
-    amp = float(np.abs(sdf).max())
-    eps = float(tie_eps) * max(amp, 1e-30)
-    ties = np.abs(sdf) <= eps
-    n_ties = int(ties.sum())
-    if n_ties:
-        sdf = np.where(ties, eps, sdf)
-
-    vol = TsdfVolume(lo, lo + h * d, h, 3.0 * h)
-    vol.sdf = sdf
-    vol.weight = np.ones(vol.sdf.shape, dtype=np.float32)
-    vol.dims = np.asarray(vol.sdf.shape, dtype=np.int64)
-    v_out, f_out = marching_tetrahedra(vol, min_weight=0.5)
-    return {"vertices": v_out, "faces": f_out, "level": level,
-            "res": int(d), "voxel_mm": h, "ties": n_ties}
+    v_out, f_out, n_ties = march_indicator(chi, lo, h, level, tie_eps)
+    out = {"vertices": v_out, "faces": f_out, "level": level,
+           "res": int(d), "voxel_mm": h, "ties": n_ties}
+    if return_grid:
+        out.update(grid=chi, lo=lo, h=h)
+    return out

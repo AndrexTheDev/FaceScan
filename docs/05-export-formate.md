@@ -373,11 +373,10 @@ aus echten Fehlermeldungen fremder Leser entstanden:
     `3 × Dreiecke` Punkte, nicht `n_v`. Das ist kein Fehler des Schreibers.
 
 ### 12.2 Offen
-* STL für den 3D-Druck braucht eine **Sockel-/Wandstärkenprüfung**. Die
-  wasserdichte Variante liegt seit M2b vor (`meshes/facescan_watertight.stl`,
-  455.730 Dreiecke, von trimesh mit `is_watertight = True` gelesen), aber
-  nichts prüft bisher, ob eine Wand stark genug ist oder wo der Sockel sitzt.
-  Die alte Lücke „STL ist nicht watertight" ist damit geschlossen.
+* STL für den 3D-Druck: **Wandstärke eines Hohlkörpers** wird nicht geprüft –
+  der Prototyp druckt massiv. Sockel, Standfläche, Überhang und kleinste
+  lokale Dicke sind seit M2b gemessen (s. §12.3), die Lücken „nicht
+  wasserdicht" und „keine Standfläche" sind damit geschlossen.
 * USDZ als `.usdc` (AR Quick Look).
 * DAE, BVH, CSV/JSON.
 
@@ -411,3 +410,17 @@ aus echten Fehlermeldungen fremder Leser entstanden:
   Poisson erzeugt zu jeder Rauschmessung in der Luft eine eigene kleine
   geschlossene Blase (10 Stück, neun davon Rauschen; nur die größte bleibt).
   Einzelheiten und Messwerte in README, Kap. 7d.
+* **Sockel und Druckprüfung** — `facescan_ref/printcheck.py` und
+  `tools/build_print.py`. Der Sockel wird **am Indikatorfeld** angesetzt
+  (Kegelstumpf unterhalb der Schnitthöhe), nicht am Netz geschnitten:
+  danach läuft derselbe Marcher noch einmal und Kopf und Sockel sind ein
+  Körper. Schnitthöhe nach Regel, nicht nach Gefühl: die tiefste Stelle, an
+  der der Querschnitt 25 % seines Maximums erreicht (z = 0,8 mm, 33,4 cm²).
+  Ergebnis `meshes/facescan_print.stl`: 387.431 Punkte / 774.858 Dreiecke,
+  1171,2 cm³, 134,5 mm hoch, von trimesh mit `is_watertight = True` und
+  `euler_number = 2` gelesen. Gemessene Prüfungen: Standfläche 152,1 cm²
+  (Kopf allein: 0,00 cm², steht nicht), Ebenheit der Standfläche 0,00 mm,
+  Schwerpunkt 18,6 mm neben der Mitte bei 51,2 mm Abstand zum Rand,
+  kleinste lokale Dicke 1,82 mm, Überhänge steiler als 45° auf 27,9 % der
+  Fläche. Gegen die Kugel (r = 30 mm) nachgerechnet: 59,97 mm gemessene
+  Dicke bei 60,00 mm Soll. Einzelheiten in README, Kap. 7e.

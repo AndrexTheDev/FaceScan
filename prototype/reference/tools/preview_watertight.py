@@ -113,6 +113,24 @@ def view(v: np.ndarray, f: np.ndarray, yaw_deg: float, pitch_deg: float):
     return v @ (ry @ rx).T, f
 
 
+def panels_to_png(panels: list, cols: int, path: str,
+                  background: float = 0.06) -> None:
+    """Setzt die Panels zu einem Bild zusammen und schreibt es."""
+    rows = (len(panels) + cols - 1) // cols
+    h, w = panels[0].shape[0], panels[0].shape[1]
+    canvas = np.full((rows * h, cols * w, 3), background)
+    for i, pan in enumerate(panels):
+        r, c = divmod(i, cols)
+        canvas[r * h:(r + 1) * h, c * w:(c + 1) * w] = pan
+    mo.write_png(path, (canvas * 255.0 + 0.5).astype(np.uint8))
+    print(f"  {path} ({canvas.shape[1]}x{canvas.shape[0]})")
+
+
+def coverage(panel: np.ndarray) -> float:
+    """Anteil der Bildfläche, auf dem etwas liegt (Hintergrund 0,06)."""
+    return float((panel[..., 0] > 0.07).mean())
+
+
 def main() -> int:
     t0 = time.time()
     skin = np.load(os.path.join(MESHES, "watertight_skin.npz"))

@@ -268,6 +268,15 @@ gehen in die Poisson-Variante, wie oben vorgesehen. Die Taubin-Glättung nimmt
 der Fläche 18,3 %, schrumpft die Form aber nicht: der Abstand zum Original
 bleibt bei 0,109 mm, verloren geht das Treppenmuster des Voxelgitters.
 
+Für den Druck kommt ein **Sockel** dazu, und zwar als Änderung am
+Indikatorfeld, nicht als Schnitt am Netz: unterhalb der Schnitthöhe gilt
+nur noch ein Kegelstumpf als innen, danach läuft derselbe Marcher noch
+einmal. Die Schnitthöhe folgt einer Regel (tiefste Stelle mit ≥ 25 % des
+größten Querschnitts: z = 0,8 mm), nicht einem geratenen Wert. Ergebnis:
+774.858 Dreiecke, 1171,2 cm³, Standfläche 152,1 cm², kleinste lokale Dicke
+1,82 mm. Der Kopf allein hat **0,00 cm²** Standfläche — das ist der ganze
+Unterschied zwischen „geschlossen" und „druckbar".
+
 ---
 
 ## 7. Stufe HAIR – Haar-Rekonstruktion (eigenes Kapitel, weil es der schwierigste Teil ist)

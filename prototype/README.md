@@ -71,6 +71,17 @@ teure Atlas-Schritt beginnt – ein zweiter Lauf rechnet die Rekonstruktion
 nicht noch einmal. `build_lod.py` holt die LOD-Kette aus `meshes/lod_state.npz`,
 wenn sie schon liegt.
 
+M2b, Teil 2 – die wasserdichte Variante für den 3D-Druck (s. §7d):
+
+```bash
+/tmp/qrenv/bin/python prototype/reference/tools/build_watertight.py          # ~3 min
+/tmp/qrenv/bin/python prototype/reference/tools/build_watertight.py --fresh  # alles neu
+```
+
+Das Skritt legt `meshes/watertight_skin.npz` (Hautnetz nach Stufe 2) und
+`meshes/watertight_poisson.npz` (Poisson-Feld vor dem Aufräumen) daneben; wer
+nur an Stufe 3 etwas ändert, rechnet damit in Sekunden statt in Minuten weiter.
+
 ## 3. Ergebnisse (Stand dieses Commits)
 
 Szene: 120 Punkte, 8 Aufnahmen, 1080×1920 bei 62° FOV, 1,0 px Landmark-Rauschen,
@@ -372,6 +383,75 @@ Alembic-Bibliothek und assimp: **19 von 19 bestanden**.
 * **FBX-Normalen sind die einzige Lücke**: `assimp info` meldet nur Zählwerte,
   und der Test-Build hat den Export abgeschaltet – ein Urteil „fehlt“ wäre
   hier gelogen. Geprüft werden sie von unserem eigenen Leser.
+
+### 7d. M2b, Teil 2: die wasserdichte Variante (`build_watertight.py`)
+
+Das Netz aus Marching Tetrahedra ist **offen**: wo keine Kamera hinsah, endet
+die Fläche einfach. Für 3D-Druck und Boolesche Operationen braucht es eine
+geschlossene Hülle. `tools/build_watertight.py` rechnet sie in den drei
+Schritten, die docs/03 (6.2) vorgibt; die Werkzeuge dazu liegen in
+`facescan_ref/repair.py`.
+
+| Schritt | gemessen |
+|---|---|
+| Hautnetz (TSDF 1,5 mm) | 40.409 Punkte / 76.208 Dreiecke, 132 Komponenten, 4.712 Randkanten |
+| 1) Loch-Füllung ≤ 3 mm | von 345 Schleifen 45 geschlossen (59 Dreiecke); 300 zu groß, größte 2.402 mm Umfang; 5.135 mm Rand bleiben offen |
+| 2) Taubin, 3 Iterationen | Fläche 270,0 → 220,7 cm² (−18,3 %), Abstand zum Original **0,109 mm** im Mittel (max 1,08) |
+| 3) Poisson, 192³-Gitter | 227.867 Punkte / 455.730 Dreiecke, **0 Randkanten, 0 nicht-manigfaltige Kanten, 1 Komponente, Euler-Charakteristik 2** |
+| Gegenprobe trimesh | `is_watertight = True`, `euler_number = 2`, Volumen 735,9 cm³ (eigene Rechnung: 735,9 cm³) |
+| Abstand Hautnetz → Ergebnis | 0,201 mm im Mittel |
+
+Drei Dinge daran sind nicht selbstverständlich, und alle drei haben im ersten
+Lauf zu einem falschen Ergebnis geführt:
+
+1. **Das Iso-Level darf nicht auf einen Gitterknoten fallen.** Tut es das,
+   liegt der Schnittpunkt genau auf dem Knoten, und mehrere Tetraeder
+   desselben Würfels erzeugen dasselbe Dreieck. Gemessen: 528 Kanten, deren
+   zwei Nachbarn **gleichsinnig** durchlaufen werden – topologisch sind das
+   gedrehte Dreiecke. `poisson_grid` schiebt deshalb alle Feldwerte, die
+   betragsmäßig unter 1e-5 der Amplitude liegen, aus dem Nullbereich heraus
+   (34 von 7 Mio. Knoten), und `meshopt.orient_mesh` richtet danach die
+   Umlaufrichtung per Breitensuche aus (528 → 0). Vorher blieb das Netz an
+   106 Stellen offen, obwohl die Kanten zählten, als wäre alles dicht.
+2. **Poisson erzeugt Inseln.** Wo eine Kamera mal ein paar Pixel weit in die
+   Luft gemessen hat, entsteht eine eigene kleine geschlossene Blase: 10
+   Stück, neun davon Rauschen (zusammen 900 Dreiecke, größte 236). Wir
+   behalten die größte. Vor dem Aufräumen stand da ein „Formfehler" von 6,1 mm
+   im Mittel (p95 30 mm) – das war der Abstand zu den Rauschblasen, nicht zur
+   Form.
+3. **Welche Richtung man misst, entscheidet über die Aussage.** Der Abstand
+   Ergebnis → Hautnetz ist 6,7 mm und damit wertlos: er misst die Rückseite
+   der geschlossenen Blase, also genau die Oberfläche, die es in den Aufnahmen
+   nicht gab. Nur Hautnetz → Ergebnis (0,201 mm) ist eine Aussage über die
+   Rekonstruktion. Beide Richtungen zu einem Mittelwert zu verrechnen, hieße,
+   das Verfahren dafür zu bestrafen, dass es eine fehlende Rückseite
+   geschlossen hat.
+
+Zwei Ehrlichkeiten dazu, die man sonst beim Lesen der Tabelle verpasst:
+
+* `docs/03` nennt Octree-Tiefe 10–12. **Wir rechnen auf einem regelmäßigen
+  192³-Gitter** (Kantenlänge 0,91 mm) und weisen das als Kennzahl aus, statt
+  eine Tiefe vorzutäuschen, die wir nicht rechnen. Tiefe 10 wären 1024³ Voxel.
+  Das Verfahren ist dasselbe (Kazhdan et al. 2006), nur die Datenstruktur ist
+  einfacher – und die Poisson-Gleichung löst sich im Frequenzraum, weil das
+  Gitter regelmäßig ist (eine Division pro Frequenz, 5,5 s statt Tausender
+  Jacobi-Iterationen).
+* Die Taubin-Glättung nimmt der Fläche 18,3 %. Das ist kein Schrumpf, sondern
+  das Treppenmuster des Voxelgitters, das verschwindet – eine Treppe hat mehr
+  Fläche als die Rampe, die sie annähert. Die Zahl, die wirklich zählt, ist
+  der Abstand zum Original: **0,109 mm**. Nachgemessen am Ikosaeder
+  (r = 50 mm, 642 Punkte / 1280 Dreiecke; exakte Kugel 523.598,8 mm³,
+  Startnetz 519.085,6 mm³): nach 3 Iterationen reines Laplace 468.071 mm³
+  (−9,8 %) gegen Taubin 520.480 mm³ (+0,3 %); nach 20 Iterationen Laplace
+  261.936 mm³ (−49,5 %) gegen Taubin 528.518 mm³ (+1,8 %). Taubin schrumpft
+  nicht, es rundet die Fläche zur Kugel – deshalb der negative
+  Schrumpffaktor µ = −0,53.
+
+Offen an dieser Stelle: eine Sockel- und Wandstärkenprüfung für den Druck
+(das Netz ist geschlossen, aber nichts prüft bisher, ob eine Wand stark genug
+ist), und 8 Dreiecke liegen mit einer kürzesten Kante von 1,4e-5 mm unter der
+Nachweisschwelle für Fläche – sie stören die Wasserdichtheit nicht, ein
+Slicer kann aber darüber stolpern.
 
 ## 8. Was M0, M1 und M2 bewusst NICHT enthalten
 

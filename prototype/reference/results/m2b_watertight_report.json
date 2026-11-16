@@ -1,0 +1,36 @@
+{
+  "skin_mesh": {
+    "vertices": 40409,
+    "faces": 76208
+  },
+  "holes": {
+    "loops": 345,
+    "filled": 45,
+    "triangles": 59,
+    "too_big": 300,
+    "open_perimeter_mm": 5134.562179685676
+  },
+  "taubin": {
+    "mean_move_mm": 0.23680413672019682,
+    "deviation_mm": 0.10897723566227627,
+    "area_before_cm2": 270.03839172848916,
+    "area_after_cm2": 220.71734264633903
+  },
+  "poisson": {
+    "res": 192,
+    "voxel_mm": 0.9124850372904025,
+    "level": -0.42009250750861105,
+    "ties": 34,
+    "vertices": 227867,
+    "faces": 455730,
+    "watertight": true,
+    "boundary_edges": 0,
+    "non_manifold_edges": 0,
+    "components": 1,
+    "skin_to_poisson_mm": 0.200586613998757,
+    "poisson_to_skin_mm": 6.733143326165139,
+    "deviation_mm": 6.15038150176893,
+    "p95_mm": 30.081040757669626,
+    "max_mm": 45.95832498074885
+  }
+}

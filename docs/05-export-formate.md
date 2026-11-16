@@ -373,8 +373,11 @@ aus echten Fehlermeldungen fremder Leser entstanden:
     `3 × Dreiecke` Punkte, nicht `n_v`. Das ist kein Fehler des Schreibers.
 
 ### 12.2 Offen
-* STL für den 3D-Druck braucht eine **wasserdichte** Variante (Poisson, §4.3)
-  und eine Sockel-/Wandstärkenprüfung. Aktuell ist das STL nicht watertight.
+* STL für den 3D-Druck braucht eine **Sockel-/Wandstärkenprüfung**. Die
+  wasserdichte Variante liegt seit M2b vor (`meshes/facescan_watertight.stl`,
+  455.730 Dreiecke, von trimesh mit `is_watertight = True` gelesen), aber
+  nichts prüft bisher, ob eine Wand stark genug ist oder wo der Sockel sitzt.
+  Die alte Lücke „STL ist nicht watertight" ist damit geschlossen.
 * USDZ als `.usdc` (AR Quick Look).
 * DAE, BVH, CSV/JSON.
 
@@ -393,3 +396,18 @@ aus echten Fehlermeldungen fremder Leser entstanden:
   Visual-Hull-Haarvolumen durch die Prüfung).
 * **Normalen in allen Formaten** außer STL (da stehen sie pro Dreieck im
   50-Byte-Satz und jeder Slicer rechnet sie neu).
+* **Wasserdichte Variante** — `facescan_ref/repair.py` und
+  `tools/build_watertight.py`: Loch-Füllung (Advancing Front, kleinster
+  Innenwinkel zuerst, Grenze 3 mm), Taubin-Glättung (λ=0,5 / µ=−0,53, Ränder
+  fest) und Poisson Surface Reconstruction auf einem regelmäßigen
+  192³-Gitter statt Octree-Tiefe 10–12 (im Frequenzraum gelöst, 5,5 s).
+  Ergebnis: 227.867 Punkte / 455.730 Dreiecke, 0 Randkanten, 0
+  nicht-manigfaltige Kanten, 1 Komponente, Euler-Charakteristik 2, Volumen
+  735,9 cm³. Gegenprobe mit trimesh: `is_watertight = True`,
+  `euler_number = 2`. Zwei Fehler, die vorher im Weg standen und die in
+  keinem Paper erwähnt werden: das Iso-Level darf nicht exakt auf einen
+  Gitterknoten fallen (sonst erzeugen mehrere Tetraeder dasselbe Dreieck und
+  die Umlaufrichtung kippt — 528 Kanten mit gleichsinnigen Nachbarn), und
+  Poisson erzeugt zu jeder Rauschmessung in der Luft eine eigene kleine
+  geschlossene Blase (10 Stück, neun davon Rauschen; nur die größte bleibt).
+  Einzelheiten und Messwerte in README, Kap. 7d.

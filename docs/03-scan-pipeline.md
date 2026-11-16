@@ -247,6 +247,27 @@ Zwei Details, die beim Vereinfachen entscheiden:
 2. **UVs mitführen und Kanten über Chart-Grenzen bestrafen** (`uv_weight`).
    Sonst zieht sich die Textur über den Abstand zwischen zwei Charts.
 
+**Wasserdichte Variante** (`prototype/reference/tools/build_watertight.py`,
+`facescan_ref/repair.py`) — gemessen, nicht geschätzt:
+
+| Schritt | Ergebnis |
+|---|---|
+| Hautnetz | 40.409 Punkte / 76.208 Dreiecke, 132 Komponenten, 4.712 Randkanten |
+| Loch-Füllung ≤ 3 mm | 45 von 345 Schleifen geschlossen (59 Dreiecke); 300 zu groß, größte 2.402 mm Umfang |
+| Taubin, 3 Iterationen | Fläche −18,3 %, Abstand zum Original 0,109 mm im Mittel |
+| Poisson | 227.867 Punkte / 455.730 Dreiecke, geschlossen, Euler 2, Volumen 735,9 cm³ |
+| Gegenprobe trimesh | `is_watertight = True`, `euler_number = 2` |
+| Abstand Hautnetz → Ergebnis | 0,201 mm im Mittel |
+
+Zwei Abweichungen von der Vorgabe oben, bewusst und dokumentiert: wir rechnen
+Poisson auf einem **regelmäßigen 192³-Gitter** statt auf einem Octree der Tiefe
+10–12 (Tiefe 10 wären 1024³ Voxel = 4,3 GByte; auf einem Telefon undenkbar).
+Und die Loch-Füllung schließt nur 45 von 345 Schleifen — der Rest ist mit
+5.135 mm offenem Rand viel zu groß, um ihn zu *erfinden*; genau diese Fälle
+gehen in die Poisson-Variante, wie oben vorgesehen. Die Taubin-Glättung nimmt
+der Fläche 18,3 %, schrumpft die Form aber nicht: der Abstand zum Original
+bleibt bei 0,109 mm, verloren geht das Treppenmuster des Voxelgitters.
+
 ---
 
 ## 7. Stufe HAIR – Haar-Rekonstruktion (eigenes Kapitel, weil es der schwierigste Teil ist)

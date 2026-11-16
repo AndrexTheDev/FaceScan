@@ -390,6 +390,36 @@ Alembic-Bibliothek und assimp: **19 von 19 bestanden**.
   und der Test-Build hat den Export abgeschaltet – ein Urteil „fehlt“ wäre
   hier gelogen. Geprüft werden sie von unserem eigenen Leser.
 
+**USDZ mit binärem Crate (`facescan.usdc`)** – seit diesem Stand schreiben
+alle vier LOD-Pakete als Root-Layer ein Crate statt Text, weil Apple-Geräte
+ein Paket mit Text-Root-Layer ablehnen (Reality Converter: „the package's
+root layer must be a usdc file“). Der Inhalt kommt weiter aus dem eigenen
+USDA-Schreiber; die Serialisierung übernimmt die USD-Bibliothek
+(`export_more.usda_to_usdc`). Das Crate-Format von Hand zu schreiben, wäre
+ein eigenes Projekt mit eigenem Versionsrisiko – und brächte für den Scan
+nichts. pxr liest die Pakete unverändert: `facescan.usdc` mit Kennung
+`PXR-USDC`, `primvars:st`, PNG im ZIP und die vollständige Shader-Kette.
+
+| Paket | vorher (Text) | jetzt (Crate) |
+|---|---|---|
+| `head_lod0.usdz` | 24,9 MB | **7,0 MB** |
+| `head_lod1.usdz` | 6,9 MB | **2,1 MB** |
+| `head_lod2.usdz` | 2,4 MB | **0,76 MB** |
+| `head_lod3.usdz` | 0,84 MB | **0,43 MB** |
+
+Ausnahme: `facescan_m1.usdz` behält den **Text**-Root-Layer. Die M1-Tore
+prüfen den Inhalt mit dem eigenen Leser, und der liest Text; die AR-Ausgabe
+sind die vier LOD-Pakete.
+
+Dabei aufgefallen und korrigiert: die 64-Byte-Ausrichtung galt bisher nur
+für den **ersten** Eintrag im ZIP. Die Polsterung über das Extra-Field
+wurde aus der Länge des Dateinamens berechnet statt aus der laufenden
+Position – damit landete die Textur im Paket auf einer beliebigen Adresse,
+sobald die Nutzlast kein Vielfaches von 64 war. Gemessen an den vier
+LOD-Paketen traf es dreimal von vier Dateien nicht zu, und zwar unbemerkt:
+der Prüfer sah nur auf den ersten Eintrag. Jetzt liegen die Datenanfänge
+bei 64 und 6.836.608 Byte (LOD0), beide glatt durch 64.
+
 ### 7d. M2b, Teil 2: die wasserdichte Variante (`build_watertight.py`)
 
 Das Netz aus Marching Tetrahedra ist **offen**: wo keine Kamera hinsah, endet

@@ -127,8 +127,14 @@ Die Brücke dorthin ist FBX/ABC/USD/OBJ + unser Blender-Add-on (Kapitel 9).
   3. Datenstart jedes Eintrags auf **64-Byte-Grenze** (Padding über ZIP-Extra-Field), 4. Erster Eintrag = der
      USD-Layer, 5. nur relative Pfade, keine `..`.
 - **Hinweis für die UI:** "USDZ ist für Apple-Geräte/AR Quick Look – für Blender nimm FBX oder ABC."
-- **USDC (binär)** ist für v2 vorgesehen (eigenes Schreiben des binären Formats ist aufwendig; Alternative:
-  USD-SDK in einem Desktop-Begleitprogramm).
+- **USDC (binär)**: der USDZ-Root-Layer ist seit M2b ein binäres Crate (`facescan.usdc`,
+  Kennung `PXR-USDC`). Geschrieben wird in zwei Schritten: der **Inhalt** kommt aus unserem eigenen
+  USDA-Schreiber (kein SDK nötig), die **Serialisierung** macht die USD-Bibliothek
+  (`export_more.usda_to_usdc`). Das Crate-Format von Hand zu schreiben, wäre ein eigenes Projekt mit
+  eigenem Versionsrisiko und brächte für den Scan nichts. Für den Kotlin-Spiegel gilt dasselbe:
+  Inhalt selbst, Crate von einer USD-Bibliothek.
+- Ausnahme: `facescan_m1.usdz` behält den **Text**-Root-Layer. Die M1-Tore prüfen den Inhalt mit dem
+  eigenen Leser (§7c), und der liest Text. Die AR-Ausgabe sind die vier LOD-Pakete.
 
 ### 4.6 FBX (binär) – der anspruchsvollste Writer
 - **Warum binär:** Blender unterstützt seit 2.8 **kein FBX-ASCII** mehr (Import entfernt) [11](https://projects.blender.org/blender/blender-addons/issues/79960).
@@ -359,17 +365,27 @@ aus echten Fehlermeldungen fremder Leser entstanden:
     **Datenanfang auf 64-Byte-Grenze**. Die Ausrichtung erreicht man über das
     ZIP-Extra-Field (Pixar `usdzip` benutzt Kennung `0x1986` mit Nullen),
     **nicht** durch Auffüllen mit Nullen.
-15. USDZ mit `.usda`-Nutzlast ist **nicht** AR-Quick-Look-fähig – Apple
-    verlangt ein binäres `.usdc`-Krate (M2b). Für Android-AR ist GLB das
-    Format, dort besteht das Problem nicht.
-16. USDA: `%g` sind 6 signifikante Stellen. Bei ±108 mm sind das 0,5 µm
+15. AR Quick Look verlangt als Root-Layer ein binäres `.usdc`-Krate:
+    Apple Reality Converter lehnt ein Paket mit Text-Root-Layer ab
+    ("the package's root layer must be a usdc file"). Seit M2b schreiben
+    die LOD-Pakete deshalb ein Crate (s. §12.3). Nebenbei: das Crate ist
+    rund 3,8× kleiner als der Text -- LOD0 von 24,9 MB auf 7,0 MB.
+16. Die 64-Byte-Grenze gilt für den Datenanfang **jedes** Eintrags, nicht
+    nur des ersten. Wer die Polsterung nur für den ersten Eintrag
+    berechnet, legt die Textur im Paket auf eine beliebige Adresse,
+    sobald die Nutzlast kein Vielfaches von 64 ist. Gemessen an den
+    LOD-Paketen: vor der Korrektur traf es dreimal von vier Dateien nicht
+    zu -- und zwar unbemerkt, weil der Prüfer nur den ersten Eintrag
+    ansah. Jetzt wird die Polsterung aus der laufenden Position
+    berechnet: 64 und 6.836.608 Byte, beides glatt durch 64.
+17. USDA: `%g` sind 6 signifikante Stellen. Bei ±108 mm sind das 0,5 µm
     Rauschen – für einen Round-Trip-Test zu grob. `%.17g` schreiben.
 
 **STL**
-17. Binäres STL: 80-Byte-Header (mit 0x00 auffüllen, nicht mit Leerzeichen) +
+18. Binäres STL: 80-Byte-Header (mit 0x00 auffüllen, nicht mit Leerzeichen) +
     `uint32` Dreieckszahl + 50 Byte je Dreieck (Normalen-`float3`, drei
     `float3`-Ecken, `uint16` Attribute). Keine Farben, keine Einheiten.
-18. STL speichert Punkte **pro Dreieck**, nicht geteilt: ein Leser bekommt
+19. STL speichert Punkte **pro Dreieck**, nicht geteilt: ein Leser bekommt
     `3 × Dreiecke` Punkte, nicht `n_v`. Das ist kein Fehler des Schreibers.
 
 ### 12.2 Offen
@@ -377,7 +393,6 @@ aus echten Fehlermeldungen fremder Leser entstanden:
   der Prototyp druckt massiv. Sockel, Standfläche, Überhang und kleinste
   lokale Dicke sind seit M2b gemessen (s. §12.3), die Lücken „nicht
   wasserdicht" und „keine Standfläche" sind damit geschlossen.
-* USDZ als `.usdc` (AR Quick Look).
 * DAE, BVH, CSV/JSON.
 
 ### 12.3 In M2b erledigt (Stand: siehe prototype/README.md, Kap. 7b)
@@ -424,3 +439,13 @@ aus echten Fehlermeldungen fremder Leser entstanden:
   kleinste lokale Dicke 1,82 mm, Überhänge steiler als 45° auf 27,9 % der
   Fläche. Gegen die Kugel (r = 30 mm) nachgerechnet: 59,97 mm gemessene
   Dicke bei 60,00 mm Soll. Einzelheiten in README, Kap. 7e.
+* **USDZ mit binärem Crate** — `export_more.write_usdz(..., crate=True)`
+  schreibt als Root-Layer ein `.usdc` statt Text, damit Apple-Geräte das
+  Paket annehmen (Reality Converter: „the package's root layer must be a
+  usdc file"). Der Inhalt kommt weiter aus dem eigenen USDA-Schreiber,
+  serialisiert wird von der USD-Bibliothek. Alle vier LOD-Pakete sind
+  umgestellt, nachgemessen: `facescan.usdc` mit Kennung `PXR-USDC`,
+  Datenanfänge bei 64 und 6.836.608 Byte (beide glatt durch 64), alle
+  Einträge `ZIP_STORED`, CRC ok. Dateigröße LOD0 24,9 MB → 7,0 MB,
+  LOD3 0,84 MB → 0,43 MB. Gegenprobe mit pxr: 19 von 19 Formate, die vier
+  USDZ mit `primvars:st`, PNG im ZIP und der vollständigen Shader-Kette.

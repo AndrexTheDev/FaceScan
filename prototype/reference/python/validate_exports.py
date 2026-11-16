@@ -277,6 +277,15 @@ def _check_lod_usd(path):
     from pxr import Usd, UsdGeom, UsdShade
     with zipfile.ZipFile(path) as zf:
         names = zf.namelist()
+        first = names[0]
+        # AR Quick Look verlangt als Root-Layer ein binaeres Crate. Ob es
+        # eines ist, steht nicht im ZIP-Verzeichnis, sondern in den ersten
+        # acht Byte der Nutzlast.
+        magic = b""
+        if first.lower().endswith(".usdc"):
+            with zf.open(first) as fh:
+                magic = fh.read(8)
+    crate = first.lower().endswith(".usdc") and magic == b"PXR-USDC"
     has_tex = any(n.lower().endswith(".png") for n in names)
     stage = Usd.Stage.Open(path)
     if stage is None:
@@ -293,10 +302,11 @@ def _check_lod_usd(path):
     ids = sorted({(UsdShade.Shader(p).GetIdAttr().Get() or "")
                   for p in shaders})
     need = {"UsdPreviewSurface", "UsdUVTexture", "UsdPrimvarReader_float2"}
-    ok = (len(pts) > 0 and n_uv == len(pts) and has_tex
+    ok = (len(pts) > 0 and n_uv == len(pts) and has_tex and crate
           and need.issubset(set(ids)))
     note = (f"{len(pts):,} Punkte, primvars:st {n_uv}, PNG im ZIP: {has_tex}, "
-            f"Shader {ids}")
+            f"Shader {ids}, Root-Layer {first} "
+            f"({'Crate-Kennung i.O.' if crate else 'KEIN Crate'})")
     return ok, note
 
 

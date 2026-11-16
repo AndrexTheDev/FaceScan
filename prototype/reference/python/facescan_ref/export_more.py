@@ -270,10 +270,99 @@ def read_usda(path: str):
 # ============================================================== USDZ ======
 
 
+def usda_to_usdc(usda_path: str, usdc_path: str) -> str:
+    """Text-Crate (.usda) in ein binäres Crate (.usdc) umwandeln.
+
+    Das Crate-Format ist Pixars eigenes Binärformat: Tabelle der Felder,
+    Specs, komprimierte Zahlenblöcke. Es von Hand zu schreiben, wäre ein
+    eigenes Projekt mit eigenem Versionsrisiko -- und es würde nichts
+    besser machen, was für den Scan zählt. Wir schreiben also weiter
+    selbst, was wir verantworten (die Szene als Text, docs/05 §4), und
+    lassen die **Serialisierung** von der USD-Bibliothek machen. Für den
+    Kotlin-Spiegel gilt dasselbe: Inhalt selbst, Crate von einer
+    USD-Bibliothek.
+
+    Warum der Umweg überhaupt: Apple Realitiy Converter lehnt ein USDZ mit
+    Text-Root-Layer ab -- "the package's root layer must be a usdc file".
+    """
+    from pxr import Usd
+
+    stage = Usd.Stage.Open(usda_path)
+    if stage is None:
+        raise RuntimeError("USD-Bibliothek konnte %s nicht oeffnen" % usda_path)
+    if not stage.GetRootLayer().Export(usdc_path):
+        raise RuntimeError("Export nach %s fehlgeschlagen" % usdc_path)
+    return usdc_path
+
+
+USDC_MAGIC = b"PXR-USDC"
+
+
+def crate_info(path: str) -> dict:
+    """Die ersten Bytes eines Crates: Kennung und Version."""
+    with open(path, "rb") as fh:
+        head = fh.read(16)
+    return {"magic": head[:8], "magic_ok": bool(head[:8] == USDC_MAGIC),
+            "size_bytes": os.path.getsize(path)}
+
+
+def read_usdc(path: str) -> dict:
+    """Liest ein binäres Crate -- mit der USD-Bibliothek, nicht selbst.
+
+    Rückgabe: dieselben Schlüssel wie `read_usda`, damit beide Leser
+    austauschbar sind. Gelesen wird von **pxr**, also von einem fremden
+    Leser; das ist genau die Prüfung, die wir für jedes Format verlangen.
+    """
+    from pxr import Usd, UsdGeom
+
+    stage = Usd.Stage.Open(path)
+    if stage is None:
+        raise RuntimeError("USD-Bibliothek konnte %s nicht oeffnen" % path)
+    res = {"metersPerUnit": None, "upAxis": None, "defaultPrim": None}
+    res["metersPerUnit"] = UsdGeom.GetStageMetersPerUnit(stage)
+    res["upAxis"] = str(UsdGeom.GetStageUpAxis(stage))
+    root = stage.GetDefaultPrim()
+    res["defaultPrim"] = root.GetName() if root else None
+
+    mesh = None
+    for prim in stage.Traverse():
+        if prim.IsA(UsdGeom.Mesh):
+            mesh = UsdGeom.Mesh(prim)
+            res["defaultPrim"] = res["defaultPrim"] or prim.GetName()
+            break
+    if mesh is None:
+        raise ValueError("kein Mesh in %s gefunden" % path)
+    pts = mesh.GetPointsAttr().Get()
+    res["vertices"] = np.asarray(pts, dtype=np.float64)
+    idx = mesh.GetFaceVertexIndicesAttr().Get()
+    res["faceVertexIndices"] = np.asarray(idx, dtype=np.int64)
+    cnt = mesh.GetFaceVertexCountsAttr().Get()
+    res["faceVertexCounts"] = np.asarray(cnt, dtype=np.int64)
+    nrm = mesh.GetNormalsAttr().Get()
+    if nrm is not None and len(nrm):
+        res["normals"] = np.asarray(nrm, dtype=np.float64)
+        res["normals_interpolation"] = str(mesh.GetNormalsInterpolation())
+    from pxr import UsdGeom as _Ug
+    st = _Ug.PrimvarsAPI(mesh.GetPrim()).GetPrimvar("st")
+    if st:
+        val = st.Get()
+        if val is not None and len(val):
+            res["uv"] = np.asarray(val, dtype=np.float64)
+            res["uv_interpolation"] = str(st.GetInterpolation())
+    col = _Ug.PrimvarsAPI(mesh.GetPrim()).GetPrimvar("displayColor")
+    if col:
+        val = col.Get()
+        if val is not None and len(val):
+            res["colors"] = np.asarray(val, dtype=np.float64)
+    return res
+
+
+
+
 def write_usdz(path: str, v: np.ndarray, f: np.ndarray,
                colors: np.ndarray | None = None, name: str = "FaceScan",
                normals: np.ndarray | None = None, uv: np.ndarray | None = None,
-               texture: str | None = None):
+               texture: str | None = None, crate: bool = False):
     """USDZ = genau ein USD-Asset in einem ZIP -- Apple-Regeln haarklein.
 
     Fuenf Regeln, die Apple-Geraete sonst zur Ablehnung bewegen (docs/05):
@@ -290,28 +379,52 @@ def write_usdz(path: str, v: np.ndarray, f: np.ndarray,
       4. Kein Passwort, keine Verschluesselung.
       5. Nur relative Pfade, kein "..".
 
-    BEKANNTE GRENZE: Apple AR Quick Look verlangt als Primaer-Asset eine
-    .usdc-Datei (binaeres Crate). Wir schreiben .usda. Das lesen usdview,
-    Blender (ab 4.x) und Houdini; fuer AR Quick Look auf iOS braucht es
-    noch den Crate-Schreiber (M2b, docs/05).
+    `crate=True` schreibt als Primaer-Asset eine **.usdc**-Datei
+    (binaeres Crate) statt Text. Das ist der Stand, den Apple-Geraete
+    verlangen: Reality Converter lehnt ein Paket mit Text-Root-Layer ab
+    ("the package's root layer must be a usdc file"). Der Inhalt kommt
+    weiter aus unserem eigenen USDA-Schreiber, nur die Serialisierung
+    uebernimmt die USD-Bibliothek (s. `usda_to_usdc`).
+
+    Voreinstellung ist `crate=False`: der Text-Root-Layer ist lesbar,
+    diffbar und laesst sich mit unserem eigenen Leser pruefen -- das ist
+    fuer die M1-Tore der richtige Stand, fuer die AR-Ausgabe nicht.
     """
     import tempfile
     tmp_dir = tempfile.mkdtemp()
-    payload = "facescan.usda"
+    payload = "facescan.usdc" if crate else "facescan.usda"
     tmp_path = os.path.join(tmp_dir, payload)
     write_usda(tmp_path, v, f, colors, name=name, normals=normals, uv=uv,
                texture=texture)
+    if crate:
+        # Erst Text, dann Crate: der Inhalt bleibt unserer, das
+        # Binaerformat macht die Bibliothek.
+        usda_tmp = os.path.join(tmp_dir, "facescan.usda")
+        os.rename(tmp_path, usda_tmp)
+        usda_to_usdc(usda_tmp, tmp_path)
+        os.remove(usda_tmp)
     with open(tmp_path, "rb") as fh:
         data = fh.read()
     os.remove(tmp_path)
 
+    # Die 64-Byte-Grenze gilt fuer den DATENANFANG JEDES Eintrags, nicht
+    # nur fuer den ersten. Die erste Fassung hat nur den ersten Eintrag
+    # ausgerichtet -- mit dem Ergebnis, dass die Textur im Paket auf einer
+    # beliebigen Adresse landete, sobald die Nutzlast keine glatte
+    # Vielfache von 64 war. Nachgemessen an den LOD-Paketen: mit
+    # Text-Root-Layer traf es dreimal von vier Dateien nicht zu.
+    # Jetzt wird die Polsterung aus der laufenden Position berechnet.
+    pos = 0
+
     def entry(fname, blob):
+        nonlocal pos
+        n = len(fname.encode("utf-8"))
+        pad = (-(pos + 30 + n + 4)) % 64
         i = zipfile.ZipInfo(fname, date_time=(1980, 1, 1, 0, 0, 0))
         i.compress_type = zipfile.ZIP_STORED
         i.external_attr = 0o644 << 16
-        pad = (30 - len(fname.encode("utf-8"))) % 64
         i.extra = struct.pack("<H H", 0x1986, pad) + b"\x00" * pad
-        assert (30 + len(fname.encode("utf-8")) + len(i.extra)) % 64 == 0
+        pos = pos + 30 + n + len(i.extra) + len(blob)
         return i, blob
 
     items = [entry(payload, data)]
@@ -328,7 +441,12 @@ def write_usdz(path: str, v: np.ndarray, f: np.ndarray,
 
 
 def read_usdz(path: str):
-    """Liest ein USDZ und prueft alle fuenf Apple-Regeln nach."""
+    """Liest ein USDZ und prueft alle fuenf Apple-Regeln nach.
+
+    Die Container-Regeln (unkomprimiert, erstes Asset, 64-Byte-Grenze,
+    kein Passwort, relative Pfade) pruefen wir selbst. Den INHALT liest bei
+    einem Crate-Paket die **USD-Bibliothek** -- ein fremder Leser also.
+    """
     with zipfile.ZipFile(path) as zf:
         names = zf.namelist()
         bad = zf.testzip()
@@ -344,11 +462,18 @@ def read_usdz(path: str):
                 head = fh.read(30)
             nlen, elen = struct.unpack("<H H", head[26:30])
             offsets[i.filename] = i.header_offset + 30 + nlen + elen
-        tmp = os.path.join(os.path.dirname(path), "_usdz_check.usda")
+        tmp = os.path.join(os.path.dirname(path), "_usdz_check" +
+                           os.path.splitext(payload)[1])
         with open(tmp, "wb") as out:
             out.write(zf.read(payload))
         try:
-            parsed = read_usda(tmp)
+            if payload.lower().endswith(".usdc"):
+                parsed = read_usdc(tmp)          # fremder Leser: pxr
+                parsed.update(crate_info(tmp))
+                parsed["payload_is_crate"] = True
+            else:
+                parsed = read_usda(tmp)
+                parsed["payload_is_crate"] = False
         finally:
             os.remove(tmp)
     parsed["entries"] = names

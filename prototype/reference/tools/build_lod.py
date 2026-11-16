@@ -52,6 +52,11 @@ N_FRAMES = 16
 SEED = 2026
 
 ATLAS_RES = 2048
+# USDZ mit binaerem Crate als Root-Layer (.usdc) statt Text (.usda).
+# Apple-Geraete verlangen das: Reality Converter lehnt ein Paket mit
+# Text-Root-Layer ab. Der Inhalt kommt weiter aus unserem USDA-Schreiber,
+# nur die Serialisierung macht die USD-Bibliothek (export_more.usda_to_usdc).
+USDZ_CRATE = True
 LOD_TARGETS = (300_000, 80_000, 20_000, 6_000)
 UV_WEIGHT = 4000.0        # Strafe dafuer, Kanten ueber Nahtabstaende zu falten
 DILATE_PX = 600            # Lueckenfuellung: groesste Lücke ~820 px (Hinterkopf)
@@ -262,7 +267,7 @@ def main() -> int:
             ("USDZ", os.path.join(MESHES, base + ".usdz"),
              lambda p, v=v, f=f, u=u, n=nn: em.write_usdz(
                  p, v, f, None, name="FaceScan_LOD%d" % i, normals=n, uv=u,
-                 texture=tex_path)),
+                 texture=tex_path, crate=USDZ_CRATE)),
         ]
         sizes = {}
         for tag, path, fn in jobs:

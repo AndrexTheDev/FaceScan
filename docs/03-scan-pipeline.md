@@ -223,6 +223,30 @@ Winkel 10–35°, minimale Mimik-Änderung (Blendshape-Distanz), maximale Schär
   Tiefe 10–12, mit Normalschätzung aus den Tiefenkarten.
 - **LODs:** Quadric-Edge-Collapse (garland-heckbert) auf 300 k / 80 k / 20 k / 6 k Dreiecke.
 
+**Gemessener Stand des Prototyps** (`prototype/tools/build_master.py`,
+`build_lod.py`): Rohnetz 1.463.676 Dreiecke (Haut 0,75 mm, Haar 1,2 mm),
+2771,7 cm². Die LOD-Kette wird aus dem Master gerechnet und trägt die UVs mit:
+
+| Stufe | Dreiecke | Formfehler gegen Master | p95 | max |
+|---|---|---|---|---|
+| LOD0 | 299.998 | 0,035 mm | 0,165 mm | 1,29 mm |
+| LOD1 | 80.000 | 0,152 mm | 0,536 mm | 1,59 mm |
+| LOD2 | 20.000 | 0,285 mm | 0,784 mm | 4,19 mm |
+| LOD3 | 5.999 | 0,396 mm | 1,071 mm | 6,64 mm |
+
+Gemessen mit `metrics.surface_deviation` (**Punkt-zu-Dreieck**, nicht
+Punkt-zu-Punkt). Punktwolken-Chamfer ist hier die falsche Zahl: er misst die
+Punktdichte, nicht die Form, und meldet für LOD3 1,78 mm, wo die Oberfläche
+tatsächlich 0,40 mm abweicht.
+
+Zwei Details, die beim Vereinfachen entscheiden:
+1. **Dreiecke zyklisch drehen, nicht sortieren.** Sortierte Index-Tripel
+   verlieren die Umlaufrichtung; danach steht ein Teil der Dreiecke auf links,
+   und davon merkt man nichts, bis ein UV-Werkzeug die Nachbarschaft nicht
+   mehr erkennt (20.753 Charts aus 25.000 Dreiecken).
+2. **UVs mitführen und Kanten über Chart-Grenzen bestrafen** (`uv_weight`).
+   Sonst zieht sich die Textur über den Abstand zwischen zwei Charts.
+
 ---
 
 ## 7. Stufe HAIR – Haar-Rekonstruktion (eigenes Kapitel, weil es der schwierigste Teil ist)
@@ -368,9 +392,17 @@ separater, automatisch gepackter Atlas erzeugt.
    - Position + Normale über die Basiskopf-Oberfläche, verschoben entlang der Displacement-Map.
    - Sichtbarkeitstest in jeder View (Backface, Verdeckung via Ray-Cast gegen das Scan-Mesh mit
      **Bias 1,5 mm**, Randabstand, Mimik-Kompatibilität).
-   - Farbwert aus der View mit (a) bester Projektionsqualität (Auflösung × cos(Blickwinkel)),
-     (b) bester Belichtung (nahe Mittelgrau), (c) höchster Schärfe.
-2. **Multi-Band-Blending** über die ausgewählten Views (3 Bänder) ⇒ keine Nähte, keine Helligkeitssprünge.
+   - Farbwert aus **allen** sichtbaren Views, gewichtet mit **cos²(Blickwinkel)**.
+2. **Warum gewichten statt auswählen** (und das ist der Punkt, an dem der erste Prototyp
+   gescheitert ist): Nimmt man pro Pixel oder pro Patch nur die *beste* View, entsteht eine harte
+   Grenze zwischen den Zuständigkeitsbereichen der Kameras – die "Blocken", die man im Modell
+   sieht. Nachträgliches Weichzeichnen (3×3-Blur, Mehrheitsentscheid) kann das nur verwischen,
+   nicht beheben, weil die Information "wie sähe es aus Kamera 7 aus?" an dieser Stelle bereits
+   weggeworfen wurde. Bei cos²-gewichteter Mischung geht die Zuständigkeit dagegen **stetig** von
+   einer Kamera zur nächsten über – es gibt keine Kante, die man glätten müsste. Multi-Band-
+   Blending (3 Bänder) bleibt als Option für den Fall, dass die Aufnahmen unterschiedlich
+   belichtet sind; bei einheitlicher Belichtung ist die cos²-Mischung überlegen, weil sie keine
+   Frequenzen verschiebt.
 3. **Lückenfüllung:** Push-Pull-Pyramide (hartnäckig, schnell, GPU-freundlich) über höchstens 3 % Fläche.
    Bei mehr: Qualitätsbericht "Gelb" + Hinweis auf Nachaufnahme.
 4. **Shading-Bereinigung:** `Albedo ≈ I / (SH·N)` mit der in Stufe 4 geschätzten Beleuchtung – entfernt den

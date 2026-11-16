@@ -27,12 +27,18 @@ import numpy as np
 # =============================================================== STL ======
 
 
-def write_stl(path: str, v: np.ndarray, f: np.ndarray, ascii: bool = False):
+def write_stl(path: str, v: np.ndarray, f: np.ndarray, ascii: bool = False,
+              normals: np.ndarray | None = None, uv: np.ndarray | None = None):
     """Stereolithography -- das Austauschformat fuer den 3D-Druck.
 
     STL kennt keine Farben und keine Einheiten; es ist reine Geometrie.
     Deshalb ist es in der Export-Matrix (docs/05) das Format fuer
     "3D-Druck / schnelle Weitergabe".
+
+    `normals`/`uv` werden bewusst IGNORIERT. STL hat dafuer keinen Platz:
+    die Normalen stehen pro Dreieck im 50-Byte-Satz (und werden von fast
+    jedem Slicer neu gerechnet), Texturen gibt es nur im inoffiziellen
+    Magics-Format, das kein Slicer liest.
     """
     v = np.asarray(v, dtype=np.float64)
     f = np.asarray(f, dtype=np.int64)
@@ -106,16 +112,25 @@ def read_stl(path: str):
 
 def write_usda(path: str, v: np.ndarray, f: np.ndarray,
                colors: np.ndarray | None = None, name: str = "FaceScan",
-               meters_per_unit: float = 0.001):
+               meters_per_unit: float = 0.001, normals: np.ndarray | None = None,
+               uv: np.ndarray | None = None, texture: str | None = None):
     """Pixar USD im Textformat (.usda).
 
     USD ist das Format, in dem grosse Studios Szenen zusammenlegen. Wichtig
     fuer uns: `metersPerUnit` und `upAxis` stehen IN der Datei -- Blender,
     Houdini und Maya uebernehmen damit die Groesse automatisch richtig.
+
+    Zwei Fallen beim Material:
+      * Der Pfad zur Textur steht in **@...@**, nicht in Anfuehrungszeichen.
+      * Die Verbindungskette muss vollstaendig sein:
+        `PrimvarReader(st)` -> `UsdUVTexture` -> `UsdPreviewSurface` ->
+        `outputs:surface`. Fehlt das PrimvarReader-Glied, zeigt der Viewer
+        einfarbig weiss, ohne zu meckern.
     """
     v = np.asarray(v, dtype=np.float64)
     f = np.asarray(f, dtype=np.int64)
     lo, hi = v.min(axis=0), v.max(axis=0)
+    tex = os.path.basename(texture) if texture else None
 
     out = []
     out.append("#usda 1.0")
@@ -136,13 +151,59 @@ def write_usda(path: str, v: np.ndarray, f: np.ndarray,
                % ", ".join("%d" % i for i in f.reshape(-1)))
     out.append("    point3f[] points = [%s]"
                % ", ".join("(%.17g, %.17g, %.17g)" % (p[0], p[1], p[2]) for p in v))
-    if colors is not None:
+    if normals is not None:
+        nn = np.asarray(normals, dtype=np.float64)
+        out.append("    normal3f[] normals = [%s] (" % ", ".join(
+            "(%g, %g, %g)" % (p[0], p[1], p[2]) for p in nn))
+        out.append("        interpolation = \"vertex\"")
+        out.append("    )")
+    if uv is not None:
+        tt = np.asarray(uv, dtype=np.float64)
+        out.append("    texCoord2f[] primvars:st = [%s] (" % ", ".join(
+            "(%g, %g)" % (p[0], p[1]) for p in tt))
+        out.append("        interpolation = \"vertex\"")
+        out.append("    )")
+    if colors is not None and tex is None:
         c = np.asarray(colors, dtype=np.float64) / 255.0
         out.append("    color3f[] primvars:displayColor = [%s] (" % ", ".join(
             "(%g, %g, %g)" % (p[0], p[1], p[2]) for p in c))
         out.append("        interpolation = \"vertex\"")
         out.append("    )")
+    if tex is not None:
+        out.append("    rel material:binding = </Material>")
     out.append("}")
+    if tex is not None:
+        out.append("")
+        out.append('def Material "Material"')
+        out.append("{")
+        out.append('    token outputs:surface.connect = </Material/Surface.outputs:surface>')
+        out.append("")
+        out.append('    def Shader "Surface"')
+        out.append("    {")
+        out.append('        uniform token info:id = "UsdPreviewSurface"')
+        out.append("        color3f inputs:diffuseColor.connect = </Material/Diffuse.outputs:rgb>")
+        out.append("        float inputs:metallic = 0")
+        out.append("        float inputs:roughness = 0.75")
+        out.append('        token outputs:surface')
+        out.append("    }")
+        out.append("")
+        out.append('    def Shader "Diffuse"')
+        out.append("    {")
+        out.append('        uniform token info:id = "UsdUVTexture"')
+        out.append("        asset inputs:file = @%s@" % tex)
+        out.append("        float2 inputs:st.connect = </Material/ST.outputs:result>")
+        out.append('        token inputs:wrapS = "repeat"')
+        out.append('        token inputs:wrapT = "clamp"')
+        out.append('        float3 outputs:rgb')
+        out.append("    }")
+        out.append("")
+        out.append('    def Shader "ST"')
+        out.append("    {")
+        out.append('        uniform token info:id = "UsdPrimvarReader_float2"')
+        out.append('        token inputs:varname = "st"')
+        out.append("        float2 outputs:result")
+        out.append("    }")
+        out.append("}")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(out) + "\n")
     return path
@@ -159,8 +220,19 @@ def read_usda(path: str):
     res = {"metersPerUnit": None, "upAxis": None, "defaultPrim": None}
 
     def grab_array(name: str):
-        i = txt.index(name)
-        j = txt.index("[", i)
+        """Wert-Array eines Attributs.
+
+        ACHTUNG: nicht einfach `txt.index(name)` und dann die erste
+        "["-Klammer danach suchen. Der TYP steht davor und enthaelt
+        selbst eine Klammer: "normal3f[] normals = [...]". Sucht man
+        nach "normal3f[] normals", landet man in den Klammern des Typs
+        und bekommt einen leeren String -- und zwar OHNE Fehler, das
+        Array ist dann halt leer. Deshalb: erst das "= [" finden.
+        """
+        m = re.search(re.escape(name) + r"\s*=\s*\[", txt)
+        if m is None:
+            raise ValueError("Attribut %s nicht gefunden" % name)
+        j = m.end() - 1
         k = txt.index("]", j)
         return txt[j + 1:k]
 
@@ -183,6 +255,15 @@ def read_usda(path: str):
     res["faceVertexCounts"] = np.array(counts)
     res["faceVertexIndices"] = np.array(idx, dtype=np.int64)
     res["vertices"] = pts
+    if "normal3f[] normals" in txt:
+        nr = re.findall(r"\(\s*([-0-9.eE]+)\s*,\s*([-0-9.eE]+)\s*,\s*([-0-9.eE]+)\s*\)",
+                        grab_array("normal3f[] normals"))
+        res["normals"] = np.array([[float(a), float(b), float(c)]
+                                   for a, b, c in nr])
+    if "texCoord2f[] primvars:st" in txt:
+        tt = re.findall(r"\(\s*([-0-9.eE]+)\s*,\s*([-0-9.eE]+)\s*\)",
+                        grab_array("texCoord2f[] primvars:st"))
+        res["uv"] = np.array([[float(a), float(b)] for a, b in tt])
     return res
 
 
@@ -190,7 +271,9 @@ def read_usda(path: str):
 
 
 def write_usdz(path: str, v: np.ndarray, f: np.ndarray,
-               colors: np.ndarray | None = None, name: str = "FaceScan"):
+               colors: np.ndarray | None = None, name: str = "FaceScan",
+               normals: np.ndarray | None = None, uv: np.ndarray | None = None,
+               texture: str | None = None):
     """USDZ = genau ein USD-Asset in einem ZIP -- Apple-Regeln haarklein.
 
     Fuenf Regeln, die Apple-Geraete sonst zur Ablehnung bewegen (docs/05):
@@ -216,22 +299,31 @@ def write_usdz(path: str, v: np.ndarray, f: np.ndarray,
     tmp_dir = tempfile.mkdtemp()
     payload = "facescan.usda"
     tmp_path = os.path.join(tmp_dir, payload)
-    write_usda(tmp_path, v, f, colors, name=name)
+    write_usda(tmp_path, v, f, colors, name=name, normals=normals, uv=uv,
+               texture=texture)
     with open(tmp_path, "rb") as fh:
         data = fh.read()
     os.remove(tmp_path)
+
+    def entry(fname, blob):
+        i = zipfile.ZipInfo(fname, date_time=(1980, 1, 1, 0, 0, 0))
+        i.compress_type = zipfile.ZIP_STORED
+        i.external_attr = 0o644 << 16
+        pad = (30 - len(fname.encode("utf-8"))) % 64
+        i.extra = struct.pack("<H H", 0x1986, pad) + b"\x00" * pad
+        assert (30 + len(fname.encode("utf-8")) + len(i.extra)) % 64 == 0
+        return i, blob
+
+    items = [entry(payload, data)]
+    if texture is not None:
+        with open(texture, "rb") as fh:
+            items.append(entry(os.path.basename(texture), fh.read()))
     os.rmdir(tmp_dir)
 
-    info = zipfile.ZipInfo(payload, date_time=(1980, 1, 1, 0, 0, 0))
-    info.compress_type = zipfile.ZIP_STORED
-    info.external_attr = 0o644 << 16
-    pad = (30 - len(payload.encode("utf-8"))) % 64
-    info.extra = struct.pack("<H H", 0x1986, pad) + b"\x00" * pad
-    assert (30 + len(payload.encode("utf-8")) + len(info.extra)) % 64 == 0
-
     with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as zf:
-        with zf.open(info, "w") as fh:
-            fh.write(data)
+        for info, blob in items:
+            with zf.open(info, "w") as fh:
+                fh.write(blob)
     return path
 
 
@@ -377,7 +469,8 @@ def _emit(tree, base: int) -> bytes:
 
 def write_fbx(path: str, v: np.ndarray, f: np.ndarray,
               colors: np.ndarray | None = None, name: str = "FaceScan",
-              unit_scale: float = 0.1):
+              unit_scale: float = 0.1, normals: np.ndarray | None = None,
+              uv: np.ndarray | None = None):
     """Binaeres FBX 7.5 -- das Format, das Blender, Maya, 3ds Max und Unity lesen.
 
     Fuenf Dinge, die ueber "funktioniert" oder "Muell" entscheiden:
@@ -413,6 +506,27 @@ def write_fbx(path: str, v: np.ndarray, f: np.ndarray,
         _n("PolygonVertexIndex", [_p_ia(poly)]),
         _n("GeometryVersion", [_p_i(124)]),
     ]
+    if normals is not None:
+        nn = np.asarray(normals, dtype=np.float64).reshape(-1)
+        geo_children.append(_n("LayerElementNormal", [], [
+            _n("Version", [_p_i(102)]),
+            _n("Name", [_p_s("")]),
+            _n("MappingInformationType", [_p_s("ByVertice")]),
+            _n("ReferenceInformationType", [_p_s("Direct")]),
+            _n("Normals", [_p_da(nn)]),
+        ]))
+    if uv is not None:
+        # FBX/Blender zaehlen v von UNTEN, glTF/USD von oben -- genau der
+        # Unterschied, der Texturen auf dem Kopf stehen laesst.
+        tt = np.asarray(uv, dtype=np.float64).copy()
+        tt[:, 1] = 1.0 - tt[:, 1]
+        geo_children.append(_n("LayerElementUV", [], [
+            _n("Version", [_p_i(101)]),
+            _n("Name", [_p_s("UVMap")]),
+            _n("MappingInformationType", [_p_s("ByVertice")]),
+            _n("ReferenceInformationType", [_p_s("Direct")]),
+            _n("UV", [_p_da(tt.reshape(-1))]),
+        ]))
     if colors is not None:
         c = (np.asarray(colors, dtype=np.float64) / 255.0).reshape(-1)
         geo_children.append(_n("LayerElementColor", [], [
@@ -890,7 +1004,8 @@ def _sample_block(raw: bytes) -> bytes:
 # ------------------------------------------------------------- Schreiber ---
 
 def write_abc(path: str, v: np.ndarray, f: np.ndarray,
-              name: str = "FaceScan", shape_name: str = "FaceShape"):
+              name: str = "FaceScan", shape_name: str = "FaceShape",
+              normals: np.ndarray | None = None):
     """Alembic/Ogawa mit EINEM PolyMesh -- Schema ``AbcGeom_PolyMesh_v1``.
 
     Aufbau unter der Wurzel::
@@ -950,6 +1065,16 @@ def write_abc(path: str, v: np.ndarray, f: np.ndarray,
                                1, 0, 0, 0, "", 0, ".faceCounts")
     geom_headers += _prop_info(PROP_SCALAR, POD_FLOAT64, 6, True, True,
                                1, 0, 0, 0, "", 0, ".selfBnds")
+
+    if normals is not None:
+        nrm = np.ascontiguousarray(np.asarray(normals, dtype=np.float64),
+                                   dtype="<f4")
+        if len(nrm) == len(v):
+            p_nrm = geom.group()
+            p_nrm.data(_sample_block(nrm.tobytes()))
+            p_nrm.empty_data()
+            geom_headers += _prop_info(PROP_ARRAY, POD_FLOAT32, 3, False, True,
+                                       1, 0, 0, 0, md_vert, i_vert, "N")
     geom.data(bytes(geom_headers))
 
     # --- Objekt /<name>/<shape_name>  (PolyMesh) --------------------------
@@ -1252,5 +1377,13 @@ def read_abc(path: str) -> dict:
                                             dtype=np.int64)
             res["self_bounds"] = np.asarray(geom.get(".selfBnds", []),
                                             dtype=np.float64)
+            if "N" in geom:
+                # Alembic kennt zwei Normalen-Arten: "N" ist
+                # vertex-varying (geoScope=vtx, ein Wert je Punkt).
+                # Steht hier versehentlich der Scope "fvr", liest Alembic
+                # sie als Flaechennormalen und das Netz kommt facettiert
+                # an -- der Header ist also Teil der Aussage.
+                res["normals"] = np.asarray(geom["N"],
+                                            dtype=np.float64).reshape(-1, 3)
         break
     return res

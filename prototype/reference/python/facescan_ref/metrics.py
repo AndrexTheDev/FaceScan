@@ -328,3 +328,222 @@ def mesh_stats(v: np.ndarray, f: np.ndarray) -> dict:
         "edge_max_mm": float(lens.max()),
         "degenerate_triangles": int(np.sum(area < 1e-9)),
     }
+
+
+# ------------------------------------------------- Punkt-zu-Flaeche (exakt) ----
+
+
+def _dist2_point_triangle(p, a, b, c):
+    """Quadrat des Abstands Punkt -> Dreieck (Ericson, Real-Time Collision
+    Detection). Vollstaendig vektorisiert über (m, k) Paare.
+
+    Sieben Fallunterscheidungen: drei Eckpunkte, drei Kanten, eine Fläche.
+    Alle werden gerechnet und per np.where ausgewählt -- das ist bei
+    hunderttausenden Paaren schneller als jede Verzweigung.
+    """
+    ab = b - a
+    ac = c - a
+    ap = p - a
+    d1 = np.einsum("...i,...i->...", ab, ap)
+    d2 = np.einsum("...i,...i->...", ac, ap)
+    bp = p - b
+    d3 = np.einsum("...i,...i->...", ab, bp)
+    d4 = np.einsum("...i,...i->...", ac, bp)
+    cp = p - c
+    d5 = np.einsum("...i,...i->...", ab, cp)
+    d6 = np.einsum("...i,...i->...", ac, cp)
+
+    va = d3 * d6 - d5 * d4
+    vb = d5 * d2 - d1 * d6
+    vc = d1 * d4 - d3 * d2
+
+    # Schutz gegen Division durch 0 -- die betroffenen Faelle werden unten
+    # ohnehin nicht ausgewaehlt.
+    eps = 1e-300
+
+    def sq(x):
+        return np.einsum("...i,...i->...", x, x)
+
+    r_a = sq(ap)
+    r_b = sq(bp)
+    r_c = sq(cp)
+    t_ab = d1 / (d1 - d3 + eps)
+    r_ab = sq(ap - t_ab[..., None] * ab)
+    t_ac = d2 / (d2 - d6 + eps)
+    r_ac = sq(ap - t_ac[..., None] * ac)
+    t_bc = (d4 - d3) / ((d4 - d3) + (d5 - d6) + eps)
+    r_bc = sq(bp - t_bc[..., None] * (c - b))
+    den = va + vb + vc
+    v = vb / (den + eps)
+    w = vc / (den + eps)
+    r_f = sq(ap - v[..., None] * ab - w[..., None] * ac)
+
+    out = r_f
+    out = np.where((va <= 0) & (d4 - d3 >= 0) & (d5 - d6 >= 0), r_bc, out)
+    out = np.where((vb <= 0) & (d2 >= 0) & (d6 <= 0), r_ac, out)
+    out = np.where((vc <= 0) & (d1 >= 0) & (d3 <= 0), r_ab, out)
+    out = np.where((d6 >= 0) & (d5 <= d6), r_c, out)
+    out = np.where((d3 >= 0) & (d4 <= d3), r_b, out)
+    out = np.where((d1 <= 0) & (d2 <= 0), r_a, out)
+    return np.maximum(out, 0.0)
+
+
+def point_to_surface(query, v, f, cell: float = 4.0, max_shells: int = 8):
+    """Abstand jedes Abfragepunkts zur Dreiecksoberfläche (mm).
+
+    Warum nicht "Abstand zur nächsten Vertex-Wolke"? Weil das die
+    **Abtastdichte** misst, nicht die Form. Ein 6k-Dreieck-Netz hat nur 5k
+    Vertices -- der nächste Vertex ist im Mittel eine halbe Kantenlänge
+    entfernt, obwohl die Fläche direkt daneben liegt. Wer LOD-Güte mit
+    Punktwolken-Abständen misst, lügt sich in die Tasche.
+
+    Verfahren: uniformes Gitter über die Dreiecke (jedes Dreieck wird in
+    alle Zellen eingetragen, die seine Bounding-Box schneidet). Für jede
+    Zelle mit Abfragepunkten werden die Dreiecke der Nachbarzellen
+    geprüft. Wichtig ist die Abbruchbedingung: sind wir `s` Schalen weit
+    gegangen und der beste Treffer ist höchstens `(s-1)·Zellgröße`
+    entfernt, kann nichts näheres übersehen worden sein -- dann sind wir
+    fertig. Sonst wird erweitert.
+    """
+    query = np.asarray(query, dtype=np.float64)
+    v = np.asarray(v, dtype=np.float64)
+    f = np.asarray(f, dtype=np.int64)
+    if len(f) == 0 or len(query) == 0:
+        return np.full(len(query), np.inf), np.zeros(len(query), dtype=bool)
+
+    lo = v.min(axis=0)
+    a, b, c = v[f[:, 0]], v[f[:, 1]], v[f[:, 2]]
+    tlo = np.minimum(np.minimum(a, b), c)
+    thi = np.maximum(np.maximum(a, b), c)
+
+    def cid(p):
+        return np.floor((p - lo) / cell).astype(np.int64)
+
+    size = cid(v.max(axis=0)) + 2
+    sx, sy, sz = int(size[0]), int(size[1]), int(size[2])
+
+    # --- Gitter aufbauen: Zelle -> Dreiecksnummern -----------------------
+    ci_lo = np.floor((tlo - lo) / cell).astype(np.int64)
+    ci_hi = np.floor((thi - lo) / cell).astype(np.int64)
+    buckets = {}
+    for t in range(len(f)):
+        x0, y0, z0 = ci_lo[t]
+        x1, y1, z1 = ci_hi[t]
+        for xx in range(int(x0), int(x1) + 1):
+            for yy in range(int(y0), int(y1) + 1):
+                for zz in range(int(z0), int(z1) + 1):
+                    key = (xx * sy + yy) * sz + zz
+                    lst = buckets.get(key)
+                    if lst is None:
+                        buckets[key] = [t]
+                    else:
+                        lst.append(t)
+
+    # --- Abfragepunkte nach Zelle gruppieren -----------------------------
+    qk = cid(query)
+    # Punkte AUSSERHALB der Bounding-Box des Netzes (die LOD schrumpft
+    # minimal gegenüber dem Original) würden sonst in Gitterzellen
+    # landen, die es gar nicht gibt, und bekämen irgendeinen fernen
+    # Treffer als "Abstand" -- deswegen an den Rand klemmen.
+    qk = np.clip(qk, 0, np.array([sx - 1, sy - 1, sz - 1], dtype=np.int64))
+    qkey = ((qk[:, 0] * sy + qk[:, 1]) * sz + qk[:, 2])
+    order = np.argsort(qkey, kind="stable")
+    q_sorted = qkey[order]
+    uniq, starts, counts = np.unique(q_sorted, return_index=True,
+                                     return_counts=True)
+
+    best = np.full(len(query), np.inf)
+
+    def ring(key, s):
+        """Dreiecke aus genau der Schale `s` um die Zelle `key`."""
+        kx = int(key // (sy * sz))
+        rem = int(key % (sy * sz))
+        ky = rem // sz
+        kz = rem % sz
+        out = []
+        for dx in range(-s, s + 1):
+            ax = kx + dx
+            if ax < 0 or ax >= sx:
+                continue
+            for dy in range(-s, s + 1):
+                ay = ky + dy
+                if ay < 0 or ay >= sy:
+                    continue
+                for dz in range(-s, s + 1):
+                    az = kz + dz
+                    if az < 0 or az >= sz:
+                        continue
+                    if max(abs(dx), abs(dy), abs(dz)) != s:
+                        continue
+                    lst = buckets.get((ax * sy + ay) * sz + az)
+                    if lst:
+                        out.append(lst)
+        if not out:
+            return np.empty(0, dtype=np.int64)
+        return np.unique(np.concatenate([np.asarray(x, dtype=np.int64)
+                                         for x in out]))
+
+    for slot in range(len(uniq)):
+        idx = order[starts[slot]:starts[slot] + counts[slot]]
+        p = query[idx][:, None, :]
+        acc = []
+        for s in range(0, max_shells + 1):
+            tri = ring(int(uniq[slot]), s)
+            if len(tri):
+                acc.append(tri)
+            if not acc:
+                continue
+            allt = np.unique(np.concatenate(acc))
+            d2 = _dist2_point_triangle(p, v[f[allt, 0]][None, :, :],
+                                       v[f[allt, 1]][None, :, :],
+                                       v[f[allt, 2]][None, :, :])
+            m = d2.min(axis=1)
+            best[idx] = m
+            # Abbruchbedingung: eine Gitterzelle im Index-Abstand k ist
+            # mindestens (k-1)*Zellbreite entfernt. Etwas Näheres als der
+            # beste Treffer d kann also nur in Zellen mit k <= ceil(d/cell)
+            # liegen -- die haben wir alle gesehen, sobald d <= s*cell.
+            if float(m.max()) <= s * cell + 1e-9:
+                break
+            if s == max_shells:
+                break
+    best = np.sqrt(np.maximum(best, 0.0))
+    return best, np.isfinite(best)
+
+
+def surface_deviation(v_ref, f_ref, v_lod, f_lod, cell: float = 4.0,
+                      max_ref_points: int = 40_000) -> dict:
+    """Wie weit liegt das vereinfachte Netz vom Original (mm)?
+
+    Beide Richtungen, weil sie Verschiedenes bedeuten:
+      * `to_lod`  -- Original -> LOD: das ist der **Formfehler**, den man
+        sieht (wie weit steht die echte Oberfläche über das Modell hinaus).
+      * `from_lod` -- LOD -> Original: das ist der Fehler, den die LOD
+        selbst macht.
+    """
+    v_ref = np.asarray(v_ref, dtype=np.float64)
+    v_lod = np.asarray(v_lod, dtype=np.float64)
+    if len(v_ref) > max_ref_points:
+        # Gleichmäßiger Stride statt Zufall: reproduzierbar, und der
+        # Mittelwert/p95 sind bei 40k Stichpunkten stabil. Nur die
+        # ABFRAGEPUNKTE werden dünner -- das Netz selbst bleibt ganz,
+        # sonst würden die Dreiecksindizes ins Leere zeigen.
+        step = int(np.ceil(len(v_ref) / max_ref_points))
+        q_ref = v_ref[::step]
+    else:
+        q_ref = v_ref
+    d1, ok1 = point_to_surface(q_ref, v_lod, f_lod, cell=cell)
+    d2, ok2 = point_to_surface(v_lod, v_ref, f_ref, cell=cell)
+    both = np.concatenate([d1[ok1], d2[ok2]])
+    if len(both) == 0:
+        return {"max_mm": float("inf"), "p95_mm": float("inf"),
+                "mean_mm": float("inf"), "to_lod_mm": float("inf"),
+                "from_lod_mm": float("inf"), "unresolved": int(len(d1))}
+    return {
+        "to_lod_mm": float(np.mean(d1[ok1])),
+        "from_lod_mm": float(np.mean(d2[ok2])),
+        "mean_mm": float(both.mean()),
+        "p95_mm": float(np.percentile(both, 95)),
+        "max_mm": float(both.max()),
+        "unresolved": int((~ok1).sum() + (~ok2).sum()),
+    }

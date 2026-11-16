@@ -376,6 +376,20 @@ aus echten Fehlermeldungen fremder Leser entstanden:
 * STL für den 3D-Druck braucht eine **wasserdichte** Variante (Poisson, §4.3)
   und eine Sockel-/Wandstärkenprüfung. Aktuell ist das STL nicht watertight.
 * USDZ als `.usdc` (AR Quick Look).
-* Quadric Decimation (das Haar-Volumen hat 180k Dreiecke).
-* UV-Atlas (xatlas) statt Vertexfarben.
 * DAE, BVH, CSV/JSON.
+
+### 12.3 In M2b erledigt (Stand: siehe prototype/README.md, Kap. 7b)
+* **Quadric Decimation** — LOD-Kette 300 k / 80 k / 20 k / 6 k
+  (Garland-Heckbert, mitgeführte UVs), Formfehler 0,035 … 0,396 mm gegen das
+  Master-Netz. Zusätzlich: Normalen und UVs werden beim Vereinfachen
+  mitgetragen, Materialgrenzen über eine Farbstrafe geschützt.
+* **UV-Atlas** — `facescan_ref/atlas.py` mit xatlas (bevorzugt) und
+  Zylinderprojektion (Rückfall, auf dem Messrechner der schnellere Weg;
+  Begründung in README 7b). Damit tragen GLB, OBJ und USDZ echte UVs und eine
+  gemeinsame 2048²-Textur statt Vertexfarben.
+* **Textur-Bake** — `facescan_ref/bake.py`: pro Texel cos²-gewichtet aus allen
+  sichtbaren Kameras gemischt, Verdeckungstest asymmetrisch (ein Punkt darf
+  hinter der Messung liegen, aber nicht davor — sonst fällt das
+  Visual-Hull-Haarvolumen durch die Prüfung).
+* **Normalen in allen Formaten** außer STL (da stehen sie pro Dreieck im
+  50-Byte-Satz und jeder Slicer rechnet sie neu).

@@ -57,6 +57,20 @@ Gegenprobe der Exporte mit fremden Lesern (optional, s. §7):
 /tmp/qrenv/bin/python prototype/reference/python/validate_exports.py
 ```
 
+M2b – Master-Mesh, UV-Atlas, LOD-Kette und Textur-Bake (s. §7b):
+
+```bash
+/tmp/qrenv/bin/pip install xatlas          # optional, nur für den Atlas
+/tmp/qrenv/bin/python prototype/reference/tools/build_master.py               # ~4 min
+/tmp/qrenv/bin/python prototype/reference/tools/build_master.py --uv=cylindrical
+/tmp/qrenv/bin/python prototype/reference/tools/build_lod.py                  # ~4 min
+```
+
+`build_master.py` sichert das Rohnetz nach `meshes/master_raw.npz`, bevor der
+teure Atlas-Schritt beginnt – ein zweiter Lauf rechnet die Rekonstruktion
+nicht noch einmal. `build_lod.py` holt die LOD-Kette aus `meshes/lod_state.npz`,
+wenn sie schon liegt.
+
 ## 3. Ergebnisse (Stand dieses Commits)
 
 Szene: 120 Punkte, 8 Aufnahmen, 1080×1920 bei 62° FOV, 1,0 px Landmark-Rauschen,
@@ -271,6 +285,93 @@ eigener Rücklese-Test hatte alle sieben durchgewinkt:
   Text, weil ein eigener Krate-Schreiber ein Projekt für sich ist (M2b). Für
   Android-AR ist das unerheblich: dort ist **GLB** das Format.
 * FBX hat keine Materialien und keine Texturen – nur Vertexfarben.
+
+### 7b. M2b: Master-Mesh, globaler UV-Atlas, LOD-Kette, Textur-Bake
+
+`tools/build_master.py` und `tools/build_lod.py` liefern das nach, was in
+`docs/03` (6.2) für die Pro-Stufe steht und in M2 noch fehlte.
+
+**Master-Mesh** (`facescan_master_uv.obj`, 156 MB): TSDF auf **0,75 mm** statt
+1,5 mm (Haut) plus Haar-Volumen auf 1,2 mm ⇒ **742.081 Punkte / 1.463.676
+Dreiecke**, 2771,7 cm², 0 entartete Dreiecke. 855 Inseln unter 500 Dreiecken
+sind entfernt (`docs/03`, 6.2).
+
+**Globaler UV-Atlas.** `facescan_ref/atlas.py` bindet **xatlas** ein und fällt
+auf eine **Zylinderprojektion** zurück. Warum der Rückfall hier greift, ist
+selbst ein Ergebnis:
+
+* Auf dem 1,46-Mio.-Netz braucht xatlas **> 20 Minuten**. Ursache ist nicht
+  die Menge, sondern die **Haut**: `refine_by_depth` erzeugt Sliver-Dreiecke
+  bis 6·10⁻⁶ mm² (Median 0,096 mm²). Ein so schlecht konditioniertes Netz
+  bringt den LSCM-Löser nicht zur Konvergenz. Die Haare mit ihren
+  gleichmäßigen 0,18-mm²-Dreiecken laufen dagegen mit 0,06 ms je Dreieck.
+* Das Haar-Volumen zerfällt für xatlas in ~34.000 Charts aus 100.000
+  Dreiecken – jede 90°-Kante des Voxel-Netzes erzwingt eine Chart-Grenze.
+  Auslastung ist mit 0,73 trotzdem gut, aber die Nahtlänge ist enorm.
+
+Die Zylinderprojektion ist deshalb kein Notbehelf, sondern für einen Kopf die
+**Standard-Parameterisierung** (`docs/03`, 11): `v` aus der Höhe statt aus dem
+Polarwinkel ⇒ keine Polsingularität am Haarwirbel, und die Naht liegt bei
+180°, also hinten unter den Haaren. 3,92 Texel/mm = **0,255 mm je Texel**.
+
+**LOD-Kette** (Garland-Heckbert, `meshopt.quadric_decimate`). Formfehler
+gemessen gegen das Master-Netz mit `metrics.surface_deviation`
+(Punkt-zu-Dreieck, nicht Punkt-zu-Punkt):
+
+| Stufe | Dreiecke | Punkte | Formfehler | p95 | max | entartet | GLB | OBJ | USDZ |
+|---|---|---|---|---|---|---|---|---|---|
+| LOD0 | 299.998 | 161.792 | **0,035 mm** | 0,165 | 1,29 | 3.152 | 8,6 MB | 30,1 MB | 24,9 MB |
+| LOD1 | 80.000 | 45.182 | **0,152 mm** | 0,536 | 1,59 | 4 | 2,6 MB | 7,8 MB | 7,1 MB |
+| LOD2 | 20.000 | 12.023 | **0,285 mm** | 0,784 | 4,19 | 0 | 0,9 MB | 1,9 MB | 2,0 MB |
+| LOD3 | 5.999 | 3.849 | **0,396 mm** | 1,071 | 6,64 | 0 | 0,5 MB | 0,6 MB | 0,8 MB |
+
+Die UVs wandern über alle Stufen mit (`uv_weight`), weil sonst Kanten über
+Chart-Abstände hinweg zusammengefasst würden und die Textur über die Lücke
+zöge.
+
+**Globaler Bake** (`facescan_ref/bake.py`). Statt pro Vertex die beste Kamera
+zu wählen, wird **pro Texel** aus allen sichtbaren Kameras cos²-gewichtet
+gemischt. Ergebnisse für die 2048²-Textur:
+
+* 96,4 % der Atlasfläche sind belegt, im Mittel tragen **3,3 Kameras** je
+  Texel bei, 42,8 % der Texel sogar drei oder mehr.
+* Sichtbare Farbsprünge zwischen benachbarten Texeln (> 20/765):
+  **0,76 % → 0,54 %** gegenüber dem alten Vertex-Weg.
+* **21,4 % der Atlasfläche tragen echte Farbe**, 78,6 % sind aufgefüllt.
+  Das ist keine Messung mehr, sondern Extrapolation aus dem nächsten
+  sichtbaren Texel – die 16 Aufnahmen decken nur ±75° Gierwinkel ab, der
+  Hinterkopf war in keinem Bild. `docs/03` (7.1) sagt genau das voraus; die
+  App weist diese Bereiche als „geschätzt“ aus.
+
+Der Gewinn gegenüber dem alten Weg ist **kleiner als erwartet**, und das ist
+ehrlich zu sagen: `texture_completeness` hat bereits über alle sichtbaren
+Kameras gemittelt. Was der Bake bringt, ist die vierfach feinere Farbe
+(0,255 mm je Texel statt ~1 mm je Vertex) und die cos²-Wichtung statt der
+Gleichgewichtung – nicht die Rettung vor einem kaputten Verfahren.
+
+**Ein Fehler, den erst dieser Schritt gefunden hat:** `_MeshState` in
+`meshopt.py` legte Dreiecke **sortiert** ab (`np.sort`) statt **zyklisch
+gedreht**. Sortieren verliert die Umlaufrichtung. Der Dezimierer lieferte
+also Netze, in denen ein Teil der Dreiecke auf links stand – und zwar durch
+jeden Test hindurch, der nur Koordinaten und Indizes vergleicht. Erst
+xatlas hat es gesehen: **20.753 Charts aus 25.000 Dreiecken**, weil es die
+Nachbarschaft nicht mehr erkannte. Jetzt: `canon3()` dreht, `winding_errors()`
+prüft, `orient_mesh()` heilt (235.526 falsch laufende Kanten im Rohnetz → 0).
+
+### 7c. Gegenprobe mit fremden Lesern (M2 + M2b)
+
+`validate_exports.py` öffnet **19 Dateien** mit trimesh, `pxr`, echter
+Alembic-Bibliothek und assimp: **19 von 19 bestanden**.
+
+* **Normalen** in OBJ, PLY, USDA, USDZ, ABC – gelesen von trimesh, pxr und
+  Alembic (`N=130829 scope='3'` = `vtx`, längste Normale 1.0000). STL trägt
+  bewusst keine (nur die Flächennormale im 50-Byte-Satz).
+* **UV + Textur** in allen 12 LOD-Dateien: trimesh dekodiert das eingebettete
+  PNG (2048×2048 px), pxr findet `primvars:st` und die vollständige
+  Shader-Kette `UsdPrimvarReader_float2 → UsdUVTexture → UsdPreviewSurface`.
+* **FBX-Normalen sind die einzige Lücke**: `assimp info` meldet nur Zählwerte,
+  und der Test-Build hat den Export abgeschaltet – ein Urteil „fehlt“ wäre
+  hier gelogen. Geprüft werden sie von unserem eigenen Leser.
 
 ## 8. Was M0, M1 und M2 bewusst NICHT enthalten
 

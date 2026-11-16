@@ -54,7 +54,7 @@ SEED = 2026
 
 
 def verify_export(path: str, v: np.ndarray, f: np.ndarray,
-                  colors: np.ndarray) -> dict:
+                  colors: np.ndarray, normals: np.ndarray | None = None) -> dict:
     """Liest eine geschriebene Datei zurueck und vergleicht.
 
     Jedes Format hat seine eigenen Fallen -- deshalb prueft jedes Format
@@ -63,12 +63,30 @@ def verify_export(path: str, v: np.ndarray, f: np.ndarray,
     """
     res = {"file": os.path.basename(path), "passed": False, "note": ""}
     n_v, n_f = len(v), len(f)
+    # Normalen werden separat geprueft, weil sie in float32 stehen
+    # (GLB, ABC) oder gar nicht mitkommen (STL). Wer sie in den
+    # Geometrievergleich hineinmischt, prueft am Ende die Genauigkeit
+    # von float32 und nicht mehr die des Exports.
+    res["normals"] = None
+
+    def ncheck(got):
+        if normals is None or got is None:
+            return None
+        got = np.asarray(got, dtype=np.float64)
+        if got.shape != normals.shape:
+            return "Form %s != %s" % (got.shape, normals.shape)
+        return float(np.abs(got - normals).max())
+
     try:
         if path.endswith((".obj", ".ply", ".glb")):
             r = ex.roundtrip_check(path, v, f, colors)
             res["passed"] = bool(r["passed"])
             res["note"] = (f"{n_v:,} Punkte / {n_f:,} Dreiecke, "
                            f"max. Abweichung {r['max_vertex_error_mm']:.1e} mm")
+            if path.endswith((".obj", ".ply")):
+                back = (ex.read_obj(path) if path.endswith(".obj")
+                        else ex.read_ply(path))
+                res["normals"] = ncheck(back.get("normals"))
         elif path.endswith(".stl"):
             r = em.read_stl(path)
             want = v[f].reshape(-1, 3)
@@ -84,6 +102,11 @@ def verify_export(path: str, v: np.ndarray, f: np.ndarray,
                   and r["upAxis"] == "Y")
             err = float(np.abs(r["vertices"] - v).max()) if r["vertices"].shape == v.shape else float("inf")
             res["passed"] = bool(ok and err < 1e-6)
+            res["normals"] = ncheck(r.get("normals"))
+            if res["normals"] is not None and not isinstance(res["normals"], float):
+                res["passed"] = False        # Normalen fehlen oder sind falsch
+            elif isinstance(res["normals"], float) and res["normals"] > 1e-4:
+                res["passed"] = False
             res["note"] = (f"{n_v:,} Punkte, Indizes identisch, "
                            f"metersPerUnit={r['metersPerUnit']}, upAxis={r['upAxis']}")
         elif path.endswith(".usdz"):
@@ -103,6 +126,9 @@ def verify_export(path: str, v: np.ndarray, f: np.ndarray,
                   and "AbcGeom_PolyMesh_v1" in r["schema"])
             err = float(np.abs(r["vertices"] - v).max()) if r["vertices"].shape == v.shape else float("inf")
             res["passed"] = bool(ok and err < 1e-3)
+            res["normals"] = ncheck(r.get("normals"))
+            if not isinstance(res["normals"], float) or res["normals"] > 1e-4:
+                res["passed"] = False
             res["note"] = (f"Ogawa v{r['version']}, {n_v:,} Punkte (float32, "
                            f"max. Abweichung {err:.1e} mm), Schema PolyMesh_v1")
         elif path.endswith(".fbx"):
@@ -390,25 +416,48 @@ def main() -> int:
         cv, cf, cc = sv, sf, colors
     print(f"  Modell: {len(cv):,} Punkte / {len(cf):,} Dreiecke")
 
+    # Normalen kommen IMMER mit: sie sind aus dem Netz berechnet, also
+    # eine echte Verbesserung und kein Platzhalter. Ohne sie rechnet
+    # jedes Empfaengerprogramm sie neu -- und zwar nach Guenstling
+    # (Blender "winkelgewichtet", Maya "flach"), was zu zwei
+    # unterschiedlich aussehenden Modellen aus derselben Datei fuehrt.
+    #
+    # UVs bewusst NICHT: das M1-Netz hat keinen Atlas. Eine
+    # Kugelprojektion hier hineinzuschreiben wuerde so aussehen, als
+    # haetten wir Produktions-UVs -- haben wir aber nicht (docs/03, 11).
+    cn = mt.vertex_normals(cv, cf)
+
     jobs = [
-        ("OBJ", lambda p: ex.write_obj(p, cv, cf, cc), "facescan_m1.obj"),
-        ("PLY (binär)", lambda p: ex.write_ply(p, cv, cf, cc), "facescan_m1.ply"),
-        ("GLB", lambda p: ex.write_glb(p, cv, cf, cc), "facescan_m1.glb"),
+        ("OBJ", lambda p: ex.write_obj(p, cv, cf, cc, normals=cn),
+         "facescan_m1.obj"),
+        ("PLY (binär)", lambda p: ex.write_ply(p, cv, cf, cc, normals=cn),
+         "facescan_m1.ply"),
+        ("GLB", lambda p: ex.write_glb(p, cv, cf, cc, normals=cn),
+         "facescan_m1.glb"),
         ("STL (binär)", lambda p: em.write_stl(p, cv, cf), "facescan_m1.stl"),
-        ("USDA", lambda p: em.write_usda(p, cv, cf, cc), "facescan_m1.usda"),
-        ("USDZ", lambda p: em.write_usdz(p, cv, cf, cc), "facescan_m1.usdz"),
-        ("FBX 7.5 (binär)", lambda p: em.write_fbx(p, cv, cf, cc), "facescan_m1.fbx"),
-        ("Alembic (ABC)", lambda p: em.write_abc(p, cv, cf), "facescan_m1.abc"),
+        ("USDA", lambda p: em.write_usda(p, cv, cf, cc, normals=cn),
+         "facescan_m1.usda"),
+        ("USDZ", lambda p: em.write_usdz(p, cv, cf, cc, normals=cn),
+         "facescan_m1.usdz"),
+        ("FBX 7.5 (binär)", lambda p: em.write_fbx(p, cv, cf, cc, normals=cn),
+         "facescan_m1.fbx"),
+        ("Alembic (ABC)", lambda p: em.write_abc(p, cv, cf, normals=cn),
+         "facescan_m1.abc"),
     ]
     for label, writer, fname in jobs:
         path = os.path.join(OUT, fname)
         writer(path)
         size = os.path.getsize(path)
-        check = verify_export(path, cv, cf, cc)
+        check = verify_export(path, cv, cf, cc, cn)
         checks.append(check)
         status = "OK" if check["passed"] else "FEHLGESCHLAGEN"
+        note = check["note"]
+        if check.get("normals") is not None:
+            nv = check["normals"]
+            note += (" | Normalen " + (f"max. Abweichung {nv:.1e}"
+                                       if isinstance(nv, float) else nv))
         print(f"  {label:16s} {size / 1024:9.1f} kB | Ruecklese {status:15s} | "
-              f"{check['note']}")
+              f"{note}")
 
     # ---------------------------------------------------------- Bericht --
     report = {

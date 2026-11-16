@@ -42,6 +42,52 @@ static void walk(IObject obj, int depth)
         for (size_t i = 0; i < 3 && i < np; ++i)
             std::cout << pad << "  P[" << i << "] = " << p[i][0] << ", "
                       << p[i][1] << ", " << p[i][2] << "\n";
+
+        // Normalen. Alembic unterscheidet hier zwei Dinge, und genau
+        // daran scheitern selbstgeschriebene Writer:
+        //   samp.getNormals()     -> die Property "N"  (vertex-varying)
+        //   samp.getVelocities()  -> ...
+        // Ist "N" mit dem falschen geoScope geschrieben, liefert Alembic
+        // sie hier NICHT als N, sondern gar nicht -- deshalb steht die
+        // Zahl hier und nicht bloss "vorhanden".
+        IN3fGeomParam nrmParam = s.getNormalsParam();
+        if (nrmParam.valid())
+        {
+            IN3fGeomParam::Sample ns;
+            nrmParam.getExpanded(ns);
+            size_t nn = ns.getVals() ? ns.getVals()->size() : 0;
+            std::cout << pad << "  N=" << nn
+                      << " scope='" << nrmParam.getScope() << "'"
+                      << " indexed=" << (nrmParam.isIndexed() ? "ja" : "nein")
+                      << "\n";
+            if (nn >= 1 && nn == np)
+            {
+                const V3f *q = ns.getVals()->get();
+                double worst = 0.0;
+                for (size_t i = 0; i < nn; ++i)
+                {
+                    // Alembic normalisiert nicht nach. Wir pruefen nur,
+                    // dass die Werte NICHT alle null sind (ein haeufiger
+                    // Fehler: Extent 3, aber Payload aus Nullen).
+                    double len = std::sqrt(double(q[i][0]) * q[i][0]
+                                         + double(q[i][1]) * q[i][1]
+                                         + double(q[i][2]) * q[i][2]);
+                    worst = std::max(worst, len);
+                }
+                std::cout << pad << "  N[0]=" << q[0][0] << ", " << q[0][1]
+                          << ", " << q[0][2] << "  laengste="
+                          << worst << "\n";
+            }
+            else
+            {
+                std::cout << pad << "  ACHTUNG: N hat " << nn
+                          << " Werte, P hat " << np << "\n";
+            }
+        }
+        else
+        {
+            std::cout << pad << "  N=0 (keine Normalen-Property)\n";
+        }
     }
 
     for (size_t i = 0; i < obj.getNumChildren(); ++i)

@@ -6,8 +6,18 @@
 # alles davon vorhanden. Der CI-Lauf ist damit der Compiler — er sagt,
 # was falsch ist, und das ist mehr wert als ein blindes „sollte gehen".
 #
-# Der zweite Grund: eine APK, die nur auf einem Rechner entsteht, ist
-# nichts wert. Hier entsteht sie aus dem Stand, aus dem Repo, für jeden.
+# Zwei Eigenheiten dieser Umgebung, die man kennen muss, wenn man hier
+# etwas ändert:
+#
+#   * Logs und Artefakte kann die Entwicklungsumgebung NICHT abrufen
+#     (results-receiver.actions.githubusercontent.com ist gesperrt).
+#     Fehlermeldungen kommen deshalb als `::error::`/`::notice::`
+#     Workflow-Befehle heraus — die stehen in den Annotations und sind
+#     lesbar. Ein `run:`-Schritt, der sein Protokoll nur auf die Konsole
+#     schreibt, ist für uns verloren.
+#   * `sdkmanager` liegt auf dem Runner NICHT auf dem PATH (Exit 127).
+#     Es gibt kein cmdline-tools. Gebraucht wird es aber nur, wenn die
+#     Plattform fehlt — das prüfen wir, statt blind zu installieren.
 
 name: Test-APK
 
@@ -23,10 +33,10 @@ on:
     paths:
       - 'prototype/android/**'
       - '.github/workflows/apk.yml'
-  pull_request:
-    paths:
-      - 'prototype/android/**'
-      - '.github/workflows/apk.yml'
+
+permissions:
+  contents: read
+  issues: write          # für das Fehlerprotokoll in Issue #1
 
 jobs:
   # Erst die Mathematik. Die Kotlin-Tests prüfen denselben Stoff wie die
@@ -42,51 +52,31 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # Kein setup-android: der ubuntu-Runner bringt das Android-SDK schon
-      # mit (ANDROID_HOME ist gesetzt). Eine Abhaengigkeit weniger ist eine
-      # Fehlerquelle weniger -- und die hat hier schon einmal gereicht.
       - uses: gradle/actions/setup-gradle@v4
         with:
           # AGP 8.7 verlangt mindestens Gradle 8.9 — darunter bricht der
           # Build mit einer Meldung ab, die nichts über die Ursache sagt.
           gradle-version: '8.9'
 
-      - name: SDK-Plattform 35 installieren
+      - name: Android-SDK prüfen
         run: |
-          set -x
-          echo "ANDROID_HOME=${ANDROID_HOME:-leer} ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-leer}"
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
-          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "::notice title=SDK-Pfad::$SDK"
+          echo "::notice title=SDK-Inhalt::$(ls -1 "$SDK" 2>&1 | tr '\n' ' ')"
+          echo "::notice title=Plattformen::$(ls -1 "$SDK/platforms" 2>&1 | tr '\n' ' ')"
+          echo "::notice title=Build-Tools::$(ls -1 "$SDK/build-tools" 2>&1 | tr '\n' ' ')"
+          echo "::notice title=sdkmanager::$(command -v sdkmanager || echo nicht-auf-PATH)"
+          # Gradle findet das SDK über ANDROID_HOME -- und falls nicht,
+          # über local.properties. Beides zu setzen kostet eine Zeile und
+          # erspart die Suche danach, warum Gradle "SDK not found" sagt.
+          echo "sdk.dir=$SDK" > prototype/android/local.properties
 
       - name: Unit-Tests (Kotlin gegen die bekannte Wahrheit)
         working-directory: prototype/android
         run: |
           set -o pipefail
-          gradle --no-daemon :app:testDebugUnitTest 2>&1 | tee build.log
-
-
-      - name: Fehlerprotokoll melden
-        if: failure()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Die Entwicklungsumgebung kann Logs und Artefakte nicht abrufen
-          # (results-receiver.actions.githubusercontent.com ist gesperrt),
-          # kommt aber an Issues. Also steht das Protokoll hier, sonst
-          # wuerde ein fehlgeschlagener Build nur "failure" melden und
-          # niemand saehe, woran es liegt.
-          if [ ! -f prototype/android/build.log ]; then
-            echo "(kein build.log -- frueher Schritt gescheitert)" > /tmp/meldung.md
-          else
-            echo "## Lauf #${{ github.run_number }} — $(basename $GITHUB_JOB)" > /tmp/meldung.md
-            echo "Commit \`${{ github.sha }}\`, Job \`$GITHUB_JOB\`." >> /tmp/meldung.md
-            echo >> /tmp/meldung.md
-            echo '```' >> /tmp/meldung.md
-            tail -c 48000 prototype/android/build.log >> /tmp/meldung.md
-            echo '```' >> /tmp/meldung.md
-          fi
-          gh issue comment 1 --body-file /tmp/meldung.md || true
+          gradle --no-daemon :app:testDebugUnitTest 2>&1 | tail -n 400 | tee build.log
+          echo "::notice title=Testergebnis::$(grep -c 'PASSED' build.log 2>/dev/null) bestanden"
 
       - name: Testergebnis hochladen
         if: always()
@@ -95,6 +85,22 @@ jobs:
           name: testbericht
           path: prototype/android/app/build/reports/tests/
           if-no-files-found: ignore
+
+      - name: Fehlerprotokoll melden
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "## Lauf #${{ github.run_number }} — Job \`$GITHUB_JOB\`"
+            echo "Commit \`${{ github.sha }}\`."
+            echo
+            echo '```'
+            tail -c 30000 prototype/android/build.log 2>/dev/null \
+              || echo "(kein build.log — früher Schritt gescheitert)"
+            echo '```'
+          } > /tmp/meldung.md
+          gh issue comment 1 --body-file /tmp/meldung.md
 
   apk:
     runs-on: ubuntu-latest
@@ -110,51 +116,47 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: SDK-Plattform 35 installieren
+      - name: Android-SDK prüfen
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "::notice title=SDK-Pfad::$SDK"
+          echo "::notice title=Plattformen::$(ls -1 "$SDK/platforms" 2>&1 | tr '\n' ' ')"
+          echo "::notice title=Build-Tools::$(ls -1 "$SDK/build-tools" 2>&1 | tr '\n' ' ')"
+          echo "sdk.dir=$SDK" > prototype/android/local.properties
 
       - name: Debug-APK bauen
         working-directory: prototype/android
         run: |
           set -o pipefail
-          gradle --no-daemon :app:assembleDebug 2>&1 | tee build.log
+          gradle --no-daemon :app:assembleDebug 2>&1 | tail -n 400 | tee build.log
 
       - name: Kurzbericht
         run: |
           APK=prototype/android/app/build/outputs/apk/debug/app-debug.apk
           ls -l "$APK"
-          echo "Groesse: $(du -h "$APK" | cut -f1)"
-
-
-      - name: Fehlerprotokoll melden
-        if: failure()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Die Entwicklungsumgebung kann Logs und Artefakte nicht abrufen
-          # (results-receiver.actions.githubusercontent.com ist gesperrt),
-          # kommt aber an Issues. Also steht das Protokoll hier, sonst
-          # wuerde ein fehlgeschlagener Build nur "failure" melden und
-          # niemand saehe, woran es liegt.
-          if [ ! -f prototype/android/build.log ]; then
-            echo "(kein build.log -- frueher Schritt gescheitert)" > /tmp/meldung.md
-          else
-            echo "## Lauf #${{ github.run_number }} — $(basename $GITHUB_JOB)" > /tmp/meldung.md
-            echo "Commit \`${{ github.sha }}\`, Job \`$GITHUB_JOB\`." >> /tmp/meldung.md
-            echo >> /tmp/meldung.md
-            echo '```' >> /tmp/meldung.md
-            tail -c 48000 prototype/android/build.log >> /tmp/meldung.md
-            echo '```' >> /tmp/meldung.md
-          fi
-          gh issue comment 1 --body-file /tmp/meldung.md || true
+          echo "::notice title=APK::$(du -h "$APK" | cut -f1)"
 
       - uses: actions/upload-artifact@v4
         with:
           name: facescan-test-apk
           path: prototype/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Fehlerprotokoll melden
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "## Lauf #${{ github.run_number }} — Job \`$GITHUB_JOB\`"
+            echo "Commit \`${{ github.sha }}\`."
+            echo
+            echo '```'
+            tail -c 30000 prototype/android/build.log 2>/dev/null \
+              || echo "(kein build.log — früher Schritt gescheitert)"
+            echo '```'
+          } > /tmp/meldung.md
+          gh issue comment 1 --body-file /tmp/meldung.md
 
       - name: Release anlegen
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.release }}

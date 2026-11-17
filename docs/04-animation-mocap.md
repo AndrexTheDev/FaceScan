@@ -150,10 +150,63 @@ clip.fsmc/
   provenance.json       C2PA-Claims (signierte Herkunft, optional)
 ```
 
-Kanäle: 52 Blendshape-Gewichte (scalar) · Kopf-Pose (Translation vec3 + Rotation quat) · je Gelenk
-Rotation (quat) · Root-Translation (vec3) · 30 Finger-Gelenke (scalar) · optional Blickrichtung
-(vec3). **Größe:** ~2,4 KB/Frame bei 30 fps ≈ 4,3 MB/Minute mit int16-Quantisierung (verlustfrei genug;
-"Lossless"-Modus mit float32 optional).
+**Stand: umgesetzt im Prototyp** (`facescan_ref/motion_clip.py`, `python/build_clip.py`,
+ Prüfer `check_fsmc`). Ein erster Clip liegt als `meshes/facescan_clip.fsmc` vor:
+17 Kanäle, 48 Zahlen je Frame, 120 Frames @ 30 fps.
+
+Vier Entscheidungen, die im Text oben nicht stehen und doch im Format stecken:
+
+1. **Delta-Kodierung braucht Schlüsselframes.** Die Differenz zweier
+   aufeinanderfolgender int16-Werte kann bis zu 65535 betragen und paßt dann
+   nicht mehr in ein int16. Ein Lidschlag, den die Kamera mitten im Sprung
+   erwischt, sprengt das Format sonst. Deshalb steht alle
+   `keyframeIntervall` Frames (30 = eine Sekunde bei 30 fps) und zusätzlich
+   immer dann, wenn die Differenz nicht paßt, der **absolute** Wert im Block.
+   Welche Frames das sind, steht pro Kanal in `meta.json` — der Leser darf
+   nicht raten müssen.
+2. **Quaternionen müssen vorzeichen-stetig sein.** `q` und `-q` beschreiben
+   dieselbe Drehung. Eine Formel, die das nicht beachtet, liefert
+   abwechselnd `+q` und `-q` — und für die Delta-Kodierung ist das der GAU:
+   der Kanal springt in jedem Frame durch den ganzen Bereich, und jeder
+   Frame wird zum Schlüsselframe.
+3. **Die Offsets gelten im unkomprimierten Block.** `channels.bin` ist im
+   ZIP gezippt; `meta.json` beschreibt die entpackte Datei. Wer das
+   verwechselt, liest Müll.
+4. **Die Prüfsummen laufen über alle Einträge, auch über die beiden
+   JSONs.** Stünden sie nur über `channels.bin`, könnte jemand die
+   Kanaltabelle umschreiben (Namen, Skalierung) und die Prüfung bliebe
+   grün. `signiert: false` bedeutet dabei ausdrücklich: Unversehrtheit ja,
+   Herkunft nein. C2PA braucht einen Schlüssel.
+
+#### Größe — nachgemessen, nicht geschätzt
+
+Kanäle: 52 Blendshape-Gewichte (scalar) · Kopf-Pose (Translation vec3 +
+Rotation quat) · 37 Gelenke (quat) · Root-Translation (vec3) · 30
+Finger-Gelenke (scalar) · Blickrichtung (vec3) = **243 Zahlen je Frame**.
+
+| Variante | Byte/Frame | MB/Minute @ 30 fps | Deflate |
+|---|---|---|---|
+| roh (243 × int16) | 486 | **0,87** | – |
+| int16 überall, gezippt | 259 | **0,47** | 1,9× |
+| Stufen nach Bedarf, gezippt | 176 | **0,32** | 2,8× |
+| *frühere Schätzung im Text* | *2 400* | *4,3* | – |
+
+**Die alte Schätzung von 4,3 MB/Minute war um das 14-fache zu hoch.** 243
+Zahlen brauchen als int16 nun einmal 486 Byte, keine 2 400 — die Angabe war
+vermutlich eine Zahl aus der Luft, bevor die Kanalliste feststand.
+
+**Die zweite Zahl ist die eigentlich interessante:** mit 16 Bit überall
+bringt Deflate nur 1,9×. Der Grund ist das Quantisierungsrauschen selbst —
+ein langsam verlaufender Kanal, auf 65 536 Stufen gerundet, hat ein unteres
+Byte, das aussieht wie Zufall, und Zufall komprimiert nicht. Deshalb bekommt
+jeder Kanaltyp nur so viele Stufen, wie er braucht ( Mimik-Gewichte und
+Finger 10 Bit, Drehungen 14, Positionen 15). Der Container bleibt int16, die
+oberen Bits sind dann null — **derselbe Clip, dasselbe Format, 38 % weniger**.
+10 Bit auf einem Gewicht sind eine Stufe von 0,0005 und damit 16× genauer als
+das Jitter-Ziel von 0,008 aus Abschnitt 7.
+
+Gemessen mit einem Prüfsignal gleicher Kanalzahl (`build_clip.py`, Zahlen in
+`results/clip_report.json`): gemessen wird die Größe, nicht die Bewegung.
 
 ### 4.2 Aufnahme-UI
 

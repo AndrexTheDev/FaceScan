@@ -201,6 +201,20 @@ Die Brücke dorthin ist FBX/ABC/USD/OBJ + unser Blender-Add-on (Kapitel 9).
   allgemein genug, es fehlte die Bewegung, nicht das Format. Einheiten **Meter und Grad, Y-up** –
   BVH selbst trägt keine (s. §12.1).
 
+### 4.8b `.fsmc` (Aufnahmeformat, ab M3 fertig)
+- **Kein Exportziel**, sondern der eigene Clip-Container (F-405): ZIP mit
+  `manifest.json`, `meta.json` (Kanaltabelle mit Byte-Offset, Typ, min/max,
+  Stufenzahl), `channels.bin` (int16, delta-kodiert, little-endian),
+  optional `audio.m4a` und `provenance.json`. Spec und Maße in
+  `docs/04` (4.1).
+- **Warum es hier steht:** weil der Prüfer es prüft. `check_fsmc` liest den
+  Clip zurück und rechnet nach, ob jeder Kanal auf dem Stufenraster liegt,
+  das `meta.json` beschreibt. Ein Clip zu schreiben beweist nichts — erst
+  der Rückweg zählt (29/29 in `validate_exports.py`).
+- **Gemessene Größe** (voller Kanalsatz, 243 Zahlen je Frame): 0,87 MB/Minute
+  roh, **0,32 MB/Minute** gezippt mit Stufen nach Bedarf. Die frühere
+  Schätzung von 4,3 MB/Minute war um das 14-fache zu hoch.
+
 ### 4.9 VRM 1.0 (Avatar, ab M3 fertig)
 - VRM ist **kein eigenes Format**, sondern glTF 2.0 mit angehängter
   Erweiterung `VRMC_vrm`. Es gibt deshalb keinen eigenen Writer: `write_glb`
@@ -661,6 +675,15 @@ aus echten Fehlermeldungen fremder Leser entstanden:
   tragen keine Hautgewichte; die Datei ist gültig VRM und bewegt doch nur
   den Kopf. Geprüft gegen die Spec-Texte (Knoten- statt Knochenindizes,
   Pflichtknochen, T-Pose, Morph-Bindungen).
+* **`.fsmc`-Motion-Clip** — `python/build_clip.py` → `meshes/facescan_clip.fsmc`.
+  Aufnahmeformat nach F-405: 17 Kanäle, 48 Zahlen je Frame, 120 Frames @
+  30 fps, Gelenke als Quaternionen, Blickrichtung aus der Augendrehung
+  gerechnet. Der Rundweg liegt bei 4,9e-04 — genau einer halben
+  Quantisierungsstufe, wie die Rundung es verlangt. Der Prüfer rechnet das
+  aus den Metadaten nach, statt dem Schreiber zu glauben. Drei Randfälle
+  sind abgedeckt und gemessen: voller Wertebereichssprung in jedem Frame
+  (erzwingt 60 von 60 Schlüsselframes), konstanter Kanal (Spanne null) und
+  ein einzelner Frame.
 
 
 ### 12.3b In M2b erledigt (Stand: siehe prototype/README.md, Kap. 7b)

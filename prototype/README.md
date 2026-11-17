@@ -1,4 +1,4 @@
-# FaceScan – Prototyp (M0 + M1 + M2)
+# FaceScan – Prototyp (M0 + M1 + M2 + M3)
 
 **Zweck:** der ehrliche Machbarkeitsnachweis. Nicht hübsch, nicht vollständig – sondern die
 Antwort auf die eine Frage, an der das ganze Produkt hängt:
@@ -106,6 +106,7 @@ M2b, Teil 6 – das Drucknetz vereinfachen (s. §7h), ebenfalls mit dem Feld:
 /tmp/qrenv/bin/python prototype/reference/tools/build_print_lod.py       # ~20 min
 /tmp/qrenv/bin/python prototype/reference/python/build_rig.py            # ~5 s
 /tmp/qrenv/bin/python prototype/reference/python/build_vrm.py            # ~25 s
+/tmp/qrenv/bin/python prototype/reference/python/build_clip.py           # ~4 s
 ```
 
 ## 3. Ergebnisse (Stand dieses Commits)
@@ -631,8 +632,9 @@ nirgends nachlesen kann:
    einem Soll von 60,00 mm.
 
 Offen bleibt: die Schreib- und LOD-Seite ist fertig, und auch die Bewegung
-sitzt — Rig, Blendshapes und VRM sind in M3 dazugekommen. → siehe Kap. 7i.
-Was fehlt, sind allein die restlichen 46 ARKit-Mimiken (§12.2).
+sitzt — Rig, Blendshapes, VRM und der Motion-Clip sind in M3 dazugekommen.
+→ siehe Kap. 7i und 7j. Was fehlt, sind allein die restlichen 46
+ARKit-Mimiken (§12.2).
 
 ### 7i. M3: Rig, Animation und VRM (`build_rig.py`, `build_vrm.py`)
 
@@ -732,8 +734,64 @@ stehen spaltenweise, während Gelenkknoten ihre Verschiebung **relativ zum
 Elterngelenk** rechnen.
 
 Damit ist M3 vollständig: DAE mit Haut, BVH mit Skelett, GLB mit Mimik, VRM
-als Ganzes. Offen bleibt nur noch eins — die restlichen 46 ARKit-Formen, und
-die sind eine Frage des 3D-Modells, nicht des Exports (§12.2).
+als Ganzes und `.fsmc` für die Aufnahme (Kap. 7j). Offen bleibt nur noch eins
+— die restlichen 46 ARKit-Formen, und die sind eine Frage des 3D-Modells,
+nicht des Exports (§12.2).
+
+### 7j. M3, Teil 5: der Motion-Clip `.fsmc` (`build_clip.py`)
+
+Ein Avatar, der sich bewegt, braucht ein Format, in dem die Bewegung liegt,
+wenn die Kamera aus ist. Das ist `.fsmc` (F-405) — ein ZIP mit vier
+Einträgen: `manifest.json` (was ist das), `meta.json` (Kanaltabelle mit
+Byte-Offset, Typ, min/max), `channels.bin` (int16, **delta**-kodiert) und
+`provenance.json` (Prüfsummen).
+
+Der gelieferte Clip ist klein und ehrlich: **17 Kanäle, 48 Zahlen je Frame**
+— sechs Mimik-Gewichte, acht Gelenke als Quaternionen, Kopf-Pose und
+Blickrichtung. Nicht 243, weil der Prototyp keine 52 Mimiken und keine
+Finger hat. Die Blickrichtung ist dabei nicht erfunden, sondern die mit der
+Augendrehung gedrehte Vorwärtsachse.
+
+**Gemessene Größe** (voller, dokumentierter Kanalsatz aus `docs/04` 4.1 —
+243 Zahlen je Frame, Prüfsignal):
+
+| Variante | Byte/Frame | MB/Minute @ 30 fps |
+|---|---|---|
+| roh (243 × int16) | 486 | 0,87 |
+| int16 überall, gezippt | 259 | 0,47 |
+| **Stufen nach Bedarf, gezippt** | **176** | **0,32** |
+| *frühere Schätzung in docs/04* | *2 400* | *4,3* |
+
+Zwei Befunde, beide nur durch Messen zu haben:
+
+1. **Die alte Schätzung war um das 14-fache zu hoch.** 243 Zahlen brauchen
+   als int16 486 Byte, nicht 2 400. Die Zahl stand im Text, bevor die
+   Kanalliste feststand — und niemand hat sie nachgerechnet.
+2. **Zu genau quantisieren kostet mehr als es nutzt.** Mit 16 Bit überall
+   bringt Deflate nur 1,9×: ein langsam verlaufender Kanal, auf 65 536
+   Stufen gerundet, hat ein unteres Byte, das aussieht wie Zufall — und
+   Zufall komprimiert nicht. Deshalb bekommt jeder Kanaltyp nur so viele
+   Stufen, wie er braucht (Gewichte 10 Bit, Drehungen 14, Positionen 15).
+   Der Container bleibt int16, die oberen Bits sind null: **derselbe Clip,
+   dasselbe Format, 38 % weniger.** 10 Bit auf einem Gewicht sind eine Stufe
+   von 0,0005 und damit 16× genauer als das Jitter-Ziel von 0,008.
+
+**Der Rundweg ist der eigentliche Test.** `check_fsmc` liest den Clip zurück
+und rechnet aus den Metadaten nach, ob jeder Kanal auf dem Stufenraster
+liegt. Gemessen: größter Fehler **4,9e-04** — genau eine halbe Stufe, wie
+die Rundung es verlangt. Drei Randfälle sind abgedeckt und gemessen: ein
+Kanal, der in jedem Frame durch den vollen Bereich springt (erzwingt 60 von
+60 Schlüsselframes, weil die Differenz sonst nicht in ein int16 paßt); ein
+Kanal, der sich nie bewegt (Spanne null — ohne Schutz bricht die Division);
+und ein Clip aus genau einem Frame.
+
+Noch zwei Fallen, die im Format stecken: Quaternionen müssen
+**vorzeichen-stetig** sein, sonst liefert `+q`/`-q` im Wechsel Sprünge durch
+den ganzen Bereich und die Delta-Kodierung spart nichts mehr. Und die
+Prüfsummen müssen über **alle** Einträge laufen, auch über die beiden JSONs —
+sonst könnte jemand die Kanaltabelle umschreiben, und die Prüfung bliebe
+grün.
+
 
 ### 7h. M2b, Teil 6: das Drucknetz vereinfachen (`build_print_lod.py`)
 
@@ -887,17 +945,23 @@ Zwei Fehler, die erst unterwegs auffielen:
    von Winkeln weiß. Entwrappt (größter Schritt 10,0° statt 350,0°) steht die
    Bewegung richtig herum da.
 
-## 8. Was M0, M1 und M2 bewusst NICHT enthalten
+## 8. Was der Prototyp bewusst NICHT enthält
 
-Keine echte Gesichtserkennung (Landmarks und Tiefen kommen aus der synthetischen
-Ground Truth), keine Animation, kein Mocap, keine Freemium-/Krypto-Kasse, kein
-Gerätetest. M0 + M1 beweisen, dass die **Geometrie-Basis** trägt: Pose, Modell-Fit,
-Tiefenfusion, Haar-Volumen und die ersten drei Exportformate. Alles andere baut darauf
-auf (siehe `docs/11-roadmap.md`, `docs/03-scan-pipeline.md`).
+Keine echte Gesichtserkennung (Landmarks und Tiefen kommen aus der
+synthetischen Ground Truth), keine Freemium-/Krypto-Kasse, kein Gerätetest,
+kein Live-Tracking mit echter Kamera. Was der Prototyp stattdessen kann:
+Pose, Modell-Fit, Tiefenfusion, Haar-Volumen, **alle** Exportformate
+inklusive Rig, Mimik, VRM und Motion-Clip — und die Bewegung darin ist eine
+Prüfbewegung, keine aufgenommene.
 
-Export-Formate: **fertig** = OBJ, PLY (binär), GLB (binäres glTF), STL,
-USDA, USDZ, Alembic (ABC), binäres FBX 7.5. **Offen** = USDZ mit `.usdc`
-für AR Quick Look, Quadric Decimation, UV-Atlas.
+Die Geometrie-Basis trägt (M0 + M1, gegen synthetische Ground Truth), die
+Export-Basis trägt (M2 + M2b), und die Bewegungs-Basis trägt (M3): Rahmen
+und Gelenke aus dem Netz selbst bestimmt, Hautgewichte, Mimik, VRM und
+`.fsmc`. Alles Weitere baut darauf auf (siehe `docs/11-roadmap.md`,
+`docs/03-scan-pipeline.md`).
+
+Was von M3 **nicht** kommt: die restlichen 46 ARKit-Mimiken. Sie brauchen ein
+3DMM mit 52 Ausdrucksrichtungen — eine Frage des Modells, nicht des Exports.
 
 ## 9. Rechtliches
 

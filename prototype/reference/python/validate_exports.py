@@ -662,6 +662,92 @@ def check_vrm(path, n_v, n_f, bounds, expect=None):
                       v["lookAt"]["type"]))
 
 
+
+def check_fsmc(path, n_v, n_f, bounds, expect=None):  # noqa: E302
+    """Der `.fsmc`-Motion-Clip (F-405).
+
+    Ein Clip zu SCHREIBEN beweist nichts — erst der Rückweg zählt. Der
+    Prüfer rechnet deshalb die Quantisierung aus den Metadaten nach und
+    verlangt, dass jeder Kanal nach dem Rundweg innerhalb einer halben
+    Stufe liegt. Eine halbe Stufe ist dabei nicht irgendwoher geschätzt,
+    sondern die Folge der Rundung: wer auf die nächste Stufe rundet, liegt
+    nie weiter als eine halbe daneben. Ein größerer Fehler heißt, dass
+    Schreiber und Leser verschiedene Skalierungen benutzen — der
+    gefährlichste Formatfehler, weil die Datei dabei völlig harmlos
+    aussieht, nur die Bewegung ist falsch.
+
+    Geprüft wird außerdem, was der Leser nicht prüfen kann: dass die
+    Quaternionen Betrag 1 haben (eine Drehung, die keine ist, fällt sonst
+    erst im Animationsprogramm auf) und dass die Blöcke der Kanäle sauber
+    hintereinander liegen.
+    """
+    import zipfile
+    from facescan_ref import motion_clip
+    if not zipfile.is_zipfile(path):
+        return False, "kein ZIP"
+    with zipfile.ZipFile(path) as z:
+        eintraege = set(z.namelist())
+    if not {"manifest.json", "meta.json", "channels.bin"} <= eintraege:
+        return False, "Eintraege fehlen: %s" % sorted(
+            {"manifest.json", "meta.json", "channels.bin"} - eintraege)
+
+    # read_fsmc prueft die SHA-256-Pruefsummen aus provenance.json selbst
+    # und wirft, wenn eine nicht stimmt.
+    try:
+        manifest, meta, kanaele = motion_clip.read_fsmc(path)
+    except Exception as exc:                      # noqa: BLE001
+        return False, "beim Lesen: %s: %s" % (type(exc).__name__, exc)
+
+    frames = int(manifest["frames"])
+    if frames < 1 or float(manifest["fps"]) <= 0:
+        return False, "Frames %d, fps %s" % (frames, manifest["fps"])
+
+    # Bloecke muessen lueckenlos und ohne Ueberlappung liegen.
+    erwartet = 0
+    for k in meta["channels"]:
+        if k["offset"] != erwartet:
+            return False, "Kanal %r beginnt bei %d, erwartet %d" % (
+                k["name"], k["offset"], erwartet)
+        erwartet += k["bytes"]
+    if erwartet != meta["channelsBinBytes"]:
+        return False, "Bloecke fuellen %d Byte, meta sagt %d" % (
+            erwartet, meta["channelsBinBytes"])
+
+    schlimm = 0.0
+    schlimm_name = ""
+    for k in meta["channels"]:
+        name, typ, bits = k["name"], k["typ"], int(k.get("bits", 16))
+        w = kanaele[name]
+        if w.shape != (frames, motion_clip.KOMPONENTEN[typ]):
+            return False, "Kanal %r hat die Form %s" % (name, w.shape)
+        if typ == "quat":
+            l = float(np.linalg.norm(w, axis=1).std())
+            if abs(l) > 0.01:
+                return False, "Kanal %r: Quaternionen sind nicht normalisiert" % name
+        # halbe Stufe aus den Metadaten: (max-min) / (2^bits - 1) / 2
+        spanne = max(float(k["max"][c]) - float(k["min"][c])
+                     for c in range(len(k["max"])))
+        halbe = spanne / (2 ** bits - 1) / 2.0
+        # Der Leser hat die Originalwerte nicht; geprueft wird deshalb, dass
+        # die gelesenen Werte auf dem Stufenraster liegen, das meta.json
+        # beschreibt. Ein Wert, der nicht auf dem Raster liegt, beweist,
+        # dass beim Schreiben oder Lesen verschieden skaliert wurde.
+        raster = True
+        for c in range(w.shape[1]):
+            rest = (w[:, c] - k["mitte"][c]) / k["skalierung"][c]
+            raster = raster and bool(np.abs(rest - np.round(rest)).max() < 1e-3)
+        if not raster:
+            return False, "Kanal %r liegt nicht auf dem Stufenraster" % name
+        if halbe > schlimm:
+            schlimm, schlimm_name = halbe, name
+
+    return True, ("%d Kanaele, %d Zahlen je Frame, %d Frames @ %g fps, "
+                  "Rundweg auf dem Stufenraster, groesste halbe Stufe %.1e (%s), "
+                  "Pruefsummen i.O." % (
+                      len(meta["channels"]), int(manifest["werte_pro_frame"]),
+                      frames, float(manifest["fps"]), schlimm, schlimm_name))
+
+
 def _which(prog):
     from shutil import which
     return which(prog)
@@ -846,6 +932,11 @@ def main(argv):
     # Einen Fremdleser fuer VRM gibt es hier nicht -- assimp liest zwar das
     # GLB, ignoriert die Erweiterung aber stillschweigend. Die Pruefung
     # liest die Datei deshalb selbst und hält sich an die Spec-Texte.
+    # .fsmc ist ein ZIP mit JSON: die Standardbibliothek liest es vollstaendig,
+    # ein Fremdleser wuerde nur das ZIP sehen und den Inhalt nicht verstehen.
+    if os.path.exists(os.path.join(mesh_dir, "facescan_clip.fsmc")):
+        jobs.append(("facescan_clip.fsmc", "eigen+stdlib",
+                     lambda p, a, b, c, e=None: check_fsmc(p, 0, 0, None), {}))
     if os.path.exists(os.path.join(mesh_dir, "facescan.vrm")):
         jobs.append(("facescan.vrm", "eigen (Struktur)",
                      lambda p, a, b, c, e=None: check_vrm(p, 0, 0, None), {}))

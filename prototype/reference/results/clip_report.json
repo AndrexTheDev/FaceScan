@@ -1,0 +1,37 @@
+{
+  "datei": "meshes/facescan_clip.fsmc",
+  "schemaVersion": 1,
+  "fps": 30.0,
+  "frames": 120,
+  "dauer_s": 4.0,
+  "kanaele_dieses_clips": 17,
+  "werte_pro_frame_dieses_clips": 48,
+  "dateigroesse_bytes": 5246,
+  "bytes_pro_frame_roh": 96.0,
+  "bytes_pro_frame_gezippt": 23.675,
+  "groesster_relativer_fehler": 0.0004887585532747929,
+  "voll_kanaele": 123,
+  "voll_werte_pro_frame": 243,
+  "voll_kb_pro_frame_roh": 0.475,
+  "voll_mb_pro_minute_roh": 0.875,
+  "voll_messung": {
+    "16 Bit ueberall": {
+      "bytes_pro_frame_roh": 486,
+      "bytes_pro_frame_gezippt": 258.65,
+      "mb_pro_minute_roh": 0.875,
+      "mb_pro_minute_gezippt": 0.466,
+      "deflate": 1.879
+    },
+    "bedarfsgerecht": {
+      "bytes_pro_frame_roh": 486,
+      "bytes_pro_frame_gezippt": 175.533,
+      "mb_pro_minute_roh": 0.875,
+      "mb_pro_minute_gezippt": 0.316,
+      "deflate": 2.769
+    }
+  },
+  "voll_mb_pro_minute_gezippt": 0.316,
+  "dokumentierte_schaetzung_mb_pro_minute": 4.3,
+  "dokumentierte_schaetzung_faktor": 13.6,
+  "hinweis": "Die Zahlen des vollen Satzes stammen aus einem Prüfsignal, nicht aus echten Daten -- gemessen wird die Größe, nicht die Bewegung."
+}

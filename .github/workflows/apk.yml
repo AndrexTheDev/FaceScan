@@ -42,7 +42,10 @@ on:
       - '.github/workflows/apk.yml'
 
 permissions:
-  contents: read
+  # write, weil der letzte Schritt ein Release anlegen kann. Mit read
+  # schlägt genau DER Schritt fehl, der die APK aufs Telefon bringt --
+  # nachdem der Build längst grün war.
+  contents: write
   issues: write          # für das Fehlerprotokoll in Issue #1
 
 jobs:

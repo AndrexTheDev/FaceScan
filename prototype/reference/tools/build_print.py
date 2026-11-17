@@ -186,6 +186,18 @@ def main() -> int:
           f"Nachweisschwelle fuer Flaeche")
     sys.stdout.flush()
 
+    # Das Feld wird aufgehoben, damit der Hohlkörper (build_hollow.py)
+    # nicht die ganze Rekonstruktion noch einmal rechnen muß: Poisson,
+    # Schnitt und Sockel sind der teure Teil, das Aushöhlen dauert
+    # Sekunden und braucht mehrere Anläufe, bis die Wandstärke stimmt.
+    field_path = os.path.join(MESHES, "print_field.npz")
+    np.savez(field_path, field=chi2, lo=lo_e, h=h, level=level,
+             z_cut=z_cut, z_base=z_base, axis_xy=axis_xy,
+             r_top=r_top, r_bottom=r_bottom, v=bust_v, f=bust_f)
+    print(f"  Feld gesichert: {os.path.basename(field_path)} "
+          f"({os.path.getsize(field_path) / 1e6:.0f} MB)")
+    sys.stdout.flush()
+
     # ---------------------------------------------------- 4) Prüfungen ----
     banner("4)  Druckpruefungen")
     print("  kleinste lokale Dicke -- ein Strahl von der Oberflaeche nach")

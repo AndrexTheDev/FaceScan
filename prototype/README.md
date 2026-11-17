@@ -94,6 +94,12 @@ M2b, Teil 4 – die Aufnahmebahn als BVH, CSV und JSON (s. §7f):
 /tmp/qrenv/bin/python prototype/reference/tools/build_motion.py          # <1 s
 ```
 
+M2b, Teil 5 – der Hohlkörper (s. §7g). Braucht das Feld aus `build_print.py`:
+
+```bash
+/tmp/qrenv/bin/python prototype/reference/tools/build_hollow.py          # ~70 s
+```
+
 ## 3. Ergebnisse (Stand dieses Commits)
 
 Szene: 120 Punkte, 8 Aufnahmen, 1080×1920 bei 62° FOV, 1,0 px Landmark-Rauschen,
@@ -616,9 +622,62 @@ nirgends nachlesen kann:
    eine echte Messung zu halten. Geprüft wird gegen die Kugel: 59,97 mm bei
    einem Soll von 60,00 mm.
 
-Offen: eine Wandstärke im Sinne eines **Hohlkörpers** wird nicht geprüft –
-der Prototyp druckt massiv. Und das Netz ist mit 775 k Dreiecken für einen
-Druck unnötig fein; eine vereinfachte Fassung gibt es noch nicht.
+Offen bleibt: das Netz ist mit 775 k Dreiecken für einen Druck unnötig fein
+(hohl: 1,19 M); eine vereinfachte Fassung gibt es noch nicht.
+
+### 7g. M2b, Teil 5: der Hohlkörper (`build_hollow.py`)
+
+`docs/05` (12.2) verlangte zuletzt eine **Wandstärkenprüfung am Hohlkörper**
+– die letzte offene Stelle im Druckpfad. Dafür muß es erst einen Hohlkörper
+geben: `facescan_print_hollow.stl`, eine Schale mit 2,4 mm Wand, massivem
+Sockel und einem Ablaufloch von 10 mm durch die Standfläche.
+
+| geprüft | gemessen |
+|---|---|
+| Volumen | 1171,2 cm³ massiv → **541,8 cm³ hohl**, 54 % gespart |
+| Wandstärke (Ray-Cast, 9.812 Proben am Kopf) | median **2,34 mm**, p05 1,82, p01 **1,58** mm |
+| Wand unter der 1,2-mm-Grenze | **0,04 %** der Kopfoberfläche (4 von 9.812 Proben) |
+| Wasserdicht (eigener Prüfer) | 0 Randkanten, 0 nicht-manigfaltig, 1 Komponente, Euler 2 |
+| Wasserdicht (trimesh) | `is_watertight = True`, `euler_number = 2`, Volumen 541,8 cm³ |
+| Ablaufloch | Strahl vom Boden durch das Loch in den Hohlraum: 200 von 200 Proben außen |
+
+Vier Entscheidungen, und jede hat einen Grund:
+
+1. **Gefaltet wird das Feld, nicht das Netz.** `printcheck.shell_field` setzt
+   `phi = max(field − level, abstand − wand)`. Außen ist damit `phi` genau das
+   ursprüngliche Feld – die sichtbare Oberfläche bleibt bitgleich die der
+   massiven Büste. Ein Netz um 2,4 mm nach innen zu schieben, überlappt sich
+   an Haaren und Ohren selbst, weil der Versatz dort größer ist als die örtliche
+   Dicke. Eine Isofläche kann sich nie selbst schneiden: wo kein Platz ist,
+   schnürt der Hohlraum ab.
+2. **Der Sockel bleibt massiv.** Er ist der Teil, auf dem das Gewicht steht;
+   hohl würde die Büste oben schwerer und kippeliger. Das Aushöhlen gilt nur
+   oberhalb der Schnitthöhe.
+3. **Ohne Ablaufloch ist ein Hohlkörper ein Gefäß.** Harz bleibt darin und das
+   Teil reißt später auf; Pulver bekommt niemand heraus. Das Loch liegt in der
+   Standfläche, wo es nachher niemand sieht.
+4. **Die Wand wird kalibriert, nicht gesetzt.** Der Abstand kommt vom Gitter
+   (`band_distance`), und nachgemessen wird per Strahl. 2,4 mm ist die dünnste
+   Wand, deren 1-%-Quantil noch über der 1,2-mm-Grenze liegt.
+
+Fünf Dinge, die beim ersten Lauf schiefgegangen sind:
+
+1. **Das Feld läßt sich nicht falten.** Der erste Versuch war eine Isofläche im
+   Abstand `delta / |grad f|` – elegant und falsch: das Poisson-Feld ist bis auf
+   etwa 1,5 mm gesättigt, `|grad f|` fällt dort praktisch auf null. Bei 0,5 mm
+   Tiefe stimmt die Schätzung noch (0,59 statt 0,50 mm), bei 2,0 mm liefert sie
+   14 mm. Der Abstand muß über das Gitter kommen.
+2. **Der Randknoten sitzt eine halbe Gitterkante VOR der Fläche.** Der reine
+   Knotenabstand mißt bei 1,0 mm Tiefe 0,54 mm und bei 2,0 mm 1,50 mm. Mit der
+   halben Kante: 1,00 und 1,96 mm.
+3. **Der massive Sockel verschleppt jeden Median.** 42 % der Proben liegen auf
+   dem Sockel und messen dort 35 mm. Die Wand wird nur am Kopf gemessen.
+4. **Die Nadelschwelle kann keine Konstante sein.** Vier Gitterkanten sind für
+   einen massiven Körper richtig; hier verwirft sie 48 % der Messungen, weil die
+   Wand selbst dünn ist.
+5. **Euler = 2 heißt hier nicht „massive Kugel".** Eine Schale mit einem Loch
+   hat dieselbe Euler-Charakteristik. Die Verbindung nach außen prüft deshalb
+   ein Strahl, nicht die Topologie.
 
 ### 7f. M2b, Teil 4: die Aufnahmebahn als BVH, CSV und JSON (`build_motion.py`)
 

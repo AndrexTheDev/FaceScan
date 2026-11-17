@@ -14,10 +14,10 @@ Schätzungen:
   unten zeigt. Das ist der Anteil, den ein FDM-Drucker stützen muss.
 * `stand_report` -- Standfläche, Schwerpunkt und Kippsicherheit.
 
-Dazu drei Eingriffe ins **Feld** statt ins Netz: `cut_below`, `add_plinth`
-und `r_min_in_plane`. Ein Netz zu zerschneiden heißt, danach Löcher zu
-flicken und Umlaufrichtungen zu reparieren; ein Feld zu ändern heißt,
-denselben Marcher noch einmal laufen zu lassen.
+Dazu fünf Eingriffe ins **Feld** statt ins Netz: `cut_below`, `add_plinth`,
+`r_min_in_plane`, `shell_field` und `drill_hole`. Ein Netz zu zerschneiden
+heißt, danach Löcher zu flicken und Umlaufrichtungen zu reparieren; ein Feld
+zu ändern heißt, denselben Marcher noch einmal laufen zu lassen.
 """
 
 from __future__ import annotations
@@ -240,12 +240,158 @@ def add_plinth(field: np.ndarray, lo: np.ndarray, h: float, level: float,
     return field
 
 
+def _shift(arr, off):
+    """`out[q] = arr[q + off]`, außerhalb des Gitters überall False."""
+    out = np.zeros_like(arr)
+    src = tuple(slice(max(int(o), 0), arr.shape[k] + min(int(o), 0))
+                for k, o in enumerate(off))
+    dst = tuple(slice(max(-int(o), 0), arr.shape[k] + min(-int(o), 0))
+                for k, o in enumerate(off))
+    out[dst] = arr[src]
+    return out
+
+
+def band_distance(field, lo, h, level, max_mm):
+    """Abstand zur Oberfläche in Millimetern, aus dem Indikatorfeld.
+
+    Es ist der Abstand zum nächsten **Randknoten** -- also zu einem
+    Gitterknoten, der unmittelbar an der Fläche liegt -- plus einer
+    halben Gitterkante, denn genau so weit sitzt der Randknoten im Mittel
+    vor der Isofläche. Nachgemessen an diesem Feld (Strahl von der
+    Oberfläche nach innen, 4.000 Proben): bei 1,0 mm Tiefe liefert der
+    reine Knotenabstand 0,54 mm, mit der halben Kante 1,00 mm; bei 2,0 mm
+    entsprechend 1,50 und 1,96 mm. Es bleibt eine Streuung von gut
+    ±0,3 mm -- wer es genauer braucht, muß das Gitter verfeinern.
+
+    Warum nicht eleganter? Der erste Versuch hat das Feld **gefaltet**
+    (`phi = |u + d/2| - d/2`, eine Isofläche im Abstand `d/|grad u|`).
+    Das scheitert an diesem Feld: das Poisson-Feld ist bis auf eine
+    Übergangsbreite von knapp 1,5 mm gesättigt, `|grad u|` fällt dort
+    praktisch auf null. Bei 0,5 mm Tiefe stimmt die Schätzung noch
+    (0,59 statt 0,50 mm), bei 2 mm liefert sie 14 mm -- eine Schale von
+    2 mm läßt sich als Niveaufläche dieses Feldes also gar nicht
+    ausdrücken. Der Abstand über das Gitter ist gröber, aber überall
+    brauchbar.
+
+    Gerechnet wird nur bis `max_mm`; was weiter weg liegt, bekommt
+    `max_mm` und gilt damit als "tief drinnen" -- mehr braucht der
+    Hohlkörper nicht zu wissen.
+    """
+    inside = np.asarray(field, dtype=np.float64) < float(level)
+    # Randknoten: innen mit einem äußeren Nachbarn -- und umgekehrt, damit
+    # der Abstand auf beiden Seiten der Fläche gleich gezählt wird.
+    bnd = np.zeros_like(inside)
+    for ax in range(3):
+        for s in (-1, 1):
+            off = [0, 0, 0]
+            off[ax] = s
+            bnd |= (inside & ~_shift(inside, off)) | (~inside
+                                                      & _shift(inside, off))
+    r_max = float(max_mm) / float(h)
+    k_max = int(np.ceil(r_max))
+    d = np.full(inside.shape, float(max_mm), dtype=np.float64)
+    # Alle Gitterversätze bis r_max, der Länge nach sortiert: der erste
+    # Treffer ist der nächste, danach kann man aufhören.
+    offs = []
+    for i in range(-k_max, k_max + 1):
+        for j in range(-k_max, k_max + 1):
+            for k in range(-k_max, k_max + 1):
+                r = np.hypot(np.hypot(i, j), k)
+                if r <= r_max:
+                    offs.append((r * float(h), (i, j, k)))
+    offs.sort(key=lambda t: t[0])
+    done = np.zeros_like(inside)
+    for dist, off in offs:
+        todo = ~done
+        if not todo.any():
+            break
+        hit = _shift(bnd, off) & todo
+        if hit.any():
+            d[hit] = dist
+            done |= hit
+    # Der Randknoten sitzt eine halbe Zelle VOR der Fläche. Bei 2 mm
+    # Tiefe fehlten sonst 0,5 mm -- und die Wand wäre um eben die zu dünn.
+    return np.minimum(d + 0.5 * float(h), float(max_mm))
+
+
+def shell_field(field, lo, h, level, wall_mm, z_from=None, z_to=None,
+                max_mm=None):
+    """Macht aus einem massiven Körper einen Hohlkörper mit der Wand
+    `wall_mm` -- als Änderung am Feld, nicht am Netz.
+
+    Die Außenwand bleibt dabei bitgleich die des massiven Körpers. Das
+    erreicht die folgende Zusammensetzung über `maximum`:
+
+        phi = max(field - level, abstand - wall_mm)
+
+    Denn außen ist `field - level > 0` und damit `phi` genau das
+    ursprüngliche Feld -- die sichtbare Oberfläche fällt also mit der
+    gemessenen zusammen und wird nicht etwa nach außen verschoben.
+    Innen entscheidet der Abstand: näher als `wall_mm` an der Oberfläche
+    bleibt Material, weiter weg entsteht der Hohlraum.
+
+    Ein Netz um `wall_mm` nach innen zu schieben, würde sich an Haaren
+    und Ohren selbst überlappen, weil der Versatz dort größer ist als die
+    örtliche Dicke. Eine Isofläche eines Feldes kann sich nie selbst
+    schneiden: wo kein Platz ist, schnürt der Hohlraum ab und die Stelle
+    bleibt massiv -- genau das, was ein Drucker braucht.
+
+    `z_from`/`z_to` begrenzen das Aushöhlen auf einen Höhenbereich (der
+    Sockel soll massiv bleiben); außerhalb bleibt das Feld unangetastet.
+    """
+    field = np.asarray(field, dtype=np.float64)
+    level = float(level)
+    wall = float(wall_mm)
+    max_mm = float(max_mm) if max_mm else wall + 2.0 * float(h)
+    d = band_distance(field, lo, h, level, max_mm)
+    phi = np.maximum(field - level, d - wall)
+    if z_from is None and z_to is None:
+        return level + phi
+    z = float(lo[2]) + float(h) * np.arange(field.shape[2])[None, None, :]
+    keep = np.ones(field.shape[2], dtype=bool)
+    if z_from is not None:
+        keep &= z.ravel() >= float(z_from)
+    if z_to is not None:
+        keep &= z.ravel() <= float(z_to)
+    return level + np.where(keep[None, None, :], phi, field - level)
+
+
+def drill_hole(field, lo, h, level, center_xy, radius_mm, z_from, z_to,
+               margin=1.0):
+    """Bohrt ein senkrechtes Loch durch den Körper -- als Änderung am Feld.
+
+    Warum das nötig ist: ein Hohlraum ohne Ablauf ist beim Druck ein
+    Gefäß. Beim Harzdruck bleibt das flüssige Harz darin und das Teil
+    reißt später auf; beim Schmelzschichten nützt das Hohlsein nichts,
+    weil niemand das Pulver herausbekommt. Ein Loch unten im Sockel
+    verbindet den Hohlraum mit der Außenwelt -- erst damit ist der Körper
+    ein Hohlkörper und nicht eine geschlossene Blase.
+    """
+    field = np.asarray(field, dtype=np.float64).copy()
+    amp = float(np.abs(field - float(level)).max())
+    m = margin * max(amp, 1e-30)
+    nx, ny, nz = field.shape
+    x = float(lo[0]) + float(h) * np.arange(nx)
+    y = float(lo[1]) + float(h) * np.arange(ny)
+    z = float(lo[2]) + float(h) * np.arange(nz)
+    rad = np.hypot((x - float(center_xy[0]))[:, None, None],
+                   (y - float(center_xy[1]))[None, :, None])
+    inside = ((rad <= float(radius_mm))
+              & (z[None, None, :] >= float(z_from))
+              & (z[None, None, :] <= float(z_to)))
+    field[inside] = float(level) + m
+    return field
+
+
 # -------------------------------------------------------- Dicke ----------
 
 def local_thickness(v: np.ndarray, f: np.ndarray, field: np.ndarray,
                     lo: np.ndarray, h: float, level: float,
                     n_samples: int = 20_000, step_mm: float | None = None,
-                    max_mm: float = 250.0, seed: int = 2026) -> dict:
+                    max_mm: float = 250.0, seed: int = 2026,
+                    z_from: float | None = None,
+                    artefact_mm: float | None = None,
+                    limit_mm: float | None = None) -> dict:
     """Kleinste lokale Dicke des Körpers, gemessen durch den Körper hindurch.
 
     Verfahren: Stichproben auf der Oberfläche, und von jeder aus ein Strahl
@@ -262,11 +408,30 @@ def local_thickness(v: np.ndarray, f: np.ndarray, field: np.ndarray,
 
     Rückgabe: `min_mm`, `p01_mm`, `p05_mm`, `median_mm` und `at_mm`
     (die Stelle der dünnsten Probe).
+
+    `z_from` läßt nur Proben oberhalb dieser Höhe zu -- gebraucht wird
+    das beim Hohlkörper: die Wand sitzt am Kopf, und die dicken Proben
+    vom massiven Sockel würden jeden Median verschleppen.
+    `artefact_mm` setzt die Schwelle, unter der eine Messung für ein
+    Nadeldreieck gehalten wird. Vier Gitterkanten (die Voreinstellung)
+    passen zu einem MASSIVEN Körper; bei einem Hohlkörper ist die Wand
+    selbst dünn, und die Schwelle würde die Hälfte aller Messungen als
+    Artefakt wegwerfen.
+
+    `limit_mm` zählt, welcher ANTEIL der Proben unter einer Grenze liegt.
+    Das ist die verläßlichere Zahl als das Minimum: ein einziger Strahl,
+    der schräg durch eine Haarspitze läuft, liefert ein Minimum, das mit
+    dem Schritt des Strahls wandert (0,91 mm bei halber, 0,64 mm bei
+    viertel Gitterkante) und von der Wand gar nicht handelt. Der Anteil
+    bleibt davon unberührt.
     """
     step = float(step_mm) if step_mm else 0.5 * float(h)
     pts, tri = sample_surface(v, f, int(n_samples), seed=seed,
                               return_index=True)
     fn = _unit(face_normals(v, f)[tri])
+    if z_from is not None:
+        keep = pts[:, 2] >= float(z_from)
+        pts, fn = pts[keep], fn[keep]
     level = float(level)
     # Auf welcher Seite liegt innen? Wir prüfen es, statt es zu glauben:
     # das Netz aus dem Isofeld kommt mit nach INNEN zeigenden Normalen.
@@ -311,9 +476,15 @@ def local_thickness(v: np.ndarray, f: np.ndarray, field: np.ndarray,
     # zur wirklichen Oberfläche, und der Strahl läuft an der Haut entlang
     # statt in den Körper hinein. Sie werden gezählt und gemeldet, aber
     # nicht als Dicke verkauft.
-    arte = t <= 4.0 * step
+    arte = t <= (4.0 * step if artefact_mm is None else float(artefact_mm))
     solid = t[~arte]
+    below = (None if limit_mm is None
+             else float(np.mean(t < float(limit_mm))))
     return {"min_mm": float(t.min()),
+            "below_limit_frac": below,
+            "below_limit_n": (None if limit_mm is None
+                              else int((t < float(limit_mm)).sum())),
+            "limit_mm": (None if limit_mm is None else float(limit_mm)),
             "p01_mm": float(np.percentile(t, 1)),
             "p05_mm": float(np.percentile(t, 5)),
             "median_mm": float(np.median(t)),

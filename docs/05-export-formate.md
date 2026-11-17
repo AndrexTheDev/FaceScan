@@ -107,6 +107,11 @@ Die Brücke dorthin ist FBX/ABC/USD/OBJ + unser Blender-Add-on (Kapitel 9).
 - **STL:** binär (80-Byte-Header + uint32 Dreieckszahl + 50 Byte je Dreieck), Einheit mm,
   **watertight-Variante** (Poisson), optional Sockel (Zylinder/Rundfuß, 6 mm), Wandstärkenprüfung
   (Ray-Cast: Min. 1,2 mm) mit Warnung.
+- **Hohlkörper-Variante** (`meshes/facescan_print_hollow.stl`, seit M2b): Schale mit 2,4 mm Wand
+  über der Schnitthöhe, **massiver Sockel** (Schwerpunkt unten) und einem **Ablaufloch** (r = 5 mm)
+  durch die Standfläche. Volumen 1171 → 542 cm³, also **54 % gespart**. Die Wand wird kalibriert
+  und danach mit dem Ray-Cast nachgemessen: median 2,34 mm, p01 1,58 mm, 0,04 % der Kopfoberfläche
+  unter der 1,2-mm-Grenze. Einzelheiten in README, Kap. 7g.
 
 ### 4.4 Collada (DAE 1.4.1)
 - **Im Prototyp geschrieben** (`export_more.write_dae`, seit M2b): `library_geometries` mit
@@ -315,6 +320,7 @@ Stand: `prototype/reference/python/facescan_ref/export_more.py`, geprüft mit
 | PLY (binär) | `export_mesh.py` | identisch bis 4e-6 mm | trimesh ✔ |
 | GLB | `export_mesh.py` | identisch bis 4e-6 mm | trimesh ✔ |
 | STL (binär + ASCII) | `export_more.py` | 257.044 Facetten, 4e-6 mm | trimesh ✔ |
+| STL (Hohlkörper) | `tools/build_hollow.py` | wasserdicht, Euler 2, Ablaufloch begehbar, Wand 2,34 mm (median) | trimesh ✔ |
 | USDA | `export_more.py` | Indizes identisch | `usd-core` (Pixar) ✔ |
 | USDZ | `export_more.py` | 5 Apple-Regeln nachgemessen | `usd-core` ✔ |
 | FBX 7.5 (binär) | `export_more.py` | 130.829 Punkte, Polygon-Konvention ✔ | assimp ✔ |
@@ -463,11 +469,48 @@ aus echten Fehlermeldungen fremder Leser entstanden:
     nichts von Winkeln weiß. Bei der Aufnahmebahn: größter Sprung 350,0°
     → nach dem Entwrapen 10,0°.
 
+**Hohlkörper (3D-Druck)**
+31. **Eine Schale läßt sich NICHT als Niveaufläche des Poisson-Feldes
+    schreiben.** Das Feld ist bis auf eine Übergangsbreite von knapp
+    1,5 mm gesättigt — `|grad u|` fällt dort praktisch auf null. Der
+    Abstand `|u| / |grad u|` stimmt bei 0,5 mm Tiefe noch (0,59 statt
+    0,50 mm), liefert bei 1,0 mm schon 1,46 mm und bei 2,0 mm rund
+    14 mm. Der Abstand muß deshalb über das Gitter kommen.
+32. **Der Abstand zum nächsten Randknoten ist um eine halbe Gitterkante
+    zu klein**, weil der Randknoten eine halbe Zelle VOR der Isofläche
+    sitzt. Nachgemessen: bei 1,0 mm Tiefe 0,54 mm, mit der halben Kante
+    1,00 mm; bei 2,0 mm 1,50 → 1,96 mm. Es bleibt eine Streuung von gut
+    ±0,3 mm — die Wandstärke wird kalibriert, nicht gesetzt.
+33. **Der massive Sockel verschleppt jeden Median.** 42 % der
+    Oberflächenproben liegen auf dem Sockel, und dort mißt der Strahl
+    35 mm statt 2 mm. Die Wand wird deshalb nur am Kopf gemessen.
+34. **Die Nadelschwelle ist keine Konstante.** Vier Gitterkanten sind für
+    einen massiven Körper richtig; bei einem Hohlkörper ist die Wand
+    selbst dünn, und dieselbe Schwelle verwirft die Hälfte aller
+    Messungen als Artefakt.
+35. **Das Minimum wandert mit dem Schritt des Strahls** (0,91 mm bei
+    halber, 0,64 mm bei viertel Gitterkante) — es handelt von einer
+    Haarspitze, nicht von der Wand. Verläßlich ist der **Anteil** der
+    Proben unter der Grenze, nicht die kleinste Einzelmessung.
+36. **Ohne Ablaufloch wirft das Aufräumen den Hohlraum weg.** Der
+    Marcher erzeugt dann zwei Schalen, `largest_component` behält die
+    äußere, und heraus kommt ein massiver Kopf, an dem niemand den
+    Fehler sieht. Und: **Euler = 2 heißt hier nicht „massive Kugel"** —
+    eine Schale mit einem Loch hat ebenfalls χ = 2 (Außenkugel und
+    Innenkugel je ohne eine Kreisscheibe, plus der Zylinder dazwischen:
+    1 + 1 + 0). Die Verbindung nach außen prüft man deshalb mit einem
+    Strahl, nicht mit der Euler-Charakteristik.
+
 ### 12.2 Offen
-* STL für den 3D-Druck: **Wandstärke eines Hohlkörpers** wird nicht geprüft –
-  der Prototyp druckt massiv. Sockel, Standfläche, Überhang und kleinste
-  lokale Dicke sind seit M2b gemessen (s. §12.3), die Lücken „nicht
-  wasserdicht" und „keine Standfläche" sind damit geschlossen.
+* **Das Drucknetz ist zu fein.** 775 k Dreiecke (hohl: 1,19 M) braucht kein
+  Drucker; eine vereinfachte Fassung mit einer Formfehlergrenze gibt es
+  noch nicht. Die LOD-Kette (§12.3) rechnet bisher nur für die Anzeige,
+  und ihr Ziel ist Dreieckszahl, nicht Druckschärfe.
+* **Rig und Animation (M3).** Ohne sie bleiben `library_controllers` im DAE,
+  ein BVH mit echtem Skelett statt der Aufnahmebahn, VRM und die
+  Blendshapes offene Posten. Die Schreiber für BVH, CSV und JSON sind
+  fertig und allgemein (Hierarchie + Kanäle); es fehlt die Bewegung, nicht
+  das Format.
 
 ### 12.3 In M2b erledigt (Stand: siehe prototype/README.md, Kap. 7b)
 * **Quadric Decimation** — LOD-Kette 300 k / 80 k / 20 k / 6 k
@@ -513,6 +556,23 @@ aus echten Fehlermeldungen fremder Leser entstanden:
   kleinste lokale Dicke 1,82 mm, Überhänge steiler als 45° auf 27,9 % der
   Fläche. Gegen die Kugel (r = 30 mm) nachgerechnet: 59,97 mm gemessene
   Dicke bei 60,00 mm Soll. Einzelheiten in README, Kap. 7e.
+* **Hohlkörper für den 3D-Druck** — `tools/build_hollow.py`
+  (Schreiber `printcheck.shell_field` und `drill_hole`). Die Büste wird
+  zur Schale: 2,4 mm Wand über der Schnitthöhe, **massiver Sockel**
+  (damit der Schwerpunkt unten bleibt, wo ihn die Kippsicherheit
+  braucht) und ein Ablaufloch von 10 mm durch die Standfläche — ohne das
+  wäre der Hohlraum ein Gefäß, aus dem kein Harz und kein Pulver wieder
+  herauskommt. Gefaltet wird das **Feld**, nicht das Netz: ein Netz um
+  2 mm nach innen zu schieben, überlappt sich an Haaren und Ohren
+  selbst, eine Isofläche kann sich nie selbst schneiden. Ergebnis
+  `meshes/facescan_print_hollow.stl`: 593.193 Punkte / 1.186.382
+  Dreiecke, **wasserdicht** (eigener Prüfer und trimesh: 0 Randkanten,
+  1 Komponente, Euler 2), Volumen 1171,2 → **541,8 cm³ (54 % gespart)**.
+  Wandstärke nachgemessen mit dem Ray-Cast: median 2,34 mm, p05 1,82 mm,
+  p01 1,58 mm; 0,04 % der Kopfoberfläche liegen unter der 1,2-mm-Grenze
+  aus §4.3. Daß der Hohlraum wirklich mit der Außenwelt verbunden ist,
+  prüft ein Strahl vom Boden durch das Loch bis in den Hohlraum — alle
+  200 Proben außen. Einzelheiten in README, Kap. 7g.
 * **Aufnahmebahn als BVH, CSV und JSON** — `tools/build_motion.py`,
   Schreiber und Leser in `export_more.py`. Was M2 an Bewegung hat, ist
   nicht der Rig (der kommt mit M3), sondern die Aufnahme selbst: 16

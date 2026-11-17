@@ -107,6 +107,7 @@ M2b, Teil 6 – das Drucknetz vereinfachen (s. §7h), ebenfalls mit dem Feld:
 /tmp/qrenv/bin/python prototype/reference/python/build_rig.py            # ~5 s
 /tmp/qrenv/bin/python prototype/reference/python/build_vrm.py            # ~25 s
 /tmp/qrenv/bin/python prototype/reference/python/build_clip.py           # ~4 s
+/tmp/qrenv/bin/python prototype/reference/python/build_project.py       # ~9 s
 ```
 
 ## 3. Ergebnisse (Stand dieses Commits)
@@ -734,7 +735,8 @@ stehen spaltenweise, während Gelenkknoten ihre Verschiebung **relativ zum
 Elterngelenk** rechnen.
 
 Damit ist M3 vollständig: DAE mit Haut, BVH mit Skelett, GLB mit Mimik, VRM
-als Ganzes und `.fsmc` für die Aufnahme (Kap. 7j). Offen bleibt nur noch eins
+als Ganzes und `.fsmc` für die Aufnahme (Kap. 7j). Und der ganze Scan liegt
+jetzt in einem wiederöffnbaren Projekt (Kap. 7k). Offen bleibt nur noch eins
 — die restlichen 46 ARKit-Formen, und die sind eine Frage des 3D-Modells,
 nicht des Exports (§12.2).
 
@@ -791,6 +793,60 @@ den ganzen Bereich und die Delta-Kodierung spart nichts mehr. Und die
 Prüfsummen müssen über **alle** Einträge laufen, auch über die beiden JSONs —
 sonst könnte jemand die Kanaltabelle umschreiben, und die Prüfung bliebe
 grün.
+
+
+### 7k. Der Projektcontainer `.fscan` (`build_project.py`)
+
+Bis hier waren alle Dateien **Exporte**: Ansichten für fremde Programme. Ein
+Export wirft weg, was das Zielprogramm nicht versteht — Kameraposen,
+Landmarks, Hautgewichte, Prüfbericht. `.fscan` ist das Gegenteil: der
+Behälter, aus dem alle Exporte erst gemacht werden, verlustfrei und
+wiederöffnbar (`docs/06`, 2).
+
+Gebaut: **18,6 MB, 27 Einträge** — die komplette Geometrie-Kette (742 k Roh-
+Netz plus LOD0–3 mit UVs), Haarkappe und Kopfhaut-UV, Kamerakalibrierung mit
+16 Posen, Landmarks, Skelett mit Bindematrizen, Hautgewichte, sechs
+Blendshapes, Texturatlas, der `.fsmc`-Clip und ein QA-Bericht aus elf
+Teilberichten. Beim Öffnen werden **27 SHA-256-Prüfsummen** nachgerechnet.
+
+**23 von 30 Einträgen** des dokumentierten Baums sind gefüllt. Sieben fehlen,
+und sie fehlen *absichtlich*:
+
+| Eintrag | fehlt, weil |
+|---|---|
+| `capture/frames/` | die Aufnahmen sind gerendert, nicht fotografiert |
+| `rig/base_head.bin` | braucht eine registrierte Basistopologie (NRICP) |
+| `rig/blendshape_calib.json` | F-402 (Nutzer-Kalibrierung) ist nicht gebaut |
+| `hair_cards.bin`, `hair_strands.bin` | Haar-Stufe L2/L3 ist nicht gebaut |
+| `c2pa_manifest.c2pa` | C2PA braucht einen Signaturschlüssel |
+| `license.json` | Entitlement und Kasse sind nicht gebaut |
+
+Keine leere Platzhalter-Datei. Ein Platzhalter behauptet einen Inhalt, den es
+nicht gibt — und das ist genau der Fehler, den kein Prüfer findet und der
+Nutzer erst beim Öffnen merkt. `project.inventar()` listet die Lücken auf.
+
+Drei Fallen, die erst beim Bauen auffielen:
+
+1. **Vier auf uint8 gerundete Gewichte ergeben nicht mehr 255.** Der Rest
+   kommt auf den größten Einfluß. Ohne diesen Schritt summieren die Gewichte
+   eines Punktes auf **1,0039 statt 1,0** — und das Netz *wandert beim
+   Abspielen*, obwohl es stillstehen soll, weil die Gelenke mit leicht zu viel
+   Gesamtkraft ziehen. Der Prüfer verlangt deshalb exakt 1,0. (Gemessen nach
+   dem Rückweg: 1,0000.)
+2. **Pro Achse skalieren, nicht mit einem Faktor.** Bei einem Kopf fällt der
+   Unterschied nicht auf; bei einem Körper (1,80 × 0,50 × 0,30 m) verschenkt
+   ein gemeinsamer Faktor auf zwei Achsen je zwei Bit. Ergebnis: größter
+   Punktfehler **0,0018 mm** — drei Größenordnungen unter dem, was der Scan
+   selbst kann.
+3. **Die Kopfhaut ist nicht „wo Haare sind".** Fragt man nur die Richtung ab,
+   sind **83 %** des Netzes Kopfhaut: der Scan enthält das Haarvolumen, und
+   dessen Außenfläche stellt den größten Teil der Oberfläche. Richtig sind
+   Punkte im Haarbereich, die **unter** der Haaraußenfläche liegen — dann
+   sind es 34 %, und die sitzen oben und hinten.
+
+Der Rückweg ist wieder der Test: LOD0 kommt mit 0,0018 mm zurück (genau eine
+halbe Quantisierungsstufe), `jawOpen` mit 0,0001 mm von 5,0 mm, und die
+Gewichte summieren auf 1,0000. **30/30 in `validate_exports.py`.**
 
 
 ### 7h. M2b, Teil 6: das Drucknetz vereinfachen (`build_print_lod.py`)
@@ -960,8 +1016,10 @@ und Gelenke aus dem Netz selbst bestimmt, Hautgewichte, Mimik, VRM und
 `.fsmc`. Alles Weitere baut darauf auf (siehe `docs/11-roadmap.md`,
 `docs/03-scan-pipeline.md`).
 
-Was von M3 **nicht** kommt: die restlichen 46 ARKit-Mimiken. Sie brauchen ein
-3DMM mit 52 Ausdrucksrichtungen — eine Frage des Modells, nicht des Exports.
+Was **nicht** kommt: die restlichen 46 ARKit-Mimiken. Sie brauchen ein 3DMM
+mit 52 Ausdrucksrichtungen — eine Frage des Modells, nicht des Exports. Der
+Projektcontainer `facescan.fscan` füllt 23 der 30 Einträge aus `docs/06`; die
+sieben fehlenden stehen mit Grund in Kap. 7k.
 
 ## 9. Rechtliches
 

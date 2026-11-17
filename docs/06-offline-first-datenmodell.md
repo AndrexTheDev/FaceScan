@@ -73,6 +73,70 @@ Mein-Kopf.fscan
   12-Byte-Nonce + 16-Byte-Tag je Chunk). Beim **Nutzer-Export über SAF** wird wahlweise (a) entschlüsselt als
   normales ZIP oder (b) als verschlüsseltes `.fsvault` geschrieben.
 
+**Stand: im Prototyp gebaut** — `facescan_ref/project.py`, `python/build_project.py`,
+Prüfer `check_fscan` (30/30 in `validate_exports.py`). Ein erstes Projekt liegt als
+`meshes/facescan.fscan` vor: **18,6 MB, 27 Einträge, davon 23 der 30 oben aufgeführten**.
+
+#### Binärlayout der `*.bin`-Dateien
+
+Die Spec sagt „int16 mit Scale im JSON" — aber in WHELCHER Datei? Steht die
+Skalierung daneben, ist das Netz ohne sie wertlos, und genau die Datei geht
+verloren, wenn jemand „nur die Geometrie" weitergibt. Deshalb trägt jede
+Binärdatei ihren Kopf selbst:
+
+```
+"FSMB"                 4 Byte  Kennung (FaceScan Mesh Binary)
+Länge des JSON-Kopfs   4 Byte  uint32, little-endian
+JSON-Kopf              L Byte  UTF-8: Zahlen, Datentypen, Skalierung, Versatz
+Nutzdaten              …       int16-Punkte, uint32-Dreiecke, uint16-UV …
+```
+
+Alles little-endian. Die Erzeugung ist deterministisch (festes ZIP-Datum), damit
+zwei Läufe bitgleich vergleichbar sind.
+
+#### Was der Prototyp füllt — und was nicht
+
+| Eintrag | Stand |
+|---|---|
+| `manifest.json`, `meta.json` | gefüllt, Prüfsummen über **jede** Datei |
+| `capture/calibration.json`, `perception.bin` | gefüllt: K, 16 Posen, 8 Landmarks |
+| `geometry/mesh_skin_hi.bin`, `mesh_skin_lod0..3.bin` | gefüllt: 742 k und 161 k / 45 k / 12 k / 3,8 k Punkte |
+| `geometry/hair_cap.bin`, `scalp_uv.bin` | gefüllt (Haar-Stufe L1) |
+| `rig/skeleton.json`, `weights.bin`, `blendshapes/` (6), `morph_names.json` | gefüllt |
+| `textures/basecolor.png` | gefüllt, aber **2048er** Atlas — docs/06 nennt 4K |
+| `animation/clips/`, `library.json` | gefüllt mit dem `.fsmc`-Prüfclip |
+| `qa/report.json` | gefüllt aus 11 Teilberichten, **keine Zahl neu gerechnet** |
+| `capture/frames/` | fehlt — die Aufnahmen sind gerendert, nicht fotografiert |
+| `rig/base_head.bin` | fehlt — braucht eine registrierte Basistopologie (NRICP) |
+| `rig/blendshape_calib.json` | fehlt — F-402 ist nicht gebaut |
+| `hair_cards.bin`, `hair_strands.bin` | fehlen — Haar-Stufe L2/L3 ist nicht gebaut |
+| `provenance/c2pa_manifest.c2pa` | fehlt — C2PA braucht einen Schlüssel |
+| `license.json` | fehlt — Entitlement und Kasse sind nicht gebaut |
+
+Diese Einträge werden **weggelassen**, nicht durch leere Dateien ersetzt. Ein
+Platzhalter behauptet einen Inhalt, den es nicht gibt — und genau das ist der
+Fehler, den ein Prüfer nicht findet und der Nutzer erst beim Öffnen merkt.
+`project.inventar()` gibt die Liste aus, `results/project_report.json` hält sie fest.
+
+#### Drei Fallen, die erst beim Bauen auffielen
+
+1. **Vier auf uint8 gerundete Gewichte ergeben nicht mehr 255.** Der Rest —
+   bis zu zwei Einheiten — kommt auf den größten Einfluß (der ist mindestens
+   255/4 = 64, es kann also nichts überlaufen). Ohne diesen Schritt summieren
+   die Gewichte eines Punktes auf 1,0039 statt 1,0, und das Netz **wandert
+   beim Abspielen**, obwohl es stillstehen soll: die Gelenke ziehen mit leicht
+   zu viel Gesamtkraft. Der Prüfer verlangt deshalb exakt 1,0.
+2. **Pro Achse skalieren, nicht mit einem Faktor.** Ein Kopf ist 220 mm breit,
+   213 hoch, 230 tief — da fällt es nicht auf. Ein Körper ist 1,80 m × 0,50 m ×
+   0,30 m: mit einem gemeinsamen Faktor verschenkt man auf Y und Z je zwei Bit.
+   Gemessene Genauigkeit am Referenzkopf: **0,0018 mm** größter Punktfehler bei
+   16 Bit — drei Größenordnungen unter dem, was der Scan selbst kann.
+3. **Die Kopfhaut ist nicht „wo Haare sind".** Fragt man nur die Richtung ab,
+   sind **83 %** des Netzes Kopfhaut — der Scan enthält das Haarvolumen, und
+   dessen Außenfläche stellt den größten Teil der Oberfläche. Richtig ist:
+   Punkte im Haarbereich, die **unter** der Haaraußenfläche liegen. Damit sind
+   es 34 %, und die sitzen oben und hinten, wo sie hingehören.
+
 **Platzbedarf pro Avatar (Richtwerte):**
 
 | Inhalt | Quick | Standard | Pro |

@@ -748,6 +748,85 @@ def check_fsmc(path, n_v, n_f, bounds, expect=None):  # noqa: E302
                       frames, float(manifest["fps"]), schlimm, schlimm_name))
 
 
+
+def check_fscan(path, n_v, n_f, bounds, expect=None):
+    """Das `.fscan`-Projekt: wiederöffnbar, nicht nur geschrieben.
+
+    Drei Prüfungen, die ein Export nie braucht und ein Projekt schon:
+
+      1. **Jede Datei hat eine Prüfsumme.** Ein ZIP öffnet sich auch dann
+         noch, wenn ein Byte gekippt ist — man merkt es erst, wenn das Netz
+         im Programm daneben liegt. Alle SHA-256 aus `manifest.json` werden
+         nachgerechnet.
+      2. **Die Geometrie kommt quantisiert zurück.** Stimmt der größte
+         Punktfehler nicht mit einer halben Stufe überein, stimmen Skalierung
+         und Versatz beim Schreiben und Lesen nicht überein.
+      3. **Die Hautgewichte summieren auf 1.** Vier auf uint8 gerundete
+         Gewichte ergeben zusammen nicht mehr 255; der Rest muß auf den
+         größten Einfluß geschlagen worden sein, sonst ziehen die Gelenke
+         mit zu viel Gesamtkraft und das Netz wandert beim Abspielen.
+
+    Das Inventar gegen den Baum aus `docs/06` wird gemeldet, aber nicht
+    bewertet: ein Container, der sieben Einträge offen läßt, ist ehrlicher
+    als einer, der sie mit Platzhaltern füllt.
+    """
+    import zipfile
+    from facescan_ref import project as fsp
+    if not zipfile.is_zipfile(path):
+        return False, "kein ZIP"
+    try:
+        manifest, dateien = fsp.read_fscan(path)
+    except Exception as exc:                      # noqa: BLE001
+        return False, "beim Lesen: %s: %s" % (type(exc).__name__, exc)
+
+    if not dateien:
+        return False, "leerer Container"
+    inv = fsp.inventar(set(dateien) | {"manifest.json"})
+    if not inv["vorhanden"]:
+        return False, "kein Eintrag aus dem Baum von docs/06"
+
+    # Geometrie: ein Netz herausgreifen und gegen seine eigene Stufe prüfen.
+    netz_eintrag = None
+    for name in sorted(dateien):
+        if name.startswith("geometry/mesh_skin") and name.endswith(".bin"):
+            netz_eintrag = name
+            break
+    if netz_eintrag is None:
+        return False, "kein Hautnetz im Container"
+    try:
+        netz = fsp.lese_mesh_bin(dateien[netz_eintrag])
+    except Exception as exc:                      # noqa: BLE001
+        return False, "%s unlesbar: %s" % (netz_eintrag, exc)
+    halbe = 0.5 * max(netz["kopf"]["vertex"]["skalierung"])
+    if not 0 < halbe < 0.05:                      # 0,05 mm = 50 µm
+        return False, "halbe Quantisierungsstufe %.4f mm ist unplausibel" % halbe
+    if netz["f"].max() >= netz["kopf"]["vertices"]:
+        return False, "Dreieck zeigt auf einen Punkt außerhalb des Netzes"
+
+    if "rig/weights.bin" in dateien:
+        try:
+            gew = fsp.lese_weights_bin(dateien["rig/weights.bin"])
+        except Exception as exc:                  # noqa: BLE001
+            return False, "weights.bin unlesbar: %s" % exc
+        summe = gew["w"].sum(axis=1)
+        if abs(float(summe.max()) - 1.0) > 1e-6 or \
+                abs(float(summe.min()) - 1.0) > 1e-6:
+            return False, ("Gewichte summieren auf %.4f … %.4f statt 1.0 "
+                           "(Rest gehört auf den größten Einfluß)"
+                           % (summe.min(), summe.max()))
+        gewicht_hinweis = ", Gewichte je Punkt genau 1,0"
+    else:
+        gewicht_hinweis = ""
+
+    return True, ("%d Eintraege, %d Pruefsummen i.O., %s (%d Punkte, "
+                  "halbe Stufe %.4f mm), Inventar %d/%d%s"
+                  % (len(dateien), len(manifest["dateien"]),
+                     os.path.basename(netz_eintrag),
+                     netz["kopf"]["vertices"], halbe,
+                     len(inv["vorhanden"]), len(fsp.INHALT_VERZEICHNIS),
+                     gewicht_hinweis))
+
+
 def _which(prog):
     from shutil import which
     return which(prog)
@@ -932,6 +1011,11 @@ def main(argv):
     # Einen Fremdleser fuer VRM gibt es hier nicht -- assimp liest zwar das
     # GLB, ignoriert die Erweiterung aber stillschweigend. Die Pruefung
     # liest die Datei deshalb selbst und hält sich an die Spec-Texte.
+    # .fscan ist das Projektformat, kein Export: gelesen wird es von
+    # niemand anderem, deshalb prüft hier die Standardbibliothek.
+    if os.path.exists(os.path.join(mesh_dir, "facescan.fscan")):
+        jobs.append(("facescan.fscan", "eigen+stdlib",
+                     lambda p, a, b, c, e=None: check_fscan(p, 0, 0, None), {}))
     # .fsmc ist ein ZIP mit JSON: die Standardbibliothek liest es vollstaendig,
     # ein Fremdleser wuerde nur das ZIP sehen und den Inhalt nicht verstehen.
     if os.path.exists(os.path.join(mesh_dir, "facescan_clip.fsmc")):

@@ -1,0 +1,51 @@
+{
+  "datei": "meshes/facescan.fscan",
+  "schemaVersion": 1,
+  "eintraege": 27,
+  "bytes": 18588967,
+  "pruefsummen_geprueft": 27,
+  "inventar": {
+    "vorhanden": [
+      "manifest.json",
+      "meta.json",
+      "capture/calibration.json",
+      "capture/perception.bin",
+      "geometry/mesh_skin_hi.bin",
+      "geometry/mesh_skin_lod0.bin",
+      "geometry/mesh_skin_lod1.bin",
+      "geometry/mesh_skin_lod2.bin",
+      "geometry/mesh_skin_lod3.bin",
+      "geometry/hair_cap.bin",
+      "geometry/scalp_uv.bin",
+      "geometry/tsdf_meta.json",
+      "rig/skeleton.json",
+      "rig/weights.bin",
+      "rig/blendshapes/",
+      "rig/morph_names.json",
+      "textures/basecolor.png",
+      "textures/uv_meta.json",
+      "animation/clips/",
+      "animation/library.json",
+      "qa/report.json",
+      "qa/thumb.png",
+      "provenance/third_party.json"
+    ],
+    "fehlend": [
+      "capture/frames/",
+      "geometry/hair_cards.bin",
+      "geometry/hair_strands.bin",
+      "rig/base_head.bin",
+      "rig/blendshape_calib.json",
+      "provenance/c2pa_manifest.c2pa",
+      "license.json"
+    ],
+    "fehlt_pflicht": [],
+    "anteil": 0.767
+  },
+  "rueckweg": {
+    "lod0_max_fehler_mm": 0.00176,
+    "lod0_halbe_stufe_mm": 0.00176,
+    "gewichte_summe_max": 1.0,
+    "jawopen_max_fehler_mm": 8e-05
+  }
+}

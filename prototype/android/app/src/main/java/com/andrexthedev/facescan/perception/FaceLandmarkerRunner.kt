@@ -10,25 +10,30 @@ import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
 /**
  * Wahrnehmung: Gesichts-Landmarks, 52 Mimik-Werte und die 4x4-Kopfpose.
  *
- * ACHTUNG – STAND: nicht kompiliert.
- * In dieser Entwicklungsumgebung gibt es kein JDK und kein Gradle. Diese
- * Datei ist die EINZIGE im Prototyp, die gegen eine fremde API geschrieben
- * ist, deren genaue Signatur versionabhaengig ist (MediaPipe Tasks Vision
- * 0.10.14). Der erste Gradle-Durchlauf muss deshalb zwei Dinge pruefen:
+ * STAND: vom Gradle-Durchlauf in der CI geprueft (MediaPipe Tasks Vision
+ * 0.10.14). Dabei hat sich eine Sache anders gezeigt, als man sie nach der
+ * Doku erwarten wuerde:
  *
- *   1. faceBlendshapes()            -> List<Classifications>, und je Eintrag
- *                                      categories(): List<Category>
- *   2. facialTransformationMatrixes() -> List<Matrix> mit .data als FloatArray
+ *   faceBlendshapes()              -> Optional<List<Classifications>>
+ *   facialTransformationMatrixes() -> Optional<List<Matrix>>
+ *   faceLandmarks()                -> List<List<NormalizedLandmark>>
  *
- * Beides ist in einer frueheren MediaPipe-Version anders benannt gewesen
- * (getCategories() / getaData()). Wenn der Build hier meckert, ist genau das
- * gemeint – nicht die Mathematik. Der Kern (geometry/) haengt nicht daran.
+ * Die Mimik und die Matrix kommen als **Optional**, die Landmarks nicht.
+ * Wer alle drei gleich behandelt (etwa mit .firstOrNull()), bekommt den
+ * Fehler an der falschen Stelle: Kotlin meldet dann "None of the following
+ * candidates is applicable" auf firstOrNull() und danach eine Kaskade von
+ * Folgefehlern ("Unresolved reference"), die alle nur davon kommen, dass
+ * der Typ nicht aufgeloest werden konnte. Die Landmarks liefen daneben
+ * fehlerfrei durch -- das ist der Hinweis, dass nicht die API falsch ist,
+ * sondern nur die beiden Optional.
+ *
+ * Zugriffe tragen kein "get": it.x(), categoryName(), score(), data().
  *
  * Wichtig (haeufigste Fehlerquelle bei Blendshape-Pipelines):
- * Die Modell-Doku weist ausdruecklich darauf hin, dass sich *Left und *Right auf
- * die ABGEBILDETE PERSON beziehen und sich bei horizontal gespiegeltem
- * Eingabebild vertauschen. Wir speisen daher IMMER das ungespiegelte Bild ein
- * und spiegeln nur die Anzeige.
+ * Die Modell-Doku weist ausdruecklich darauf hin, dass sich *Left und
+ * *Right auf die ABGEBILDETE PERSON beziehen und sich bei horizontal
+ * gespiegeltem Eingabebild vertauschen. Wir speisen daher IMMER das
+ * ungespiegelte Bild ein und spiegeln nur die Anzeige.
  *
  * Lizenz: MediaPipe Tasks ist Apache-2.0. Die Modellkarten der Gewichte sind
  * vor dem Einbau schriftlich zu pruefen (docs/09).
@@ -85,9 +90,15 @@ class FaceLandmarkerRunner(private val context: Context) {
         } ?: emptyList()
 
         val shapes = mutableMapOf<String, Float>()
-        faceBlendshapes().firstOrNull()?.forEach { shapes[it.categoryName()] = it.score() }
+        // Optional<List<Classifications>> -- erst das Optional auspacken,
+        // dann die Liste, dann je Eintrag categories().
+        faceBlendshapes().orElse(null)?.firstOrNull()
+            ?.categories()
+            ?.forEach { shapes[it.categoryName()] = it.score() }
 
-        val matrix = facialTransformationMatrixes().firstOrNull()?.data ?: FloatArray(16)
+        // Spaltenweise, 16 Zahlen (Doku: "flat column-major float array").
+        val matrix = facialTransformationMatrixes().orElse(null)?.firstOrNull()
+            ?.data() ?: FloatArray(16)
         return Result(points, shapes, matrix)
     }
 }

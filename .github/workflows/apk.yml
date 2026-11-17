@@ -164,6 +164,12 @@ jobs:
           ls -l "$APK"
           echo "::notice title=APK::$(du -h "$APK" | cut -f1)"
           echo "::notice title=Architekturen::$(unzip -l "$APK" 'lib/*' | grep -oE 'lib/[a-z0-9_-]+/' | sort -u | tr '\n' ' ')"
+          # Woher das Gewicht kommt: 4 Architekturen x MediaPipe-Nativcode
+          # sind schnell 50 MB, und dann ist eine 80-MB-APK normal und kein
+          # Fehler. Erst die Auflisteung macht den Unterschied zwischen
+          # „viele Native-Libs" und „etwas ist doppelt drin" sichtbar.
+          echo "::notice title=Groesste Eintraege::$(unzip -l "$APK" | awk 'NR>3 && $1 ~ /^[0-9]+$/ {print $1" "$4}' | sort -rn | head -8 | tr '\n' ';')"
+          echo "::notice title=Nativ gesamt::$(unzip -l "$APK" | awk 'NR>3 && $4 ~ /^lib\// {s+=$1} END {printf "%.1f MB in %d Dateien", s/1048576, NR}')"
           if unzip -l "$APK" | grep -q "assets/face_landmarker.task"; then
             echo "::notice title=Scan bereit::ja -- Modell eingebettet"
           else

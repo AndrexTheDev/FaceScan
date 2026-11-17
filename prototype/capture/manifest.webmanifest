@@ -1,0 +1,11 @@
+{
+  "name": "FaceScan Aufnahme",
+  "short_name": "FaceScan",
+  "description": "Aufnahme-Assistent für die Gesichtskalibrierung",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12100e",
+  "theme_color": "#12100e",
+  "icons": []
+}

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12100e">
+<title>FaceScan – Aufnahme</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  :root{
+    --bg:#12100e; --karte:#1c1916; --rand:#2e2925; --text:#f2ece4;
+    --dunkel:#a89e93; --gold:#c8a55b; --gruen:#6fbf73; --rot:#d9705e;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  body{margin:0; background:var(--bg); color:var(--text);
+       font:16px/1.5 -apple-system, system-ui, "Segoe UI", sans-serif;
+       padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  .seite{max-width:520px; margin:0 auto; padding:16px}
+  h1{font-size:20px; margin:0 0 4px; letter-spacing:.2px}
+  h2{font-size:17px; margin:0 0 8px}
+  p{margin:0 0 12px; color:var(--dunkel)}
+  .karte{background:var(--karte); border:1px solid var(--rand);
+         border-radius:14px; padding:16px; margin-bottom:12px}
+  button{width:100%; padding:15px; font-size:16px; font-weight:600;
+         border-radius:12px; border:0; background:var(--gold); color:#1a1613;
+         cursor:pointer; margin-bottom:10px}
+  button:disabled{opacity:.4; cursor:default}
+  button.zweit{background:transparent; color:var(--text);
+               border:1px solid var(--rand)}
+  video{width:100%; border-radius:12px; background:#000; display:block;
+        transform:scaleX(-1)}            /* nur ANZEIGE gespiegelt, s. app.js */
+  .buehne{position:relative; margin-bottom:12px}
+  .oval{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+        width:56%; aspect-ratio:3/4; border:2px dashed rgba(200,165,91,.55);
+        border-radius:50%; pointer-events:none}
+  .status{position:absolute; left:10px; top:10px; padding:5px 10px;
+          border-radius:20px; font-size:13px; font-weight:600;
+          background:rgba(0,0,0,.65)}
+  .status.ok{color:var(--gruen)} .status.schlecht{color:var(--rot)}
+  .countdown{position:absolute; left:50%; top:50%;
+             transform:translate(-50%,-50%); font-size:76px; font-weight:700;
+             color:var(--gold); text-shadow:0 2px 20px rgba(0,0,0,.8)}
+  .balken{height:6px; background:var(--rand); border-radius:3px;
+          overflow:hidden; margin-bottom:12px}
+  .balken>i{display:block; height:100%; width:0; background:var(--gold);
+            transition:width .2s linear}
+  .schritte{margin:0; padding:0; list-style:none; font-size:14px}
+  .schritte li{padding:7px 0 7px 26px; color:var(--dunkel); position:relative}
+  .schritte li:before{content:"○"; position:absolute; left:4px}
+  .schritte li.fertig{color:var(--text)} .schritte li.fertig:before{content:"●"; color:var(--gruen)}
+  .schritte li.dran{color:var(--gold); font-weight:600} .schritte li.dran:before{content:"◉"; color:var(--gold)}
+  .klein{font-size:13px}
+  table{border-collapse:collapse; width:100%; font-size:14px}
+  td,th{padding:5px 6px; border-bottom:1px solid var(--rand); text-align:left}
+  th{color:var(--dunkel); font-weight:500}
+  .zahl{text-align:right; font-variant-numeric:tabular-nums}
+  .warnung{background:rgba(217,112,94,.12); border:1px solid var(--rot);
+           border-radius:12px; padding:12px; margin-bottom:12px; font-size:14px}
+  .gut{color:var(--gruen)} .knapp{color:var(--gold)} .schwach{color:var(--rot)}
+  code{background:#0e0c0a; padding:1px 5px; border-radius:4px; font-size:13px}
+  .versteckt{display:none}
+</style>
+</head>
+<body>
+<div class="seite">
+
+  <!-- ---------- Schritt 0: Erklaerung ---------- -->
+  <div id="s0">
+    <h1>FaceScan – Datenaufnahme</h1>
+    <p class="klein">Damit der Avatar mit <b>echtem</b> Material weitergebaut werden
+       kann, brauche ich eine Aufnahme von dir. Das dauert etwa eine Minute.</p>
+
+    <div class="karte">
+      <h2>Was aufgezeichnet wird</h2>
+      <ul class="schritte" style="list-style:none">
+        <li>52 Mimik-Werte pro Bild (Lächeln, Lidschluss, Stirn …)</li>
+        <li>478 Messpunkte im Gesicht</li>
+        <li>Kopfhaltung und Lage des Telefons</li>
+      </ul>
+      <p class="klein" style="margin:10px 0 0">Kein Ton. Kein Bild wird gespeichert,
+        wenn du es nicht ausdrücklich anhakst.</p>
+    </div>
+
+    <div class="karte">
+      <h2>Wohin die Daten gehen</h2>
+      <p class="klein" style="margin:0"><b>Nirgendwohin.</b> Alles bleibt in diesem
+        Browser, bis du am Ende auf „Sichern" tippst. Dann entsteht eine Datei,
+        die du selbst behältst und mir erst schickst, wenn du willst.</p>
+    </div>
+
+    <button id="b-start">Verstanden, los</button>
+    <p class="klein">Beim ersten Mal fragt das Telefon nach der Kamera –
+       die brauchen wir.</p>
+  </div>
+
+  <!-- ---------- Schritt 1: Kamera ---------- -->
+  <div id="s1" class="versteckt">
+    <h1>Kamera einrichten</h1>
+    <p id="s1-text">Einen Moment …</p>
+    <div class="buehne">
+      <video id="video" playsinline muted autoplay></video>
+      <div class="oval"></div>
+      <div id="s1-status" class="status schlecht">Kein Gesicht</div>
+    </div>
+    <div class="karte klein">
+      <b>Gut so:</b> Gesicht mittig im Oval · gleichmäßiges Licht, kein
+      Gegenlicht · Brille ab · Haare aus dem Gesicht.
+    </div>
+    <button id="b-weiter" disabled>Passt, weiter</button>
+  </div>
+
+  <!-- ---------- Schritt 2: Aufnahme ---------- -->
+  <div id="s2" class="versteckt">
+    <h1 id="s2-titel">Aufnahme</h1>
+    <div class="balken"><i id="s2-balken"></i></div>
+    <div class="buehne">
+      <video id="video2" playsinline muted autoplay></video>
+      <div class="oval"></div>
+      <div id="s2-status" class="status ok">–</div>
+      <div id="s2-countdown" class="countdown versteckt"></div>
+    </div>
+    <p id="s2-anweisung" style="font-size:19px; color:var(--text);
+      font-weight:600; min-height:3em"></p>
+    <ul id="s2-liste" class="schritte"></ul>
+  </div>
+
+  <!-- ---------- Schritt 3: Ergebnis ---------- -->
+  <div id="s3" class="versteckt">
+    <h1>Fertig</h1>
+    <p id="s3-zusammenfassung"></p>
+    <div id="s3-warnung" class="warnung versteckt"></div>
+    <div class="karte">
+      <h2>Kalibrierung</h2>
+      <p class="klein" style="margin-bottom:8px">Jeder Mimik-Wert hat einen
+        Ruhewert und einen Größtwert. Je größer der Abstand, desto verlässlicher
+        kann die App diesen Kanal später steuern. Unter <b>0,15</b> gilt ein
+        Kanal als schwach messbar.</p>
+      <div style="max-height:280px; overflow:auto">
+        <table><thead><tr><th>Kanal</th><th class="zahl">Ruhe</th>
+          <th class="zahl">Max</th><th class="zahl">Abstand</th></tr></thead>
+          <tbody id="s3-tabelle"></tbody></table>
+      </div>
+    </div>
+    <div class="karte">
+      <label class="klein" style="display:block; margin-bottom:10px">
+        <input type="checkbox" id="s3-bilder"> Außerdem Einzelbilder mitschreiben
+        <span style="color:var(--dunkel)">(kleine JPEGs, für die Geometrie – macht die Datei deutlich größer)</span>
+      </label>
+    </div>
+    <button id="b-sichern">Datei sichern</button>
+    <button id="b-nochmal" class="zweit">Nochmal aufnehmen</button>
+    <p class="klein">Die Datei landet in „Downloads". Schick sie mir, dann rechne
+      ich damit weiter.</p>
+  </div>
+
+  <div id="fehler" class="warnung versteckt"></div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

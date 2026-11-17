@@ -192,7 +192,7 @@ Modell ausdrücken kann), `raster.py`, `fusion.py`, `hair.py`, `refine.py`,
 | Chamfer-Abstand Haut | **0,745 mm** (p95 1,56) | ≤ 0,8 mm | bestanden |
 | Haar-IoU (Volumen, L1) | **0,871** (Treffer 0,884 / Abdeckung 0,983) | ≥ 0,85 | bestanden |
 | Textur-Vollständigkeit | **99,9 %** (≥ 3 Sichtungen: 96,3 %) | ≥ 95 % | bestanden |
-| Export-Rücklese (8 Formate, s. §7) | identisch bis 4e-6 mm | – | bestanden |
+| Export-Rücklese (9 Formate, s. §7) | identisch bis 4e-6 mm | – | bestanden |
 | Entartete Dreiecke | 0 | 0 | bestanden |
 
 **Was unterwegs schiefging und behoben wurde** (das ist der eigentliche Ertrag):
@@ -235,23 +235,29 @@ Modell ausdrücken kann), `raster.py`, `fusion.py`, `hair.py`, `refine.py`,
 ## 7. M2: die restlichen Exportformate
 
 `facescan_ref/export_more.py` schreibt und liest STL (binär und ASCII), USDA,
-USDZ, **binäres FBX 7.5** und **Alembic (Ogawa)**. Kein assimp, keine
-Bibliothek – nur stdlib und NumPy, damit die Schreiber später 1:1 nach Kotlin
-und C++ portiert werden können.
+USDZ, **Collada (DAE 1.4.1)**, **binäres FBX 7.5** und **Alembic (Ogawa)**. Kein
+assimp, keine Bibliothek – nur stdlib und NumPy, damit die Schreiber später 1:1
+nach Kotlin und C++ portiert werden können.
 
 Zu jedem Schreiber gehört ein Leser. Ein Test, der nur „Datei existiert“
 prüft, beweist nichts.
 
 | Format | Zweck | Größe | Rücklese |
 |---|---|---|---|
-| OBJ | Universaltausch | 12,8 MB | identisch bis 5e-7 mm |
-| PLY (binär) | Punktwolken/Mesh | 5,2 MB | identisch bis 4e-6 mm |
-| GLB (glTF) | Android-AR, Web | 4,9 MB | identisch bis 4e-6 mm |
+| OBJ | Universaltausch | 22,2 MB | identisch bis 5e-7 mm |
+| PLY (binär) | Punktwolken/Mesh | 6,7 MB | identisch bis 4e-6 mm |
+| GLB (glTF) | Android-AR, Web | 6,5 MB | identisch bis 4e-6 mm |
 | STL (binär) | 3D-Druck | 12,6 MB | 257.044 Facetten, 4e-6 mm |
-| USDA | USD-Text, Pipeline | 14,3 MB | Indizes identisch, `metersPerUnit=0.001` |
-| USDZ | Apple AR Quick Look | 14,3 MB | ZIP, ein Eintrag, unkomprimiert |
-| FBX 7.5 (binär) | Blender/Maya/Unity | 9,1 MB | 130.829 Punkte, Polygon-Konvention ok |
-| Alembic (ABC) | Houdini/Nuke/Katana | 5,6 MB | `AbcGeom_PolyMesh_v1`, float32, 4e-6 mm |
+| USDA | USD-Text, Pipeline | 17,6 MB | Indizes identisch, `metersPerUnit=0.001` |
+| USDZ | Apple AR Quick Look | 17,6 MB | ZIP, ein Eintrag, unkomprimiert |
+| DAE (Collada) | Alt-DCC, Support | 30,5 MB | Punkte identisch (0,0 mm), Indizes identisch |
+| FBX 7.5 (binär) | Blender/Maya/Unity | 12,2 MB | 130.829 Punkte, Polygon-Konvention ok |
+| Alembic (ABC) | Houdini/Nuke/Katana | 7,1 MB | `AbcGeom_PolyMesh_v1`, float32, 4e-6 mm |
+
+Collada ist XML – deshalb ist `facescan_m1.dae` mit 30,5 MB die mit Abstand
+größte Datei im Satz (rund 100 Byte je Dreieck, dagegen 26 Byte in FBX und
+25 in GLB). Die LOD-Kette schreibt DAE deshalb nur für die gröbste Stufe
+(`head_lod3.dae`, 0,85 MB); LOD0 käme auf rund 30 MB.
 
 **Die Gegenprobe mit fremden Lesern** ist der eigentliche Ertrag von M2.
 `validate_exports.py` öffnet jede Datei mit einem Programm, das wir nicht
@@ -263,9 +269,10 @@ geschrieben haben:
 | USDA, USDZ | `pxr` (Pixars USD-Referenz) | bestanden |
 | Alembic (ABC) | echte Alembic 1.8.12 (`tools/abc_check.cpp`) | bestanden |
 | FBX 7.5 | assimp | bestanden |
+| DAE (Collada) | assimp **und** pycollada | bestanden |
 
-**Sieben echte Fehler, die erst die fremden Leser gefunden haben** – unser
-eigener Rücklese-Test hatte alle sieben durchgewinkt:
+**Acht echte Fehler, die erst die fremden Leser gefunden haben** – unser
+eigener Rücklese-Test hatte alle acht durchgewinkt:
 
 1. **FBX: `d` ist ein Array, `D` ist ein Double.** Großbuchstabe = ein Wert,
    Kleinbuchstabe = Array (Anzahl, Kodierung, Bytezahl, Daten). Wir hatten für
@@ -291,6 +298,13 @@ eigener Rücklese-Test hatte alle sieben durchgewinkt:
 7. **STL: der Leser verglich in der falschen Reihenfolge.** Erst alle a, dann
    alle b, dann alle c statt a,b,c je Dreieck – ein Artefakt des Lesers, nicht
    des Schreibers, aber es hat eine Zeit lang einen echten Fehler vorgetäuscht.
+8. **Collada: ein Material, das es nicht gibt.** Der erste Entwurf schrieb
+   `<instance_material target="#face_material">` in jedem Fall, aber
+   `library_materials` nur dann, wenn eine Textur dabei war. Ohne Textur
+   zeigte der Verweis also ins Leere: assimp las die Datei kommentarlos,
+   pycollada brach ab – *„Material #face_material not found“*. Seitdem wird
+   die Material-Bibliothek immer geschrieben; ohne Textur tritt eine
+   konstante Farbe an die Stelle der Texturkette.
 
 **Bekannte Grenzen von M2:**
 
@@ -302,6 +316,10 @@ eigener Rücklese-Test hatte alle sieben durchgewinkt:
   Text, weil ein eigener Krate-Schreiber ein Projekt für sich ist (M2b). Für
   Android-AR ist das unerheblich: dort ist **GLB** das Format.
 * FBX hat keine Materialien und keine Texturen – nur Vertexfarben.
+* **DAE ohne Rig und ohne Animation.** `library_controllers` (`<skin>`,
+  `<morph>`) und `library_animations` fehlen – dafür fehlt in M2 die
+  Bewegung selbst; beides kommt mit M3. Geometrie, Normalen,
+  UVs/Vertexfarben und die Texturkette sind vollständig.
 
 ### 7b. M2b: Master-Mesh, globaler UV-Atlas, LOD-Kette, Textur-Bake
 
@@ -377,18 +395,25 @@ prüft, `orient_mesh()` heilt (235.526 falsch laufende Kanten im Rohnetz → 0).
 
 ### 7c. Gegenprobe mit fremden Lesern (M2 + M2b)
 
-`validate_exports.py` öffnet **19 Dateien** mit trimesh, `pxr`, echter
-Alembic-Bibliothek und assimp: **19 von 19 bestanden**.
+`validate_exports.py` öffnet **21 Dateien** mit trimesh, `pxr`, echter
+Alembic-Bibliothek, assimp und pycollada: **21 von 21 bestanden**.
 
 * **Normalen** in OBJ, PLY, USDA, USDZ, ABC – gelesen von trimesh, pxr und
   Alembic (`N=130829 scope='3'` = `vtx`, längste Normale 1.0000). STL trägt
   bewusst keine (nur die Flächennormale im 50-Byte-Satz).
-* **UV + Textur** in allen 12 LOD-Dateien: trimesh dekodiert das eingebettete
+* **UV + Textur** in allen 13 LOD-Dateien: trimesh dekodiert das eingebettete
   PNG (2048×2048 px), pxr findet `primvars:st` und die vollständige
   Shader-Kette `UsdPrimvarReader_float2 → UsdUVTexture → UsdPreviewSurface`.
 * **FBX-Normalen sind die einzige Lücke**: `assimp info` meldet nur Zählwerte,
   und der Test-Build hat den Export abgeschaltet – ein Urteil „fehlt“ wäre
   hier gelogen. Geprüft werden sie von unserem eigenen Leser.
+* **DAE (Collada)** wird von **zwei** fremden Lesern geprüft, weil die beiden
+  unterschiedlich streng sind: assimp zählt die Geometrie (M1 130.829
+  Vertices / 257.044 Faces, LOD3 6.970 / 5.999), pycollada löst zusätzlich
+  die Materialkette `image → sampler2D → surface → lambert` auf und meldet
+  jeden Verweis, der ins Leere zeigt. pycollada ist als einziges Paket eine
+  reine Python-Abhängigkeit (`pip install pycollada`); fehlt es, sagt der
+  Prüfer das offen, statt die Lücke als bestanden zu melden.
 
 **USDZ mit binärem Crate (`facescan.usdc`)** – seit diesem Stand schreiben
 alle vier LOD-Pakete als Root-Layer ein Crate statt Text, weil Apple-Geräte
@@ -411,6 +436,17 @@ Ausnahme: `facescan_m1.usdz` behält den **Text**-Root-Layer. Die M1-Tore
 prüfen den Inhalt mit dem eigenen Leser, und der liest Text; die AR-Ausgabe
 sind die vier LOD-Pakete.
 
+**Collada (DAE 1.4.1)** – `export_more.write_dae` schreibt
+`unit meter="0.001"` und `up_axis Y_UP` im `<asset>`-Block (nicht am Knoten:
+sonst kommt der Kopf 1000-fach zu groß und liegend an), Quellen für
+Positionen, Normalen und UVs – beim M1-Netz Vertexfarben statt UVs – und
+jede Quelle mit `<float_array>` **und** `<accessor>`. Die Indizes in `<p>`
+stehen pro Ecke, und ihre Spaltenreihenfolge folgt den `<input>`-Zeilen
+(VERTEX, NORMAL, TEXCOORD auf offset 0, 1, 2 = neun Zahlen je Dreieck).
+Rücklese mit dem eigenen Leser: Punkte und Indizes identisch, Farben
+identisch (0,0e+00/255). Die LOD-Kette schreibt nur LOD3 als DAE
+(0,85 MB), aus dem oben genannten Grund.
+
 Dabei aufgefallen und korrigiert: die 64-Byte-Ausrichtung galt bisher nur
 für den **ersten** Eintrag im ZIP. Die Polsterung über das Extra-Field
 wurde aus der Länge des Dateinamens berechnet statt aus der laufenden
@@ -419,6 +455,13 @@ sobald die Nutzlast kein Vielfaches von 64 war. Gemessen an den vier
 LOD-Paketen traf es dreimal von vier Dateien nicht zu, und zwar unbemerkt:
 der Prüfer sah nur auf den ersten Eintrag. Jetzt liegen die Datenanfänge
 bei 64 und 6.836.608 Byte (LOD0), beide glatt durch 64.
+
+Und ein Fehler im **eigenen** Leser, den nur der Abgleich mit den fremden
+aufdeckte: `read_dae` suchte die `<source>`-Blöcke mit einem regulären
+Ausdruck, und `id="\w+"` passt nicht auf `positions-array` – `\w` kennt den
+Bindestrich nicht. Die Quellenliste blieb deshalb immer leer, ohne
+Fehlermeldung. Jetzt liest `read_dae` die Datei mit
+`xml.etree.ElementTree`; ein XML-Format liest man mit einem XML-Parser.
 
 ### 7d. M2b, Teil 2: die wasserdichte Variante (`build_watertight.py`)
 

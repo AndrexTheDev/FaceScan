@@ -131,6 +131,34 @@ def verify_export(path: str, v: np.ndarray, f: np.ndarray,
                 res["passed"] = False
             res["note"] = (f"Ogawa v{r['version']}, {n_v:,} Punkte (float32, "
                            f"max. Abweichung {err:.1e} mm), Schema PolyMesh_v1")
+        elif path.endswith(".dae"):
+            r = em.read_dae(path, with_arrays=True)
+            idx = r["tris"].reshape(-1, 3)
+            pos = r["sources"]["positions"]["data"]
+            err = float(np.abs(pos - v).max()) if pos.shape == v.shape \
+                else float("inf")
+            ok = (abs(r["unit_meter"] - 0.001) < 1e-12
+                  and r["up_axis"] == "Y_UP"
+                  and np.array_equal(idx, f)
+                  and not r["dangling_refs"] and err < 1e-9)
+            # Vertexfarben stehen bei uns als 0..1-Quelle im Netz; das
+            # ist die einzige Stelle, an der wir runden muessen.
+            col = r["sources"].get("colors", {}).get("data")
+            if col is not None and col.shape == colors.shape:
+                cerr = float(np.abs(col * 255.0 - colors).max())
+            else:
+                cerr, ok = float("inf"), False
+            ok = bool(ok) and cerr < 1e-6
+            res["normals"] = ncheck(r["sources"].get("normals", {}).get("data"))
+            if not isinstance(res["normals"], float) or res["normals"] > 1e-4:
+                ok = False
+            res["passed"] = ok
+            res["note"] = (f"Collada 1.4.1, {n_v:,} Punkte identisch "
+                           f"({err:.1e} mm), {n_f:,} Indizes identisch, "
+                           f"unit meter={r['unit_meter']}, "
+                           f"up_axis={r['up_axis']}, Farbe {cerr:.1e}/255, "
+                           f"Sources {sorted(r['sources'])}, "
+                           f"Verweise ins Leere: {len(r['dangling_refs'])}")
         elif path.endswith(".fbx"):
             r = em.read_fbx(path)
             ok = (r["version"] == 7500 and "vertices" in r
@@ -400,7 +428,7 @@ def main() -> int:
     print(f"  mittlere Sichtungen je Punkt: {tex['mean_views']:.1f}")
 
     # ------------------------------------------------------- G4: Export --
-    banner("G4  Export mit Ruecklese-Test (8 Formate)")
+    banner("G4  Export mit Ruecklese-Test (9 Formate)")
     os.makedirs(OUT, exist_ok=True)
     colors = tex["colors"]
     checks = []
@@ -443,6 +471,8 @@ def main() -> int:
          "facescan_m1.fbx"),
         ("Alembic (ABC)", lambda p: em.write_abc(p, cv, cf, normals=cn),
          "facescan_m1.abc"),
+        ("DAE (Collada)", lambda p: em.write_dae(p, cv, cf, cc, normals=cn),
+         "facescan_m1.dae"),
     ]
     for label, writer, fname in jobs:
         path = os.path.join(OUT, fname)

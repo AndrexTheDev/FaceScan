@@ -135,6 +135,12 @@
       "passed": true,
       "note": "Ogawa v1, 130,829 Punkte (float32, max. Abweichung 3.8e-06 mm), Schema PolyMesh_v1",
       "normals": 2.9802297185632654e-08
+    },
+    {
+      "file": "facescan_m1.dae",
+      "passed": true,
+      "note": "Collada 1.4.1, 130,829 Punkte identisch (0.0e+00 mm), 257,044 Indizes identisch, unit meter=0.001, up_axis=Y_UP, Farbe 0.0e+00/255, Sources ['colors', 'normals', 'positions'], Verweise ins Leere: 0",
+      "normals": 0.0
     }
   ],
   "gates": {
@@ -144,5 +150,5 @@
     "export_roundtrip_ok": true,
     "no_degenerate_triangles": true
   },
-  "runtime_s": 163.7931661605835
+  "runtime_s": 102.15486931800842
 }

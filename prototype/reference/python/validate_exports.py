@@ -17,12 +17,16 @@ Deshalb prueft dieses Skript gegen:
                  gegen die echte Alembic-Bibliothek gelinkt wird.
   * assimp    -- liest u. a. FBX. Auch das ist C++, deshalb der Umweg ueber
                  das Kommandozeilenwerkzeug "assimp info".
+  * pycollada -- liest DAE (Collada). Es ist der strengste der Leser hier:
+                 ein Material, auf das <instance_material> zeigt und das es
+                 nicht gibt, ist fuer assimp kein Fehler, fuer pycollada
+                 schon.
 
-Alle vier sind OPTIONAL: fehlt eines, wird nur gemeldet, dass es fehlt. So
+Alle sind OPTIONAL: fehlt eines, wird nur gemeldet, dass es fehlt. So
 bleibt das Skript auch auf einem Rechner ohne C++-Toolchain lauffaehig.
 
 Aufruf:
-    pip install trimesh usd-core
+    pip install trimesh usd-core pycollada
     python validate_exports.py [Verzeichnis mit den Meshes]
 
 Fuer Alembic:
@@ -212,6 +216,89 @@ def check_assimp(path, n_v, n_f, bounds, expect=None):
     return ok, note
 
 
+def check_dae(path, n_v, n_f, bounds, expect=None):
+    """Prueft eine Collada-Datei mit drei Lesern, weil jeder etwas
+    anderes sieht:
+
+    * **unser eigener `read_dae`** kennt Einheiten, Hochachse, die
+      Quellen und -- am wichtigsten -- Verweise ins Leere. Genau daran
+      ist der erste Entwurf gescheitert: `<instance_material
+      target="#face_material">` stand auch dann in der Datei, wenn es
+      gar kein Material gab. assimp schluckt so etwas wortlos,
+      pycollada bricht ab.
+    * **assimp** (C++) zaehlt die Geometrie.
+    * **pycollada** loest die Materialkette auf -- das ist der strengste
+      der drei Leser und der einzige, der die Kette image -> sampler ->
+      surface -> lambert wirklich folgt. Fehlt das Paket, bleibt die
+      Pruefung ehrlich unvollstaendig statt gruen.
+
+    `n_v`/`n_f` sind die Zaehlwerte der Referenz; bei LOD-Dateien werden
+    sie mit 0 uebergeben, dann wird nur die innere Stimmigkeit geprueft
+    (alle Quellen gleich lang, Dreieckszahl wie angegeben).
+    """
+    expect = expect or {}
+    from facescan_ref import export_more as em
+    r = em.read_dae(path, with_arrays=True)
+    src = r["sources"]
+    counts = {k: s["accessor_count"] for k, s in src.items()}
+    n_pos = counts.get("positions")
+
+    unit_ok = r["unit_meter"] is not None and abs(r["unit_meter"] - 0.001) < 1e-12
+    up_ok = r["up_axis"] == "Y_UP"
+    ok = unit_ok and up_ok and not r["dangling_refs"]
+    if n_v:
+        ok = ok and n_pos == n_v and r["triangles"] == n_f
+    else:
+        ok = ok and n_pos is not None and \
+            all(c == n_pos for c in counts.values())
+    note = (f"unit meter={r['unit_meter']} ({'i.O.' if unit_ok else 'FALSCH'}), "
+            f"up_axis={r['up_axis']} ({'i.O.' if up_ok else 'FALSCH'}), "
+            f"{r['triangles']:,} Dreiecke, "
+            f"Quellen {sorted(src)} je {n_pos}")
+
+    for key, want in (("uvs", expect.get("uv")),
+                      ("normals", expect.get("normals")),
+                      ("colors", expect.get("colors"))):
+        if not want:
+            continue
+        got = counts.get(key)
+        good = got is not None and (not n_v or got == n_v)
+        ok = ok and good
+        note += f", {key}={got} ({'i.O.' if good else 'FEHLT'})"
+    if expect.get("texture"):
+        good = bool(r["texture_files"])
+        ok = ok and good
+        note += ", Textur %s" % (r["texture_files"] or "FEHLT")
+    if r["dangling_refs"]:
+        note += " | VERWEISE INS LEERE %s" % (r["dangling_refs"],)
+
+    # --- Fremdleser 1: assimp ------------------------------------
+    ok2, note2 = check_assimp(path, n_pos or 0, r["triangles"], bounds, expect)
+    if ok2 is False:
+        ok = False
+    note += " | " + note2
+
+    # --- Fremdleser 2: pycollada ---------------------------------
+    try:
+        import collada
+    except ImportError:
+        note += (" | pycollada nicht installiert -- Materialkette "
+                 "ungeprueft")
+        return ok, note
+    col = collada.Collada(path, ignore=[collada.DaeError])
+    errs = [str(e) for e in col.errors]
+    prims = [p for g in col.geometries for p in g.primitives]
+    n_tri = sum(len(p.index) for p in prims)
+    mat_ok = len(col.materials) >= 1 and len(col.effects) >= 1
+    if expect.get("texture"):
+        mat_ok = mat_ok and len(col.images) >= 1
+    ok = ok and not errs and n_tri == r["triangles"] and mat_ok
+    note += (f" | pycollada: {len(prims)} Primitiv(en), {n_tri:,} Dreiecke, "
+             f"{len(col.materials)} Material(ien), {len(col.effects)} Effect(s), "
+             f"{len(col.images)} Bild(er), Fehler {errs or 'keine'}")
+    return ok, note
+
+
 def _which(prog):
     from shutil import which
     return which(prog)
@@ -342,6 +429,8 @@ def main(argv):
         ("facescan_m1.usdz", "pxr/USD", check_usd, M1_EXPECT),
         ("facescan_m1.abc", "Alembic", check_abc, M1_EXPECT),
         ("facescan_m1.fbx", "assimp", check_assimp, M1_EXPECT),
+        ("facescan_m1.dae", "eigen+assimp+pycollada", check_dae,
+         dict(M1_EXPECT, colors=True)),
     ]
     lod_dir = mesh_dir
     lod_glb = os.path.join(lod_dir, "head_lod0.glb")
@@ -356,6 +445,15 @@ def main(argv):
             jobs.append((f"head_lod{i}.usdz", "pxr/USD",
                          lambda p, a, b, c, e=None: _check_lod_usd(p),
                          LOD_EXPECT))
+            # DAE gibt es nur fuer eine LOD-Stufe (XML, rund 100 Byte je
+            # Dreieck) -- deshalb erst schauen, ob die Datei ueberhaupt
+            # da ist, statt sie als "fehlt" zu melden.
+            if os.path.exists(os.path.join(lod_dir, f"head_lod{i}.dae")):
+                jobs.append((f"head_lod{i}.dae", "eigen+assimp+pycollada",
+                             lambda p, a, b, c, e=None: check_dae(
+                                 p, 0, 0, None,
+                                 dict(LOD_EXPECT, texture=True)),
+                             LOD_EXPECT))
 
     results = []
     for fname, tool, fn, expect in jobs:
@@ -370,11 +468,11 @@ def main(argv):
         state = "--" if ok is None else ("OK" if ok else "FEHLER")
         results.append((fname, tool, state, note))
 
-    print("%-18s %-9s %-10s %s" % ("Datei", "Leser", "Ergebnis", "Befund"))
-    print("-" * 90)
+    print("%-18s %-20s %-10s %s" % ("Datei", "Leser", "Ergebnis", "Befund"))
+    print("-" * 101)
     for fname, tool, state, note in results:
-        print("%-18s %-9s %-10s %s" % (fname, tool, state, note))
-    print("-" * 90)
+        print("%-18s %-20s %-10s %s" % (fname, tool, state, note))
+    print("-" * 101)
 
     good = [r for r in results if r[2] == "OK"]
     bad = [r for r in results if r[2] == "FEHLER"]

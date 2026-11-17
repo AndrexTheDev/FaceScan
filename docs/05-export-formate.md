@@ -109,11 +109,16 @@ Die Brücke dorthin ist FBX/ABC/USD/OBJ + unser Blender-Add-on (Kapitel 9).
   (Ray-Cast: Min. 1,2 mm) mit Warnung.
 
 ### 4.4 Collada (DAE 1.4.1)
-- `library_geometries` (positions/normals/uv/indices), `library_controllers` mit `<skin>` (Joints,
-  `bind_shape_matrix`, `vertex_weights`) und `<morph>` (mit `method="NORMALIZED"`), `library_visual_scenes`,
-  `library_animations` (Sampler/Channel).
+- **Im Prototyp geschrieben** (`export_more.write_dae`, seit M2b): `library_geometries` mit
+  positions/normals/uv (bzw. Vertexfarben stattt UVs) und Dreiecksindizes, `library_images`,
+  `library_effects` (`profile_COMMON`, Kette image → sampler2D → surface → lambert),
+  `library_materials`, `library_visual_scenes`. Einheiten `meter="0.001"`, `up_axis Y_UP`.
 - Relevanz: Austausch mit Programmen, die glTF schlechter können (ältere C4D-Versionen, diverse
   Forschungswerkzeuge) und als menschenlesbares Format für Debugging und Support.
+- **Noch nicht (M3):** `library_controllers` mit `<skin>` (Joints, `bind_shape_matrix`,
+  `vertex_weights`) und `<morph>` (`method="NORMALIZED"`) sowie `library_animations`
+  (Sampler/Channel). Dafür fehlt in M2 die Bewegung selbst — Rig und Mimik kommen erst mit M3,
+  und ohne die ist ein Controller-Block nur Ballast.
 
 ### 4.5 USD / USDZ
 - **USDA (ASCII)** wird **von uns geschrieben** (kein USD-SDK nötig – das SDK für Android zu bauen, ist mit
@@ -276,7 +281,7 @@ liefern wir ein **eigenes Blender-Add-on** (Python, GPL-kompatibel, da add-on):
 | Welle | Formate | Begründung |
 |---|---|---|
 | 1 | `.fscan`, OBJ+MTL, PLY, STL, GLB/glTF | Einfach, deckt 3D-Druck, Web, Godot, Unity, Substance |
-| 2 | USDA + USDZ, DAE | Text-/XML-basiert, kein Fremdcode, deckt Apple/Houdini/Alt-DCC | **USDA + USDZ fertig**, DAE offen |
+| 2 | USDA + USDZ, DAE | Text-/XML-basiert, kein Fremdcode, deckt Apple/Houdini/Alt-DCC | **alle drei fertig** |
 | 3 | FBX (binär) | Größter Aufwand, größter Nutzen (Blender/Maya/Max/Unreal/Unity) | **fertig** (7.5 binär) |
 | 4 | ABC (libalembic) | Für Houdini/Point-Cache/Haar-Kurven | **fertig** (Ogawa, eigener Schreiber) |
 | 5 | BVH, CSV/JSON, VRM | Motion-/VTuber-Spezialfälle | offen |
@@ -309,7 +314,7 @@ Stand: `prototype/reference/python/facescan_ref/export_more.py`, geprüft mit
 | USDZ | `export_more.py` | 5 Apple-Regeln nachgemessen | `usd-core` ✔ |
 | FBX 7.5 (binär) | `export_more.py` | 130.829 Punkte, Polygon-Konvention ✔ | assimp ✔ |
 | Alembic (ABC, Ogawa) | `export_more.py` | `AbcGeom_PolyMesh_v1` | Alembic 1.8.12 ✔ |
-| DAE (Collada) | – | – | offen |
+| DAE (Collada) | `export_more.py` | 130.829 Punkte identisch (0,0 mm), Indizes identisch | assimp ✔, pycollada ✔ |
 | BVH / CSV / JSON | – | – | offen (Motion, erst mit M3) |
 
 **Entscheidung gegen libalembic im Produkt:** §4.7 sah die Bibliothek vor. Im
@@ -388,12 +393,52 @@ aus echten Fehlermeldungen fremder Leser entstanden:
 19. STL speichert Punkte **pro Dreieck**, nicht geteilt: ein Leser bekommt
     `3 × Dreiecke` Punkte, nicht `n_v`. Das ist kein Fehler des Schreibers.
 
+**Collada (DAE 1.4.1)**
+20. Einheiten und Hochachse stehen im `<asset>`-Block und an **keiner**
+    anderen Stelle: `<unit meter="0.001"/>` (wir rechnen in mm) und
+    `<up_axis>Y_UP</up_axis>`. Fehlt beides, kommt das Modell 1000-fach zu
+    groß und auf der Seite liegend an — der Leser darf 1.0 und `Z_UP`
+    annehmen, und Blender tut das.
+21. Die Indizes in `<p>` sind **pro Ecke**, nicht pro Dreieck — und welche
+    Spalte was bedeutet, steht nicht in `<p>`, sondern in der
+    REIHENFOLGE der `<input>`-Zeilen: VERTEX, NORMAL, TEXCOORD auf
+    offset 0, 1, 2 heißt neun Zahlen je Dreieck (`v n t` je Ecke). Wer
+    `<input>` umsortiert und `<p>` lässt, verdreht Normalen und UVs
+    stillschweigend, ohne dass die Datei ungültig wird.
+22. Jede `<source>` braucht `<float_array>` **und** einen `<accessor>` mit
+    `count` und `stride`. Ohne Accessor ist die Datei schema-gültig, aber
+    für die meisten Leser ohne Inhalt.
+23. Material und Textur hängen an einem **Symbol**, nicht direkt am
+    Material: `<triangles material="face_symbol">` nennt das Symbol,
+    `<instance_material symbol="face_symbol" target="#face_material">` löst
+    es auf, `<bind_vertex_input semantic="UVSET0" input_semantic="TEXCOORD"
+    input_set="0"/>` verbindet es mit der UV-Quelle. Und die
+    Material-Bibliothek muss **immer** geschrieben werden, auch ohne
+    Textur: steht `<instance_material target="#face_material">` in der
+    Datei und `library_materials` nicht, ist das ein Verweis ins Leere.
+    assimp schluckt ihn wortlos, pycollada bricht ab
+    (*„Material #face_material not found“*) — genau so war der erste
+    Entwurf. Ohne Textur tritt eine konstante Farbe an die Stelle der
+    Texturkette, und `bind_vertex_input` entfällt.
+24. `<p>`-Spalten zwingen jeden Leser zum Aufsplitten: Collada indiziert
+    pro Ecke, also teilt der Leser jeden Punkt, dessen Normalen oder UVs
+    nicht überall gleich sind. LOD3 mit geteilten Attributen bleibt bei
+    3.849 Punkten; mit pro Ecke verschiedenen UVs werden daraus 6.970,
+    obwohl die Datei denselben Kopf beschreibt. (assimp meldet 6.970
+    Vertices / 5.999 Faces, pycollada 3.849.) Das M1-Netz teilt alle
+    Attribute, deshalb bleiben seine 130.829 Punkte beisammen.
+25. Collada ist XML und braucht rund 100 Byte je Dreieck: das M1-Netz
+    (257.044 Dreiecke) wird 30,5 MB groß, während FBX 12,2 MB und GLB
+    6,5 MB daraus macht. Deshalb schreibt die LOD-Kette DAE nur für die
+    gröbste Stufe (LOD3, 0,85 MB) — LOD0 käme auf ~30 MB und wäre damit
+    teurer als alles andere zusammen.
+
 ### 12.2 Offen
 * STL für den 3D-Druck: **Wandstärke eines Hohlkörpers** wird nicht geprüft –
   der Prototyp druckt massiv. Sockel, Standfläche, Überhang und kleinste
   lokale Dicke sind seit M2b gemessen (s. §12.3), die Lücken „nicht
   wasserdicht" und „keine Standfläche" sind damit geschlossen.
-* DAE, BVH, CSV/JSON.
+* BVH, CSV/JSON.
 
 ### 12.3 In M2b erledigt (Stand: siehe prototype/README.md, Kap. 7b)
 * **Quadric Decimation** — LOD-Kette 300 k / 80 k / 20 k / 6 k
@@ -439,6 +484,21 @@ aus echten Fehlermeldungen fremder Leser entstanden:
   kleinste lokale Dicke 1,82 mm, Überhänge steiler als 45° auf 27,9 % der
   Fläche. Gegen die Kugel (r = 30 mm) nachgerechnet: 59,97 mm gemessene
   Dicke bei 60,00 mm Soll. Einzelheiten in README, Kap. 7e.
+* **Collada (DAE) als neuntes Exportformat** —
+  `export_more.write_dae` / `read_dae`. Schreibt Collada 1.4.1 mit
+  `unit meter="0.001"`, `up_axis Y_UP`, Quellen für Positionen, Normalen
+  und UVs (beim M1-Netz Vertexfarben statt UVs), jeder Quelle mit
+  `<float_array>` **und** `<accessor>`, und der Materialkette
+  `image → sampler2D → surface → lambert`. Zwei Leser bestätigen es:
+  assimp (M1: 130.829 Vertices / 257.044 Faces; LOD3: 6.970 / 5.999) und
+  pycollada — pycollada ist der strengere von beiden, es löst die
+  Materialkette wirklich auf und hat den Verweis ins Leere des ersten
+  Entwurfs gefunden (s. §12.1, Punkt 23). Rücklese mit dem eigenen Leser:
+  Punkte identisch bis 0,0 mm, Indizes identisch, Farben identisch
+  (0,0e+00/255). Dateigrößen: M1 30,5 MB (257.044 Dreiecke, XML eben —
+  deshalb schreibt die LOD-Kette DAE nur für LOD3, 0,85 MB).
+  Gegenprobe insgesamt: **21 von 21 Formate** von einem fremden Leser
+  bestätigt (`validate_exports.py`).
 * **USDZ mit binärem Crate** — `export_more.write_usdz(..., crate=True)`
   schreibt als Root-Layer ein `.usdc` statt Text, damit Apple-Geräte das
   Paket annehmen (Reality Converter: „the package's root layer must be a

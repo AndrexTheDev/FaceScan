@@ -592,6 +592,324 @@ def _emit(tree, base: int) -> bytes:
     return out
 
 
+def write_dae(path: str, v: np.ndarray, f: np.ndarray,
+              colors: np.ndarray | None = None, name: str = "FaceScan",
+              normals: np.ndarray | None = None, uv: np.ndarray | None = None,
+              texture: str | None = None) -> str:
+    """Collada 1.4.1 -- das Austauschformat fuer Werkzeuge, die glTF nicht
+    oder schlecht koennen (docs/05 4.4: aeltere C4D-Versionen, diverse
+    Forschungswerkzeuge) und das menschenlesbare Format fuer den Support.
+
+    Warum es trotz glTF und USD einen eigenen Schreiber braucht: Collada
+    ist XML, kommt ohne Bibliothek aus und wird von praktisch jedem
+    Werkzeug der letzten zwanzig Jahre gelesen. Auf dem Telefon ist es
+    kein Zielformat, im Support der kuerzeste Weg, ein Netz zu zeigen.
+
+    Fuenf Stellen, an denen selbstgeschriebene Collada-Dateien scheitern,
+    und die hier deshalb stimmen muessen:
+
+    1. **Einheiten und Hochachse** stehen im `<asset>`-Block, nicht im
+       Knoten: `<unit meter="0.001">` (wir rechnen in Millimetern) und
+       `<up_axis>Y_UP</up_axis>`. Fehlt beides, kommt das Modell in
+       Blender 1000-fach zu gross und auf der Seite liegend an.
+    2. **Die Indizes in `<p>` sind pro Vertex, nicht pro Dreieck**, und
+       die Spalte haengt von der REIHENFOLGE der `<input>`-Zeilen ab --
+       VERTEX, NORMAL, TEXCOORD auf offset 0, 1, 2 heisst: neun Zahlen
+       je Dreieck, naemlich `v n t` pro Ecke.
+    3. **Material und Textur haengen an einem Symbol**, nicht direkt am
+       Material: `<triangles material="...">` nennt ein Symbol, und
+       `<instance_material symbol="..." target="#material">` loest es
+       auf. Dasselbe Spiel bei `texcoord="UVSET0"` und
+       `<bind_vertex_input>`.
+    4. **Jede Quelle braucht einen `<accessor>`** mit `count` und
+       `stride`. Ohne ihn ist die Datei schema-gueltig, aber fuer die
+       meisten Leser ohne Inhalt.
+    5. **Die Material-Bibliothek gehoert IMMER in die Datei**, auch ohne
+       Textur. Der Szenenknoten verweist mit `<instance_material
+       target="#face_material">` darauf; steht `library_materials` nur
+       bei Textur da, zeigt der Verweis ins Leere. assimp liest so eine
+       Datei kommentarlos, pycollada bricht mit "Material
+       #face_material not found" ab -- genau dieser Fehler steckte im
+       ersten Entwurf. Ohne Textur tritt deshalb eine konstante Farbe an
+       die Stelle der Texturkette, und `<bind_vertex_input>` entfaellt,
+       weil es ohne TEXCOORD-Quelle nichts zu binden gibt.
+
+    Ohne Textur schreibt die Funktion die Vertexfarben (M1-Netz); mit
+    Textur die UVs und die Kette image -> sampler -> surface -> lambert.
+    """
+    v = np.asarray(v, dtype=np.float64)
+    f = np.asarray(f, dtype=np.int64)
+    n_v, n_f = len(v), len(f)
+
+    def floats(a: np.ndarray, digits: str = "%.17g") -> str:
+        return " ".join(digits % x for x in np.asarray(a).reshape(-1))
+
+    # Welche Eingaben das Dreieck hat -- davon haengt die Spaltenzahl in
+    # <p> ab. Die Reihenfolge MUSS zu den <input>-Zeilen passen.
+    inputs = [("VERTEX", "#vertices")]
+    if normals is not None:
+        inputs.append(("NORMAL", "#normals"))
+    if uv is not None:
+        inputs.append(("TEXCOORD", "#uvs"))
+    if uv is None and colors is not None:
+        inputs.append(("COLOR", "#colors"))
+    cols = len(inputs)
+    flat = f.reshape(-1)
+    p = np.empty((n_f * 3, cols), dtype=np.int64)
+    for k in range(cols):
+        p[:, k] = flat
+    p_str = " ".join(map(str, p.reshape(-1)))
+
+    out = []
+    out.append('<?xml version="1.0" encoding="utf-8"?>')
+    out.append('<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema"'
+               ' version="1.4.1">')
+    out.append("  <asset>")
+    out.append("    <contributor>")
+    out.append("      <authoring_tool>FaceScan reference exporter</authoring_tool>")
+    out.append("    </contributor>")
+    out.append("    <created>2026-01-01T00:00:00</created>")
+    out.append("    <modified>2026-01-01T00:00:00</modified>")
+    out.append('    <unit name="millimeter" meter="0.001"/>')
+    out.append("    <up_axis>Y_UP</up_axis>")
+    out.append("  </asset>")
+
+    def source(sid, array, comps, params):
+        """Eine <source> mit float_array und accessor."""
+        n = len(array)
+        out.append('    <source id="%s">' % sid)
+        out.append('      <float_array id="%s-array" count="%d">%s</float_array>'
+                   % (sid, n * comps, floats(array)))
+        out.append("      <technique_common>")
+        out.append('        <accessor source="#%s-array" count="%d" stride="%d">'
+                   % (sid, n, comps))
+        for nm in params:
+            out.append('          <param name="%s" type="float"/>' % nm)
+        out.append("        </accessor>")
+        out.append("      </technique_common>")
+        out.append("    </source>")
+
+    if texture is not None:
+        img = os.path.basename(texture)
+        out.append("  <library_images>")
+        out.append('    <image id="texture_image" name="%s">' % img)
+        out.append("      <init_from>%s</init_from>" % img)
+        out.append("    </image>")
+        out.append("  </library_images>")
+    # Material und Effect gibt es IMMER, auch ohne Textur. Der Knoten
+    # unten verweist mit instance_material darauf; stuende die Bibliothek
+    # nur bei Textur da, waere das ein Verweis ins Leere -- assimp
+    # schluckt ihn, pycollada bricht mit "Material #face_material not
+    # found" ab. Ohne Textur tritt eine konstante Farbe an die Stelle der
+    # Texturkette.
+    out.append("  <library_effects>")
+    out.append('    <effect id="face_effect">')
+    out.append("      <profile_COMMON>")
+    if texture is not None:
+        out.append('        <newparam sid="texture_surface">')
+        out.append('          <surface type="2D">')
+        out.append("            <init_from>texture_image</init_from>")
+        out.append("          </surface>")
+        out.append("        </newparam>")
+        out.append('        <newparam sid="texture_sampler">')
+        out.append("          <sampler2D>")
+        out.append("            <source>texture_surface</source>")
+        out.append("          </sampler2D>")
+        out.append("        </newparam>")
+    out.append('        <technique sid="common">')
+    out.append("          <lambert>")
+    out.append("            <diffuse>")
+    if texture is not None:
+        out.append('              <texture texture="texture_sampler"'
+                   ' texcoord="UVSET0"/>')
+    else:
+        out.append('              <color sid="diffuse">'
+                   "0.8 0.72 0.66 1</color>")
+    out.append("            </diffuse>")
+    out.append("          </lambert>")
+    out.append("        </technique>")
+    out.append("      </profile_COMMON>")
+    out.append("    </effect>")
+    out.append("  </library_effects>")
+    out.append("  <library_materials>")
+    out.append('    <material id="face_material" name="%s">' % name)
+    out.append('      <instance_effect url="#face_effect"/>')
+    out.append("    </material>")
+    out.append("  </library_materials>")
+
+    out.append("  <library_geometries>")
+    out.append('    <geometry id="mesh" name="%s">' % name)
+    out.append("      <mesh>")
+    source("positions", v, 3, ("X", "Y", "Z"))
+    if normals is not None:
+        source("normals", np.asarray(normals, dtype=np.float64), 3,
+               ("X", "Y", "Z"))
+    if uv is not None:
+        source("uvs", np.asarray(uv, dtype=np.float64), 2, ("S", "T"))
+    if uv is None and colors is not None:
+        source("colors", np.asarray(colors, dtype=np.float64) / 255.0, 3,
+               ("R", "G", "B"))
+    out.append('    <vertices id="vertices">')
+    out.append('      <input semantic="POSITION" source="#positions"/>')
+    out.append("    </vertices>")
+    out.append('    <triangles count="%d" material="face_symbol">' % n_f)
+    for off, (sem, src) in enumerate(inputs):
+        extra = ' set="0"' if sem == "TEXCOORD" else ""
+        out.append('      <input semantic="%s" source="%s" offset="%d"%s/>'
+                   % (sem, src, off, extra))
+    out.append("      <p>%s</p>" % p_str)
+    out.append("    </triangles>")
+    out.append("      </mesh>")
+    out.append("    </geometry>")
+    out.append("  </library_geometries>")
+    out.append("  <library_visual_scenes>")
+    out.append('    <visual_scene id="scene" name="scene">')
+    out.append('      <node id="node" name="%s" type="NODE">' % name)
+    out.append('        <matrix sid="transform">1 0 0 0 0 1 0 0 0 0 1 0 '
+               "0 0 0 1</matrix>")
+    out.append('        <instance_geometry url="#mesh">')
+    out.append("          <bind_material>")
+    out.append("            <technique_common>")
+    out.append('              <instance_material symbol="face_symbol"'
+               ' target="#face_material">')
+    if uv is not None:
+        # Ohne TEXCOORD-Quelle im Netz waere der Verweis auf UVSET0 ein
+        # zweiter Verweis ins Leere.
+        out.append('                <bind_vertex_input semantic="UVSET0"'
+                   ' input_semantic="TEXCOORD" input_set="0"/>')
+    out.append("              </instance_material>")
+    out.append("            </technique_common>")
+    out.append("          </bind_material>")
+    out.append("        </instance_geometry>")
+    out.append("      </node>")
+    out.append("    </visual_scene>")
+    out.append("  </library_visual_scenes>")
+    out.append('  <scene><instance_visual_scene url="#scene"/></scene>')
+    out.append("</COLLADA>")
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(out) + "\n")
+    return path
+
+
+def read_dae(path: str, with_arrays: bool = False) -> dict:
+    """Liest GENAU die Struktur zurueck, die `write_dae` schreibt.
+
+    Kein vollstaendiger Collada-Parser -- geprueft werden Einheiten,
+    Hochachse, die Zaehlwerte, die <input>-Reihenfolge und ob Normalen,
+    UVs und Farben als Quelle angelegt sind. Die Geometrie selbst liest
+    der fremde Leser (assimp).
+
+    `with_arrays=True` legt die Zahlen selbst dazu (je Quelle ein
+    `(count, stride)`-Feld unter "data", die Dreiecksindizes unter
+    "tris"). Damit kann ein Ruecklesetest nicht bloss zaehlen, sondern
+    Punkt fuer Punkt vergleichen.
+
+    Gelesen wird mit `xml.etree.ElementTree`, nicht mit regulären
+    Ausdruecken. Der erste Versuch mit `re` fand die Quellen nicht:
+    `id="\\w+"` passt nicht auf `positions-array`, weil `\\w` den
+    Bindestrich nicht kennt. Ein XML-Format liest man mit einem
+    XML-Parser -- der Fehler war, es hier anders zu probieren.
+    """
+    import xml.etree.ElementTree as ET
+
+    def local(tag: str) -> str:
+        return tag.split("}")[-1]
+
+    def child(el, name):
+        for c in el:
+            if local(c.tag) == name:
+                return c
+        return None
+
+    def kids(el, name):
+        return [c for c in el if local(c.tag) == name]
+
+    def nums(text, dtype):
+        t = (text or "").split()
+        return np.array(t, dtype=dtype) if t else np.zeros(0, dtype=dtype)
+
+    root = ET.parse(path).getroot()
+    res = {"unit_meter": None, "up_axis": None, "sources": {}}
+
+    asset = child(root, "asset")
+    if asset is not None:
+        unit = child(asset, "unit")
+        if unit is not None and unit.get("meter"):
+            res["unit_meter"] = float(unit.get("meter"))
+        up = child(asset, "up_axis")
+        if up is not None:
+            res["up_axis"] = (up.text or "").strip()
+
+    for lib in kids(root, "library_geometries"):
+        for geom in kids(lib, "geometry"):
+            mesh = child(geom, "mesh")
+            if mesh is None:
+                continue
+            for src in kids(mesh, "source"):
+                arr = child(src, "float_array")
+                if arr is None:
+                    continue
+                acc = None
+                tc = child(src, "technique_common")
+                if tc is not None:
+                    acc = child(tc, "accessor")
+                cnt = None if acc is None else int(acc.get("count", 0))
+                stride = None if acc is None else int(acc.get("stride", 0))
+                ent = {
+                    "array_count": int(arr.get("count", 0)),
+                    "values": int(nums(arr.text, np.float64).size),
+                    "accessor_count": cnt,
+                    "stride": stride,
+                }
+                if with_arrays:
+                    a = nums(arr.text, np.float64)
+                    ent["data"] = (a if stride in (None, 0)
+                                   else a.reshape(cnt, stride))
+                res["sources"][src.get("id")] = ent
+            for tris in kids(mesh, "triangles"):
+                ins = kids(tris, "input")
+                res["triangles"] = int(tris.get("count", 0))
+                res["inputs"] = [(i.get("semantic"), i.get("source"),
+                                  i.get("offset")) for i in ins]
+                res["p_cols"] = len(ins)
+                p = child(tris, "p")
+                arr = nums(None if p is None else p.text, np.int64)
+                res["p_count"] = int(arr.size)
+                if with_arrays and len(ins):
+                    cols = arr.reshape(-1, len(ins))
+                    res["p"] = cols
+                    # Spalte 0 ist VERTEX; die anderen Spalten sind bei
+                    # geteilten Attributen dieselben Indizes.
+                    res["tris"] = cols[:, 0].reshape(-1, 3)
+                break
+
+    imgs = [c for lib in kids(root, "library_images")
+            for c in kids(lib, "image")]
+    res["has_texture"] = bool(imgs) and child(imgs[0], "init_from") is not None
+    res["texture_files"] = [((child(i, "init_from").text or "").strip())
+                            for i in imgs if child(i, "init_from") is not None]
+    mats = [c for lib in kids(root, "library_materials")
+            for c in kids(lib, "material")]
+    res["materials"] = [m.get("id") for m in mats]
+    # Verweise, die ins Leere zeigen: <triangles material="symbol"> muss
+    # ein <instance_material symbol="..."> aufloesen, und dessen target
+    # muss ein Material aus <library_materials> sein.
+    res["dangling_refs"] = []
+    symbols = set()
+    for node in root.iter():
+        if local(node.tag) == "instance_material":
+            if node.get("symbol"):
+                symbols.add(node.get("symbol"))
+            tgt = node.get("target")
+            if tgt and tgt.lstrip("#") not in res["materials"]:
+                res["dangling_refs"].append(("instance_material", tgt))
+    for node in root.iter():
+        if local(node.tag) == "triangles" and node.get("material"):
+            if node.get("material") not in symbols:
+                res["dangling_refs"].append(("triangles", node.get("material")))
+    return res
+
+
 def write_fbx(path: str, v: np.ndarray, f: np.ndarray,
               colors: np.ndarray | None = None, name: str = "FaceScan",
               unit_scale: float = 0.1, normals: np.ndarray | None = None,

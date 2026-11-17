@@ -57,6 +57,13 @@ ATLAS_RES = 2048
 # Text-Root-Layer ab. Der Inhalt kommt weiter aus unserem USDA-Schreiber,
 # nur die Serialisierung macht die USD-Bibliothek (export_more.usda_to_usdc).
 USDZ_CRATE = True
+# Collada (DAE) schreiben wir nur fuer diese eine LOD-Stufe. Grund: DAE
+# ist XML und braucht rund 100 Byte je Dreieck -- LOD0 kaeme damit auf
+# ~30 MB und waere groesser als GLB und USDZ zusammen, obwohl beide
+# dieselbe Geometrie tragen. Als Austausch- und Support-Format genuegt
+# die groebste Stufe; die feine Geometrie geht als M1-Export (run_m1.py)
+# ohnehin mit DAE raus.
+LOD_DAE = 3
 LOD_TARGETS = (300_000, 80_000, 20_000, 6_000)
 UV_WEIGHT = 4000.0        # Strafe dafuer, Kanten ueber Nahtabstaende zu falten
 DILATE_PX = 600            # Lueckenfuellung: groesste Lücke ~820 px (Hinterkopf)
@@ -250,7 +257,8 @@ def main() -> int:
     sys.stdout.flush()
 
     # ---------------------------------------------------------- Export ---
-    banner("LOD-Export: GLB (mit Textur), OBJ (+mtl), USDZ")
+    banner("LOD-Export: GLB (mit Textur), OBJ (+mtl), USDZ, DAE (LOD%d)"
+           % LOD_DAE)
     report = {"atlas": int(ATLAS_RES), "lod": [], "seam": {}}
     for i, (v, f, _c, u) in enumerate(lod):
         nn = mt.vertex_normals(v, f)
@@ -269,6 +277,12 @@ def main() -> int:
                  p, v, f, None, name="FaceScan_LOD%d" % i, normals=n, uv=u,
                  texture=tex_path, crate=USDZ_CRATE)),
         ]
+        if i == LOD_DAE:
+            jobs.append(
+                ("DAE", os.path.join(MESHES, base + ".dae"),
+                 lambda p, v=v, f=f, u=u, n=nn: em.write_dae(
+                     p, v, f, None, name="FaceScan_LOD%d" % i, normals=n,
+                     uv=u, texture=tex_path)))
         sizes = {}
         for tag, path, fn in jobs:
             t0 = time.time()

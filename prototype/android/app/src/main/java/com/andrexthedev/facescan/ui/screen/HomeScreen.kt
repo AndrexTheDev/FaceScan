@@ -127,12 +127,17 @@ fun HomeScreen(
 
         Spacer(Modifier.weight(1f))
 
+        // stringResource() ist selbst @Composable. Innerhalb von
+        // .semantics { } gilt das NICHT -- dieser Lambda-Rumpf ist kein
+        // Kompositions-Kontext, sondern ein SemanticsPropertyReceiver.
+        // Der Text muss deshalb VORHER geholt werden.
+        val startScanBeschreibung = stringResource(R.string.cd_start_scan)
         Button(
             onClick = onStartScan,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)
-                .semantics { contentDescription = stringResource(R.string.cd_start_scan) },
+                .semantics { contentDescription = startScanBeschreibung },
             colors = ButtonDefaults.buttonColors(containerColor = gold, contentColor = onGold),
             shape = RoundedCornerShape(18.dp)
         ) {

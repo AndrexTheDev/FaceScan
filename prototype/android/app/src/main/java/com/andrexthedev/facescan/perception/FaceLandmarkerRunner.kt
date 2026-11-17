@@ -25,7 +25,7 @@ import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
  * gemeint – nicht die Mathematik. Der Kern (geometry/) haengt nicht daran.
  *
  * Wichtig (haeufigste Fehlerquelle bei Blendshape-Pipelines):
- * Die Modell-Doku weist ausdruecklich darauf hin, dass sich *Left/*Right auf
+ * Die Modell-Doku weist ausdruecklich darauf hin, dass sich *Left und *Right auf
  * die ABGEBILDETE PERSON beziehen und sich bei horizontal gespiegeltem
  * Eingabebild vertauschen. Wir speisen daher IMMER das ungespiegelte Bild ein
  * und spiegeln nur die Anzeige.

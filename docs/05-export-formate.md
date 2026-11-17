@@ -107,6 +107,11 @@ Die Brücke dorthin ist FBX/ABC/USD/OBJ + unser Blender-Add-on (Kapitel 9).
 - **STL:** binär (80-Byte-Header + uint32 Dreieckszahl + 50 Byte je Dreieck), Einheit mm,
   **watertight-Variante** (Poisson), optional Sockel (Zylinder/Rundfuß, 6 mm), Wandstärkenprüfung
   (Ray-Cast: Min. 1,2 mm) mit Warnung.
+- **Vereinfachte Druckfassung** (`meshes/facescan_print_lod.stl` und
+  `..._hollow.stl`, seit M2b): Gröbste Fassung, die eine **Formfehlergrenze**
+  einhält (p95 ≤ 0,10 mm, p99 ≤ 0,35 mm) und dabei wasserdicht bleibt — im
+  Speicher und in der Datei. Massiv 100.732 Dreiecke (87 % gespart), hohl
+  189.820 (84 %), statt 774.858 bzw. 1.186.382. Einzelheiten in README, Kap. 7h.
 - **Hohlkörper-Variante** (`meshes/facescan_print_hollow.stl`, seit M2b): Schale mit 2,4 mm Wand
   über der Schnitthöhe, **massiver Sockel** (Schwerpunkt unten) und einem **Ablaufloch** (r = 5 mm)
   durch die Standfläche. Volumen 1171 → 542 cm³, also **54 % gespart**. Die Wand wird kalibriert
@@ -501,11 +506,65 @@ aus echten Fehlermeldungen fremder Leser entstanden:
     1 + 1 + 0). Die Verbindung nach außen prüft man deshalb mit einem
     Strahl, nicht mit der Euler-Charakteristik.
 
+**Vereinfachen für den Druck**
+37. **Der Zusammenfasser darf eine Kante nur entfernen, wenn er ALLE
+    Dreiecke um ihre beiden Punkte kennt.** In `_MeshState._unlink`
+    stand das `discard` außerhalb der Abfrage, ob die Kante wirklich
+    keinem Dreieck mehr gehört — ein Punkt verlor damit jede Kante, die
+    noch ein anderes Dreieck benutzte. Die Liste der Dreiecke um einen
+    Punkt wurde Zug um Zug kürzer, und beim Zusammenfassen blieben
+    Dreiecke übrig, die niemand mehr kannte. Die hingen danach nur noch
+    an einer Kante am Rest: **8.660 Randkanten, 1.805 nicht-
+    manigfaltige Kanten und 255 Einzelteile aus einem Stück** nach einer
+    harmlosen Vereinfachung von 775 k auf 300 k Dreiecke.
+38. **Es braucht die Nachbarschaftsbedingung**: `lk(u) ∩ lk(w) = lk(uw)`.
+    Ohne sie entsteht beim Zusammenfassen eine Kante mit VIER Nachbarn —
+    zwei Flächenblätter, die sich nur in dieser Kante berühren. Danach
+    ist das Netz nicht mehr wasserdicht, obwohl es genauso aussieht wie
+    vorher (26 solcher Kanten blieben nach der ersten Korrektur).
+39. **Geprüft werden muß um BEIDE Punkte herum, nicht nur um den
+    sterbenden.** Die Dreiecke am ÜBERLEBENDEN Punkt wandern mit, wenn
+    er auf die neue Lage rückt, und ändern sich genauso. Wer nur um `u`
+    herum prüft, läßt jedes Dreieck wachsen, das zufällig immer am
+    überlebenden Punkt hängt — Zug um Zug, unbegrenzt. Und der Umbau
+    darf trotzdem nur die Dreiecke am sterbenden Punkt anfassen: beides
+    in einen Topf zu werfen, tötet mitwandernde Dreiecke zweimal und
+    reißt Löcher (Euler −4407 nach dem ersten Schritt).
+40. **Eine EBENE Fläche vereinfacht sich kostenlos — und pflastert damit
+    jedes Loch zu, das in ihr liegt.** Jedes Dreieck in einer Ebene
+    liegt genau auf ihr, die Quadrik merkt nichts. Der Boden des
+    Hohlraums ist so eine Ebene, mit dem Ablaufloch in der Mitte: drei
+    Punkte im Abstand von 120° ergeben ein Riesendreieck über dem Loch,
+    und der Hohlraum ist danach ein geschlossenes Gefäß. Punkte am Loch
+    festzuhalten hilft nicht — die drei Ecken des zudeckenden Dreiecks
+    dürfen weit weg liegen. Ein **Sperrgebiet** hilft: keine Kante darf
+    in diese Kiste hineinragen. Gemessen: Loch 4,6 mm statt 2,1 mm.
+41. **Das Netz im Speicher ist dicht, die DATEI nicht.** STL speichert
+    Positionen als 32-Bit-Zahl, und das Optimum der Quadrik fällt sehr
+    oft fast genau auf einen schon vorhandenen Punkt: zwei Punkte, im
+    Speicher um 1e-14 mm verschieden, sind in der Datei IDENTISCH. 14
+    solcher Paare genügten, und aus einem Netz mit 0 Randkanten und
+    Euler 2 kam aus der Datei ein Netz mit Euler 17 und
+    `is_watertight = False` zurück. Zusammenfassen NACH dem Runden heilt
+    das nicht (es blieben Kanten mit vier Nachbarn), also wird die
+    Kollision vermieden — und zwar NUR dann: jede neue Lage auf 32 Bit
+    zu runden, sieht harmlos aus (8e-6 mm) und kostet doch 40 %
+    Formfehler, weil es den ganzen weiteren Ablauf ändert.
+42. **Der Formfehler an den Vertices gemessen ist eine Tautologie.** Die
+    Vertices eines vereinfachten Netzes sind lauter Punkte des
+    Originals — ihr Abstand zum Original ist null, egal wie grob das
+    Netz inzwischen ist (p95 0,0015 mm bei 300 k statt 775 k).
+    Flächengewichtet auf der Oberfläche gemessen sind es 0,082 mm.
+43. **Das Maximum ist keine Grenze.** Es sitzt an einer Haarspitze oder
+    an der scharfen Kante unten am Sockel und wandert mit der Stichprobe
+    (1,55 mm hier, 2,94 mm da). Gezählt wird, welcher ANTEIL der Fläche
+    über einer Grenze liegt.
+44. **Die Kette ist pessimistischer als der frische Lauf.** Dieselbe
+    Dreieckszahl, frisch aus dem Original gerechnet statt Stufe für
+    Stufe: p95 0,087 statt 0,098 mm. Gesucht wird deshalb in zwei
+    Gängen — die Kette findet den Bereich, der frische Lauf die Stufe.
+
 ### 12.2 Offen
-* **Das Drucknetz ist zu fein.** 775 k Dreiecke (hohl: 1,19 M) braucht kein
-  Drucker; eine vereinfachte Fassung mit einer Formfehlergrenze gibt es
-  noch nicht. Die LOD-Kette (§12.3) rechnet bisher nur für die Anzeige,
-  und ihr Ziel ist Dreieckszahl, nicht Druckschärfe.
 * **Rig und Animation (M3).** Ohne sie bleiben `library_controllers` im DAE,
   ein BVH mit echtem Skelett statt der Aufnahmebahn, VRM und die
   Blendshapes offene Posten. Die Schreiber für BVH, CSV und JSON sind
@@ -573,6 +632,20 @@ aus echten Fehlermeldungen fremder Leser entstanden:
   aus §4.3. Daß der Hohlraum wirklich mit der Außenwelt verbunden ist,
   prüft ein Strahl vom Boden durch das Loch bis in den Hohlraum — alle
   200 Proben außen. Einzelheiten in README, Kap. 7g.
+* **Drucknetz vereinfacht** — `tools/build_print_lod.py`. Gesucht wird
+  die gröbste Fassung, die eine **Formfehlergrenze** einhält, nicht eine,
+  die eine bestimmte Dreieckszahl hat: p95 ≤ 0,10 mm (ein Viertel der
+  kleinsten Düse), p99 ≤ 0,35 mm, höchstens 1 % der Fläche über 0,5 mm,
+  beim Hohlkörper zusätzlich Wand p01 ≥ 1,2 mm und Ablaufloch ≥ 4 mm —
+  und das Netz muß dicht bleiben, im Speicher UND in der Datei. Ergebnis
+  `facescan_print_lod.stl`: 50.368 Punkte / **100.732 Dreiecke (87 %
+  gespart)**, 4,9 MB, p95 0,090 mm. `facescan_print_lod_hollow.stl`:
+  94.912 / **189.820 (84 % gespart)**, 9,3 MB, p95 0,094 mm, Wand p01
+  1,60 mm, Loch 4,6 mm frei, Ablauf offen. Beide von trimesh aus der
+  Datei mit `is_watertight = True` und `euler_number = 2` gelesen. Was
+  dabei im Weg stand, sind fünf Fehler im Zusammenfasser selbst
+  (§12.1, 37–44); einer davon — die mitwandernden Dreiecke am
+  überlebenden Punkt — hat auch die Anzeige-LODs betroffen.
 * **Aufnahmebahn als BVH, CSV und JSON** — `tools/build_motion.py`,
   Schreiber und Leser in `export_more.py`. Was M2 an Bewegung hat, ist
   nicht der Rig (der kommt mit M3), sondern die Aufnahme selbst: 16

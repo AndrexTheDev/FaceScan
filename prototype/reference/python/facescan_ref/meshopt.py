@@ -402,8 +402,18 @@ class _MeshState:
                 lst.remove(t)
             if not lst:
                 del self.e2t[k]
-            self.v2e[x].discard(k)
-            self.v2e[y].discard(k)
+                # Erst wenn die Kante WIRKLICH keinem Dreieck mehr gehört,
+                # darf sie aus den Nachbarlisten der beiden Punkte
+                # verschwinden. Stand das `discard` außerhalb dieses
+                # Zweigs, verlor ein Punkt jede Kante, die noch ein
+                # anderes Dreieck benutzt -- die Liste der Dreiecke um
+                # einen Punkt wurde Stück für Stück kürzer, und beim
+                # Zusammenfassen blieben Dreiecke übrig, die niemand mehr
+                # kannte. Die hingen danach nur noch an einer Kante am
+                # Rest: Randkanten, nicht-manigfaltige Ecken und am Ende
+                # 255 Einzelteile aus einem Stück.
+                self.v2e[x].discard(k)
+                self.v2e[y].discard(k)
 
     def kill(self, t):
         if not self.t_alive[t]:
@@ -422,7 +432,8 @@ class _MeshState:
 def quadric_decimate(v, f, target_faces, colors=None, boundary_weight=16.0,
                      color_weight=0.0, uv=None, uv_weight=0.0,
                      max_cost=np.inf, flip_cos=-0.2,
-                     pass_fraction=0.03, verbose=False):
+                     pass_fraction=0.03, verbose=False,
+                     float32_safe=False, locked=None, keepout=None):
     """Vereinfacht ein Dreiecksnetz auf `target_faces` Flächen.
 
     Rückgabe: (v2, f2, colors2, uv2). Farben und UVs werden gemittelt
@@ -444,13 +455,52 @@ def quadric_decimate(v, f, target_faces, colors=None, boundary_weight=16.0,
     nach `pass_fraction` Anteil Kanten werden die Kosten ohnehin neu
     berechnet.
 
-    Drei Schutzmechanismen, ohne die das Ergebnis unbrauchbar wird:
+    Vier Schutzmechanismen, ohne die das Ergebnis unbrauchbar wird:
       * **Umklapp-Prüfung:** kein Dreieck darf seine Orientierung umkehren.
       * **Gültigkeitsprüfung:** tote Vertices und gelöschte Kanten werden
         übersprungen (die sortierte Liste ist innerhalb eines Durchgangs
         teilweise veraltet).
+      * **Nachbarschaftsbedingung:** keine Kante darf vier Nachbarn
+        bekommen (sonst ist das Netz nicht mehr wasserdicht, s. unten).
       * **max_cost:** bricht ab, bevor aus einem ehrgeizigen Ziel ein
         zerstörtes Netz wird.
+
+    `locked` ist eine boolesche Maske über die Punkte; ein Punkt mit
+    `True` darf sich nicht bewegen, und Kanten, an denen er hängt, werden
+    nicht zusammengefaßt. Gebraucht wird das für FUNKTIONSFLÄCHEN --
+    Flächen also, deren Maß etwas bedeutet und nicht nur deren Form. Ein
+    Ablaufloch ist so eine: uniform vereinfacht schrumpft es von 10 mm auf
+    gut 4 mm Durchmesser, weil ein Zylinder eine abwickelbare Fläche ist
+    und das Zusammenfassen entlang der Achse praktisch nichts kostet. Das
+    Loch bleibt offen, aber es entwässert nicht mehr. Solche Stellen
+    schützt man, statt zu hoffen.
+
+    `keepout` ist eine achsenparallele Kiste `((x0,y0,z0), (x1,y1,z1))`,
+    die kein neues Dreieck schneiden darf. Wozu das gut ist: eine EBENE
+    Fläche läßt sich kostenlos vereinfachen -- jedes Dreieck darin liegt
+    genau auf ihr, die Quadrik merkt nichts. Hat diese Fläche aber ein
+    Loch, wird es zugepflastert: der Boden des Hohlraums ist eine
+    waagerechte Scheibe mit dem Ablaufloch in der Mitte, und drei Punkte
+    im Abstand von 120° ergeben ein Riesendreieck, das das Loch
+    überdeckt. Der Hohlraum ist danach ein geschlossenes Gefäß, und kein
+    Wasserdicht-Test der Welt merkt es -- das Netz ist tadellos, es
+    entwässert nur nicht mehr. Punkte am Loch festzuhalten hilft nicht
+    (die drei Ecken des zudeckenden Dreiecks dürfen weit weg liegen),
+    wohl aber diese Kiste: wer sie schneidet, wird abgelehnt.
+
+    `float32_safe` richtet die neuen Punktlagen so aus, daß das Netz auch
+    noch **nach dem Export** wasserdicht ist. Warum das nötig ist: STL
+    speichert Positionen als 32-Bit-Zahl (7 Ziffern), und das Optimum der
+    Quadrik fällt sehr oft fast genau auf einen schon vorhandenen Punkt --
+    dann sind zwei Punkte im Speicher um 1e-6 mm verschieden und in der
+    Datei IDENTISCH. Jeder Leser, der sie zusammenfaßt, findet danach
+    Kanten mit vier Nachbarn: 14 solcher Paare genügten, und ein im
+    Speicher tadelloses Netz (0 Randkanten, Euler 2) kam aus der Datei
+    mit Euler 17 und `is_watertight = False` zurück. Zusammenfaßen NACH
+    dem Runden hilft nicht -- die entstehenden Löcher bekommt man nicht
+    mehr sauber gestopft (es blieben 3 Kanten mit vier Nachbarn). Also
+    wird die Kollision VERMIEDEN: die neue Lage wird auf 32 Bit gerundet
+    und das Zusammenfassen abgelehnt, wenn dort schon ein Punkt liegt.
     """
     v = np.asarray(v, dtype=np.float64).copy()
     f = np.asarray(f, dtype=np.int64)
@@ -460,6 +510,19 @@ def quadric_decimate(v, f, target_faces, colors=None, boundary_weight=16.0,
     st = _MeshState(f)
     q = build_quadrics(v, f, boundary_weight=boundary_weight)
     alive_v = np.ones(len(v), dtype=bool)
+    n_link = 0          # wie oft die Nachbarschaftsbedingung abgelehnt hat
+    n_snap = 0          # wie oft die 32-Bit-Prüfung abgelehnt hat
+    n_keep = 0          # wie oft das Sperrgebiet abgelehnt hat
+    v32 = v.astype(np.float32) if float32_safe else None
+    if float32_safe:
+        # Bitmuster der 32-Bit-Lage -> wie viele Punkte liegen dort. Ein
+        # Eintrag mit 2 wäre eine Kollision, die wir nicht mehr heilen
+        # können -- das Ausgangsnetz muß also schon sauber sein.
+        uniq, cnt = np.unique(v32, axis=0, return_counts=True)
+        spot = {row.tobytes(): int(c) for row, c in zip(uniq, cnt)}
+        n_clash0 = int((cnt > 1).sum())
+    else:
+        spot, n_clash0 = None, 0
     cols = (None if colors is None
             else np.asarray(colors, dtype=np.float64).copy())
     uvs = None if uv is None else np.asarray(uv, dtype=np.float64).copy()
@@ -474,6 +537,38 @@ def quadric_decimate(v, f, target_faces, colors=None, boundary_weight=16.0,
             pp[col == w] = pos
             out[:, k, :] = pp
         return out
+
+    def ring(vert):
+        """Nachbarpunkte von `vert` -- wem die Kanten gehören."""
+        out = set()
+        for kk in st.v2e[vert]:
+            if kk in st.e2t:
+                out.add(kk[0] if kk[1] == vert else kk[1])
+        return out
+
+    def rings_around(u, w):
+        """(Dreiecke um u, Dreiecke um u oder w) -- beides nur lebende.
+
+        Der zweite Teil ist für die PRÜFUNGEN (Umklappen, Sperrgebiet),
+        der erste für den Umbau: nur die Dreiecke am sterbenden Punkt
+        bekommen einen neuen Index, und nur die darf man herauswerfen und
+        neu eintragen. Beides in einen Topf zu werfen, zerstört das Netz
+        (Euler -4407 nach dem ersten Schritt): ein Dreieck, das bloß
+        mitwandert, zweimal zu töten, reißt ein Loch.
+        """
+        a_u, both = set(), set()
+        for kk in st.v2e[u]:
+            a_u.update(st.e2t.get(kk, ()))
+        both.update(a_u)
+        for kk in st.v2e[w]:
+            both.update(st.e2t.get(kk, ()))
+        a_u = np.fromiter((t for t in a_u if st.t_alive[t]),
+                          dtype=np.int64,
+                          count=sum(1 for t in a_u if st.t_alive[t]))
+        both = np.fromiter((t for t in both if st.t_alive[t]),
+                           dtype=np.int64,
+                           count=sum(1 for t in both if st.t_alive[t]))
+        return a_u, both
 
     while n_faces > target_faces:
         edges = list(st.e2t.keys())
@@ -500,6 +595,8 @@ def quadric_decimate(v, f, target_faces, colors=None, boundary_weight=16.0,
             u, w = int(e0[j]), int(e1[j])
             if not (alive_v[u] and alive_v[w]):
                 continue
+            if locked is not None and (locked[u] or locked[w]):
+                continue
             if (u, w) not in st.e2t:
                 continue
             p = pos[j]
@@ -507,14 +604,18 @@ def quadric_decimate(v, f, target_faces, colors=None, boundary_weight=16.0,
                 break
 
             # ---- Umklappen verhindern ----------------------------------
-            around = set()
-            for k in st.v2e[u]:
-                around.update(st.e2t.get(k, ()))
-            around = np.fromiter((t for t in around if st.t_alive[t]),
-                                 dtype=np.int64, count=sum(
-                                     1 for t in around if st.t_alive[t]))
-            if len(around):
-                old = st.tri[around]
+            # Geprüft wird um BEIDE Punkte herum, nicht nur um den
+            # sterbenden: die Dreiecke am überlebenden Punkt wandern mit,
+            # wenn er auf `p` rückt, und ändern sich dabei genauso. Wer
+            # nur um `u` herum prüft, läßt jedes Dreieck wachsen, das
+            # zufällig immer am überlebenden Punkt hängt -- Zug um Zug,
+            # unbegrenzt, und keine Prüfung der Welt sieht es. Genau so
+            # ist dem Ablaufloch der Boden über den Kopf gezogen worden:
+            # das zudeckende Dreieck war nie das neu entstandene, sondern
+            # eines, das nur mitwanderte.
+            around, touched = rings_around(u, w)
+            if len(touched):
+                old = st.tri[touched]
                 n0 = np.cross(v[old[:, 1]] - v[old[:, 0]],
                               v[old[:, 2]] - v[old[:, 0]])
                 new = old.copy()
@@ -529,6 +630,97 @@ def quadric_decimate(v, f, target_faces, colors=None, boundary_weight=16.0,
                           / (l0[good] * l1[good]))
                     if np.any(cs < flip_cos):
                         continue
+
+            # ---- Nachbarschaftsbedingung --------------------------------
+            # Zusammenlegen darf nur, wenn die Umgebung der Kante (u,w)
+            # genau aus den beiden Dreiecken an der Kante besteht -- die
+            # "link condition": lk(u) ∩ lk(w) = lk(uw). Sonst entsteht
+            # eine Ecke, an der sich zwei Flaechenblaetter nur in einer
+            # Kante beruehren, und eine Kante mit VIER Nachbarn. Das Netz
+            # sieht danach unveraendert aus, ist aber nicht mehr
+            # wasserdicht -- und ein Formfehler, der an den Vertices
+            # mißt, merkt es nicht: die liegen ja richtig, es fehlt nur
+            # ein Stueck Flaeche daneben. Wer nur die Abweichung misst,
+            # haelt ein loechriges Netz fuer ein gutes. Erst der
+            # Wasserdicht-Test findet es.
+            opp = set()
+            for t in st.e2t.get((u, w), ()):
+                if st.t_alive[t]:
+                    a, b, c = st.tri[t]
+                    opp.add(a if (a != u and a != w)
+                            else (b if (b != u and b != w) else c))
+            ru, rw = ring(u), ring(w)
+            if (ru & rw) != opp:
+                n_link += 1
+                continue
+
+            if keepout is not None:
+                klo, khi = keepout
+                # Vortest: kein Dreieck aus dieser Nachbarschaft kann die
+                # Kiste erreichen, wenn sie als ganzes nicht einmal in
+                # ihre Nähe kommt. Das ist der Regelfall -- das Loch ist
+                # ein Zylinder von 8 mm in einer Büste von 140 mm --, und
+                # ohne diesen Vortest kostet die Prüfung mehr als alles
+                # andere zusammen.
+                nb = np.fromiter((ru | rw) | {u, w}, dtype=np.int64)
+                pn = v[nb]
+                a0 = np.minimum(pn.min(axis=0), p)
+                a1 = np.maximum(pn.max(axis=0), p)
+                if (a1 >= klo).all() and (a0 <= khi).all():
+                    tri = st.tri[touched]
+                    gone = (((tri == u) | (tri == w)).sum(axis=1) == 2)
+                    if not gone.all():
+                        # u und w liegen am Ende beide auf p
+                        P = np.where(((tri == u) | (tri == w))[:, :, None],
+                                     p[None, None, :], v[tri])
+                        mn, mx = P.min(axis=1), P.max(axis=1)
+                        hit = ((mx >= klo) & (mn <= khi)).all(axis=1) & ~gone
+                        if hit.any():
+                            n_keep += 1
+                            continue
+
+            # ---- Die neue Lage muß auch in der Datei noch eigen sein ---
+            if float32_safe:
+                # Erst beide alten Lagen abmelden, dann die neue prüfen:
+                # u stirbt, w zieht um, also zählt keine von beiden noch.
+                ku, kw = v32[u].tobytes(), v32[w].tobytes()
+                spot[ku] -= 1
+                if spot[ku] == 0:
+                    del spot[ku]
+                spot[kw] -= 1
+                if spot[kw] == 0:
+                    del spot[kw]
+                p32 = np.asarray(p, dtype=np.float32)
+                kp = p32.tobytes()
+                if kp in spot:
+                    # Ein paar Stellen weiterrücken, statt das
+                    # Zusammenfassen wegzuwerfen. Ein ULP sind bei 100 mm
+                    # rund 8e-6 mm -- das sieht kein Drucker und kein
+                    # Mensch. Ablehnen ist dagegen teuer: genau die
+                    # Zusammenlegungen, deren Optimum auf einen schon
+                    # vorhandenen Punkt fällt, sind die BILLIGSTEN.
+                    alt = p32
+                    for _ in range(6):
+                        alt = np.nextafter(alt, np.float32(np.inf))
+                        kp = alt.tobytes()
+                        if kp not in spot:
+                            p32 = alt
+                            p = alt.astype(np.float64)
+                            break
+                    else:
+                        spot[ku] = spot.get(ku, 0) + 1
+                        spot[kw] = spot.get(kw, 0) + 1
+                        n_snap += 1
+                        continue
+                # Gerückt wird NUR, wenn es sein muß. Jedes neue Optimum
+                # auf 32 Bit zu runden, sieht harmlos aus (8e-6 mm) und
+                # kostet doch 40 % Formfehler -- nicht weil die Rundung
+                # so groß wäre, sondern weil sie den ABLAUF ändert: ein
+                # anderer Grenzwert in der Umklapp-Prüfung, eine andere
+                # Kante, eine andere Kette von Entscheidungen. p95 fiel
+                # von 0,118 mm auf 0,084 mm, als die Rundung entfiel.
+                v32[w] = p32
+                spot[kp] = 1
 
             # ---- Kante zusammenfassen: u stirbt, w überlebt ------------
             for t in around.tolist():
@@ -564,6 +756,14 @@ def quadric_decimate(v, f, target_faces, colors=None, boundary_weight=16.0,
                 break
         if done == 0:
             break
+
+    if verbose:
+        print("    %7d Zusammenlegungen wegen der Nachbarschaftsbedingung "
+              "abgelehnt" % n_link)
+        if float32_safe:
+            print("    %7d wegen der 32-Bit-Pruefung abgelehnt, "
+                  "%d Kollisionen schon im Ausgangsnetz" % (n_snap, n_clash0))
+            print("    %7d wegen des Sperrgebiets abgelehnt" % n_keep)
 
     keep = np.flatnonzero(st.t_alive)
     f2 = st.tri[keep]

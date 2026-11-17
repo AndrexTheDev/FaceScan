@@ -557,3 +557,63 @@ def surface_deviation(v_ref, f_ref, v_lod, f_lod, cell: float = 4.0,
         "max_mm": float(both.max()),
         "unresolved": int((~ok1).sum() + (~ok2).sum()),
     }
+
+
+def form_error(v_ref, f_ref, v_lod, f_lod, n_samples: int = 20_000,
+               cell: float = 4.0, seed: int = 2026) -> dict:
+    """Formfehler eines vereinfachten Netzes gegen das Original (mm).
+
+    Warum nicht `surface_deviation`? Weil die dort **Vertices** als
+    Abfragepunkte nimmt, und die Vertices eines vereinfachten Netzes sind
+    -- solange man mit Kanten-Zusammenlegen arbeitet -- lauter Punkte des
+    ORIGINALS. Ihr Abstand zum Original ist daher praktisch null, ganz
+    gleich wie grob das Netz inzwischen ist: 300 k statt 775 k Dreiecke,
+    gemessen 0,0015 mm (p95). Das ist keine Gütezahl, das ist eine
+    Tautologie.
+
+    Gemessen wird deshalb flächengewichtet auf der OBERFLÄCHE
+    (`sample_surface`), und zwar in beide Richtungen getrennt:
+
+      * `to_lod`   -- Original -> LOD: das ist der Fehler, den man sieht.
+      * `from_lod` -- LOD -> Original: das ist der Fehler, den die LOD
+        macht. Bei Kanten-Zusammenlegen ist er klein, weil die Ecken auf
+        den Quadriken liegen; er wird erst dann interessant, wenn man
+        nach dem Vereinfachen glättet.
+    """
+    v_ref = np.asarray(v_ref, dtype=np.float64)
+    v_lod = np.asarray(v_lod, dtype=np.float64)
+    f_ref = np.asarray(f_ref, dtype=np.int64)
+    f_lod = np.asarray(f_lod, dtype=np.int64)
+
+    def stats(dist, at=None):
+        out = {
+            "mean_mm": float(dist.mean()),
+            "p50_mm": float(np.percentile(dist, 50)),
+            "p95_mm": float(np.percentile(dist, 95)),
+            "p99_mm": float(np.percentile(dist, 99)),
+            "max_mm": float(dist.max()),
+        }
+        if at is not None:
+            # Wo das Maximum sitzt. Das ist die einzige Zahl, mit der man
+            # ein einzelnes Ausreißer-Dreieck von einem echten Fehler
+            # unterscheiden kann -- 3 mm an einer Haarspitze sind nichts,
+            # 3 mm an der Nase sind ein anderes Gesicht.
+            out["at_mm"] = [float(x) for x in at[int(np.argmax(dist))]]
+        return out
+
+    q1 = sample_surface(v_ref, f_ref, int(n_samples), seed=seed)
+    d1, ok1 = point_to_surface(q1, v_lod, f_lod, cell=cell)
+    q2 = sample_surface(v_lod, f_lod, int(n_samples), seed=seed + 1)
+    d2, ok2 = point_to_surface(q2, v_ref, f_ref, cell=cell)
+    both = np.concatenate([d1[ok1], d2[ok2]])
+    out = {
+        "to_lod": stats(d1[ok1], q1[ok1]),
+        "from_lod": stats(d2[ok2], q2[ok2]),
+        "mean_mm": float(both.mean()),
+        "p95_mm": float(np.percentile(both, 95)),
+        "p99_mm": float(np.percentile(both, 99)),
+        "max_mm": float(both.max()),
+        "samples": int(len(both)),
+        "unresolved": int((~ok1).sum() + (~ok2).sum()),
+    }
+    return out

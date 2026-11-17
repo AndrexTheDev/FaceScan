@@ -1,0 +1,658 @@
+{
+  "limits": {
+    "p95_mm": 0.1,
+    "p99_mm": 0.35,
+    "over_mm": 0.5,
+    "over_frac": 0.01,
+    "wall_p01_mm": 1.2,
+    "hole_mm": 4.0
+  },
+  "chain": [
+    0.6,
+    0.5,
+    0.42,
+    0.35,
+    0.29,
+    0.24,
+    0.2,
+    0.16,
+    0.13
+  ],
+  "solid_reference": {
+    "vertices": 387431,
+    "faces": 774858,
+    "volume_cm3": 1171.1957842642353
+  },
+  "hollow_reference": {
+    "vertices": 593193,
+    "faces": 1186382,
+    "volume_cm3": 541.785443835569,
+    "locked_vertices": 6981
+  },
+  "keepout": {
+    "lo": [
+      -3.663376559432935,
+      -39.77904186841148,
+      -35.20466841455643
+    ],
+    "hi": [
+      4.336623440567065,
+      -31.779041868411483,
+      3.79533158544357
+    ]
+  },
+  "solid_chain": [
+    {
+      "target_frac": 0.6,
+      "faces": 464914,
+      "vertices": 232459,
+      "volume_cm3": 1171.609250207817,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.06886549827176716,
+      "p99_mm": 0.30208235193457106,
+      "over_frac": 0.0019166666666666666,
+      "max_mm": 1.6551616626069716,
+      "decimate_s": 38.43966865539551
+    },
+    {
+      "target_frac": 0.5,
+      "faces": 387428,
+      "vertices": 193716,
+      "volume_cm3": 1171.5708073294065,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.08501447085161752,
+      "p99_mm": 0.3344875029858117,
+      "over_frac": 0.0034583333333333332,
+      "max_mm": 1.3919191833182012,
+      "decimate_s": 11.625576496124268
+    },
+    {
+      "target_frac": 0.42,
+      "faces": 325440,
+      "vertices": 162722,
+      "volume_cm3": 1171.571950211633,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.08848441795913808,
+      "p99_mm": 0.32394148828720576,
+      "over_frac": 0.003,
+      "max_mm": 1.6321958233006342,
+      "decimate_s": 9.341435432434082
+    },
+    {
+      "target_frac": 0.35,
+      "faces": 271200,
+      "vertices": 135602,
+      "volume_cm3": 1171.5590964138937,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.09351693135464464,
+      "p99_mm": 0.35163056481565824,
+      "over_frac": 0.0033333333333333335,
+      "max_mm": 1.6321958233006342,
+      "decimate_s": 8.37678337097168
+    },
+    {
+      "target_frac": 0.29,
+      "faces": 224708,
+      "vertices": 112356,
+      "volume_cm3": 1171.5533633482123,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.08828175235755298,
+      "p99_mm": 0.33718775415134133,
+      "over_frac": 0.003125,
+      "max_mm": 1.6321958233006342,
+      "decimate_s": 6.914204120635986
+    },
+    {
+      "target_frac": 0.24,
+      "faces": 185966,
+      "vertices": 92985,
+      "volume_cm3": 1171.5447481729489,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.09252475839356054,
+      "p99_mm": 0.3302215730890899,
+      "over_frac": 0.003125,
+      "max_mm": 1.6321958233006342,
+      "decimate_s": 5.636803388595581
+    },
+    {
+      "target_frac": 0.2,
+      "faces": 154972,
+      "vertices": 77488,
+      "volume_cm3": 1171.5337145005699,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.09282167168571075,
+      "p99_mm": 0.33229877256045137,
+      "over_frac": 0.0031666666666666666,
+      "max_mm": 1.6321958233006342,
+      "decimate_s": 4.405849456787109
+    },
+    {
+      "target_frac": 0.16,
+      "faces": 123976,
+      "vertices": 61990,
+      "volume_cm3": 1171.5102778205735,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.09741108754401633,
+      "p99_mm": 0.3368845619274585,
+      "over_frac": 0.0034583333333333332,
+      "max_mm": 1.6321958233006342,
+      "decimate_s": 4.077114582061768
+    },
+    {
+      "target_frac": 0.13,
+      "faces": 100732,
+      "vertices": 50368,
+      "volume_cm3": 1171.4826700971269,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.10557056799557613,
+      "p99_mm": 0.348641884577262,
+      "over_frac": 0.00325,
+      "max_mm": 1.6321958233006342,
+      "decimate_s": 3.017704725265503
+    }
+  ],
+  "hollow_chain": [
+    {
+      "target_frac": 0.6,
+      "faces": 711828,
+      "vertices": 355916,
+      "volume_cm3": 542.207703012683,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.04764537272179456,
+      "p99_mm": 0.2486767814098721,
+      "over_frac": 0.0014166666666666668,
+      "max_mm": 1.2780618389830138,
+      "decimate_s": 64.33641457557678,
+      "wall": {
+        "min_mm": 0.9124850372904025,
+        "below_limit_frac": 0.0009232392508572936,
+        "below_limit_n": 7,
+        "limit_mm": 1.2,
+        "p01_mm": 1.6306313724650965,
+        "p05_mm": 1.8818789152577688,
+        "median_mm": 2.4025929997250217,
+        "samples": 7582,
+        "artefacts": 0,
+        "min_solid_mm": 0.9124850372904025
+      },
+      "hole_mm": 4.556488131588516
+    },
+    {
+      "target_frac": 0.5,
+      "faces": 593190,
+      "vertices": 296597,
+      "volume_cm3": 542.1623821080885,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.051513750159453815,
+      "p99_mm": 0.27280227362497494,
+      "over_frac": 0.0021666666666666666,
+      "max_mm": 1.3263607903720924,
+      "decimate_s": 20.556103467941284,
+      "wall": {
+        "min_mm": 0.9124850372904025,
+        "below_limit_frac": 0.0010506960861570791,
+        "below_limit_n": 8,
+        "limit_mm": 1.2,
+        "p01_mm": 1.61032181131959,
+        "p05_mm": 1.8779215927436141,
+        "median_mm": 2.406183501915571,
+        "samples": 7614,
+        "artefacts": 0,
+        "min_solid_mm": 0.9124850372904025
+      },
+      "hole_mm": 4.556488131588516
+    },
+    {
+      "target_frac": 0.42,
+      "faces": 498280,
+      "vertices": 249142,
+      "volume_cm3": 542.1728946275954,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.06717881211660934,
+      "p99_mm": 0.2892928126516733,
+      "over_frac": 0.002375,
+      "max_mm": 1.4995223889696163,
+      "decimate_s": 15.735913515090942,
+      "wall": {
+        "min_mm": 0.9124850372904025,
+        "below_limit_frac": 0.0007903055848261328,
+        "below_limit_n": 6,
+        "limit_mm": 1.2,
+        "p01_mm": 1.6233225516033842,
+        "p05_mm": 1.875768223228181,
+        "median_mm": 2.4051272221287334,
+        "samples": 7592,
+        "artefacts": 0,
+        "min_solid_mm": 0.9124850372904025
+      },
+      "hole_mm": 4.556488131588516
+    },
+    {
+      "target_frac": 0.35,
+      "faces": 415234,
+      "vertices": 207619,
+      "volume_cm3": 542.1685630200155,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.07364717413123578,
+      "p99_mm": 0.2894515534357156,
+      "over_frac": 0.0027916666666666667,
+      "max_mm": 1.4995223889696163,
+      "decimate_s": 13.470483541488647,
+      "wall": {
+        "min_mm": 0.9124850372904025,
+        "below_limit_frac": 0.0011846781624325392,
+        "below_limit_n": 9,
+        "limit_mm": 1.2,
+        "p01_mm": 1.6073850589916738,
+        "p05_mm": 1.8728656493287081,
+        "median_mm": 2.4059449420228938,
+        "samples": 7597,
+        "artefacts": 0,
+        "min_solid_mm": 0.9124850372904025
+      },
+      "hole_mm": 4.556488131588516
+    },
+    {
+      "target_frac": 0.29,
+      "faces": 344050,
+      "vertices": 172027,
+      "volume_cm3": 542.1607640565503,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.0784514705067253,
+      "p99_mm": 0.28964590940903295,
+      "over_frac": 0.0027916666666666667,
+      "max_mm": 1.4995223889696163,
+      "decimate_s": 12.248788118362427,
+      "wall": {
+        "min_mm": 0.9124850372904025,
+        "below_limit_frac": 0.0009216589861751152,
+        "below_limit_n": 7,
+        "limit_mm": 1.2,
+        "p01_mm": 1.6029312936594058,
+        "p05_mm": 1.8711454703857753,
+        "median_mm": 2.404033897246153,
+        "samples": 7595,
+        "artefacts": 0,
+        "min_solid_mm": 0.9124850372904025
+      },
+      "hole_mm": 4.556488131588516
+    },
+    {
+      "target_frac": 0.24,
+      "faces": 284732,
+      "vertices": 142368,
+      "volume_cm3": 542.1417517193145,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.08211010398242433,
+      "p99_mm": 0.28475270528571184,
+      "over_frac": 0.002416666666666667,
+      "max_mm": 1.3600040552492771,
+      "decimate_s": 10.42271089553833,
+      "wall": {
+        "min_mm": 0.9124850372904025,
+        "below_limit_frac": 0.001443759023493897,
+        "below_limit_n": 11,
+        "limit_mm": 1.2,
+        "p01_mm": 1.609502480466531,
+        "p05_mm": 1.8751685561498654,
+        "median_mm": 2.4048436575972603,
+        "samples": 7619,
+        "artefacts": 0,
+        "min_solid_mm": 0.9124850372904025
+      },
+      "hole_mm": 4.556488131588516
+    },
+    {
+      "target_frac": 0.2,
+      "faces": 237276,
+      "vertices": 118640,
+      "volume_cm3": 542.1189146967652,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.08788227585894204,
+      "p99_mm": 0.2989382660083127,
+      "over_frac": 0.0025833333333333333,
+      "max_mm": 1.469718387837979,
+      "decimate_s": 7.522922992706299,
+      "wall": {
+        "min_mm": 0.9124850372904025,
+        "below_limit_frac": 0.0010472574944364445,
+        "below_limit_n": 8,
+        "limit_mm": 1.2,
+        "p01_mm": 1.5905431645344406,
+        "p05_mm": 1.8788892930263514,
+        "median_mm": 2.408316571435839,
+        "samples": 7639,
+        "artefacts": 0,
+        "min_solid_mm": 0.9124850372904025
+      },
+      "hole_mm": 4.556488131588516
+    },
+    {
+      "target_frac": 0.16,
+      "faces": 189820,
+      "vertices": 94912,
+      "volume_cm3": 542.0987166158683,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.10093273394893111,
+      "p99_mm": 0.2938180055413134,
+      "over_frac": 0.002375,
+      "max_mm": 1.469718387837979,
+      "decimate_s": 6.91567325592041,
+      "wall": {
+        "min_mm": 0.9124850372904025,
+        "below_limit_frac": 0.0019572025052192066,
+        "below_limit_n": 15,
+        "limit_mm": 1.2,
+        "p01_mm": 1.5687679212266206,
+        "p05_mm": 1.8586177979713392,
+        "median_mm": 2.401704704070708,
+        "samples": 7664,
+        "artefacts": 0,
+        "min_solid_mm": 0.9124850372904025
+      },
+      "hole_mm": 4.556488131588516
+    },
+    {
+      "target_frac": 0.13,
+      "faces": 154230,
+      "vertices": 77117,
+      "volume_cm3": 542.0739418749562,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "p95_mm": 0.10968478037831929,
+      "p99_mm": 0.3022026238650778,
+      "over_frac": 0.002458333333333333,
+      "max_mm": 1.5958024187397442,
+      "decimate_s": 5.481889963150024,
+      "wall": {
+        "min_mm": 0.9124850372904025,
+        "below_limit_frac": 0.002103049421661409,
+        "below_limit_n": 16,
+        "limit_mm": 1.2,
+        "p01_mm": 1.5862310725417412,
+        "p05_mm": 1.8631720019137006,
+        "median_mm": 2.3983179906310657,
+        "samples": 7608,
+        "artefacts": 0,
+        "min_solid_mm": 0.9124850372904025
+      },
+      "hole_mm": 4.556488131588516
+    }
+  ],
+  "chosen": {
+    "massiv": {
+      "faces": 100732,
+      "p95_mm": 0.08966324722103862,
+      "p99_mm": 0.2881732362544563,
+      "over_frac": 0.001875,
+      "max_mm": 0.9336856735676804,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "vertices": 50368,
+      "volume_cm3": 1171.5420192959148,
+      "saved_pct": 86.99994063428396,
+      "error": {
+        "to_lod": {
+          "mean_mm": 0.01702319035558994,
+          "p50_mm": 0.0019076242426007174,
+          "p95_mm": 0.08221519930128675,
+          "p99_mm": 0.2966374054092635,
+          "max_mm": 0.8955123066086337,
+          "at_mm": [
+            31.368869955715805,
+            17.19820769339137,
+            -10.61073
+          ]
+        },
+        "from_lod": {
+          "mean_mm": 0.017275509976058003,
+          "p50_mm": 0.001972758807392517,
+          "p95_mm": 0.095291880765807,
+          "p99_mm": 0.2790159910987834,
+          "max_mm": 0.9336856735676804,
+          "at_mm": [
+            -58.439800467038026,
+            -69.711285448112,
+            -33.40165432643232
+          ]
+        },
+        "mean_mm": 0.017149350165823973,
+        "p95_mm": 0.08966324722103862,
+        "p99_mm": 0.2881732362544563,
+        "max_mm": 0.9336856735676804,
+        "samples": 40000,
+        "unresolved": 0
+      },
+      "overhang": {
+        "limit_deg": 45.0,
+        "area_total_cm2": 818.9059100775714,
+        "area_overhang_cm2": 228.42866055125734,
+        "fraction": 0.27894371958998226,
+        "triangles_overhang": 3388
+      },
+      "stand": {
+        "z_min_mm": -34.335340000000045,
+        "contact_cm2": 150.98287167334902,
+        "triangles_contact": 405,
+        "contact_center_mm": [
+          0.13968821606118337,
+          -35.95423803639946
+        ],
+        "com_offset_mm": 18.564771060408155,
+        "tilt_margin_mm": 51.03585394767939,
+        "stands": true,
+        "flatness_mm": 0.45624000000007214
+      },
+      "stl_kb": 4918.63671875,
+      "stl_faces": 100732,
+      "trimesh": {
+        "watertight": true,
+        "euler": 2,
+        "volume_cm3": 1171.5419967343585
+      }
+    },
+    "hollow": {
+      "faces": 189820,
+      "p95_mm": 0.09392636843378667,
+      "p99_mm": 0.29035697684888523,
+      "over_frac": 0.0019,
+      "max_mm": 1.4990091555808007,
+      "watertight": {
+        "boundary_edges": 0,
+        "non_manifold_edges": 0,
+        "components": 1,
+        "watertight": true,
+        "euler": 2
+      },
+      "wall": {
+        "min_mm": 0.9124850372904025,
+        "below_limit_frac": 0.0016628394963971811,
+        "below_limit_n": 21,
+        "limit_mm": 1.2,
+        "p01_mm": 1.5973797110172485,
+        "p05_mm": 1.8624892457641673,
+        "median_mm": 2.398239830544032,
+        "samples": 12629,
+        "artefacts": 0,
+        "min_solid_mm": 0.9124850372904025
+      },
+      "hole_mm": 4.556488131588516,
+      "vertices": 94912,
+      "volume_cm3": 542.0439160519318,
+      "saved_pct": 84.00009440466899,
+      "error": {
+        "to_lod": {
+          "mean_mm": 0.01970016168437827,
+          "p50_mm": 0.003937662255975614,
+          "p95_mm": 0.09098015277062867,
+          "p99_mm": 0.29733571116534707,
+          "max_mm": 1.128479078753422,
+          "at_mm": [
+            8.220822324897664,
+            -105.09176,
+            -34.12287065186296
+          ]
+        },
+        "from_lod": {
+          "mean_mm": 0.02014065050004448,
+          "p50_mm": 0.00391469224195979,
+          "p95_mm": 0.09720752968200244,
+          "p99_mm": 0.2785858507645176,
+          "max_mm": 1.4990091555808007,
+          "at_mm": [
+            -65.39962286002913,
+            -48.04515254754439,
+            -32.8363308444192
+          ]
+        },
+        "mean_mm": 0.019920406092211376,
+        "p95_mm": 0.09392636843378667,
+        "p99_mm": 0.29035697684888523,
+        "max_mm": 1.4990091555808007,
+        "samples": 40000,
+        "unresolved": 0
+      },
+      "overhang": {
+        "limit_deg": 45.0,
+        "area_total_cm2": 1268.866606237878,
+        "area_overhang_cm2": 307.1309320435658,
+        "fraction": 0.24205139494859326,
+        "triangles_overhang": 19310
+      },
+      "stand": {
+        "z_min_mm": -34.335340000000045,
+        "contact_cm2": 148.90843057496238,
+        "triangles_contact": 2080,
+        "contact_center_mm": [
+          0.1222539844636966,
+          -35.984538331547725
+        ],
+        "com_offset_mm": 5.499933751919483,
+        "tilt_margin_mm": 64.33607067785441,
+        "stands": true,
+        "flatness_mm": 0.45624000000008635
+      },
+      "stl_kb": 9268.63671875,
+      "stl_faces": 189820,
+      "drain_open": true,
+      "trimesh": {
+        "watertight": true,
+        "euler": 2,
+        "volume_cm3": 542.0438947868541
+      }
+    }
+  },
+  "runtime_s": 1203.9721102714539
+}

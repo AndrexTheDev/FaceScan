@@ -100,6 +100,12 @@ M2b, Teil 5 – der Hohlkörper (s. §7g). Braucht das Feld aus `build_print.py`
 /tmp/qrenv/bin/python prototype/reference/tools/build_hollow.py          # ~70 s
 ```
 
+M2b, Teil 6 – das Drucknetz vereinfachen (s. §7h), ebenfalls mit dem Feld:
+
+```bash
+/tmp/qrenv/bin/python prototype/reference/tools/build_print_lod.py       # ~20 min
+```
+
 ## 3. Ergebnisse (Stand dieses Commits)
 
 Szene: 120 Punkte, 8 Aufnahmen, 1080×1920 bei 62° FOV, 1,0 px Landmark-Rauschen,
@@ -622,8 +628,71 @@ nirgends nachlesen kann:
    eine echte Messung zu halten. Geprüft wird gegen die Kugel: 59,97 mm bei
    einem Soll von 60,00 mm.
 
-Offen bleibt: das Netz ist mit 775 k Dreiecken für einen Druck unnötig fein
-(hohl: 1,19 M); eine vereinfachte Fassung gibt es noch nicht.
+Offen bleibt: die Schreib- und LOD-Seite ist fertig, aber es fehlt die
+Bewegung — Rig, Blendshapes, VRM (M3).
+
+### 7h. M2b, Teil 6: das Drucknetz vereinfachen (`build_print_lod.py`)
+
+`docs/05` (12.2) verlangte zuletzt eine vereinfachte Druckfassung **mit einer
+Formfehlergrenze**. Gesucht wird deshalb nicht die Fassung mit einer bestimmten
+Dreieckszahl, sondern die **gröbste, die eine Grenze einhält** — und die Zahl,
+die am Ende herauskommt, sagt etwas über das Ergebnis.
+
+| Grenze | massiv | hohl |
+|---|---|---|
+| p95 Formfehler ≤ 0,10 mm | 0,090 | 0,094 |
+| p99 ≤ 0,35 mm | 0,288 | 0,290 |
+| Fläche über 0,5 mm ≤ 1 % | 0,19 % | 0,19 % |
+| Wand p01 ≥ 1,2 mm | – | 1,60 |
+| Ablaufloch ≥ 4 mm frei | – | 4,6 |
+| dicht im Speicher | 0 Randkanten, Euler 2 | 0 Randkanten, Euler 2 |
+| dicht in der DATEI (trimesh) | `True`, Euler 2 | `True`, Euler 2 |
+
+Ergebnis `meshes/facescan_print_lod.stl`: 50.368 Punkte / **100.732 Dreiecke,
+87 % gespart** (4,9 MB statt 38,7). `meshes/facescan_print_lod_hollow.stl`:
+94.912 / **189.820, 84 % gespart** (9,3 MB statt 59,3). Volumen 1171,5 statt
+1171,2 cm³, Standfläche 151,0 cm², Überhang 27,9 % — alles wie am massiven
+Netz gemessen, nur 0,5 mm Ebenheit der Standfläche statt 0,00 mm: die scharfe
+Kante unten am Sockel wird beim Vereinfachen rund, und die Meßzahl greift
+jetzt die Schräge der Randdreiecke mit. Das gedruckte Teil steht trotzdem,
+weil der Slicer an der Platte schneidet.
+
+Fünf Fehler lagen im Weg, und alle fünf saßen im Zusammenfasser selbst:
+
+1. **`_MeshState._unlink` hat Kanten aus der Nachbarliste eines Punktes
+   entfernt, die noch ein anderes Dreieck benutzte** — `discard` stand
+   außerhalb der Abfrage, ob die Kante wirklich keinem Dreieck mehr gehört.
+   Die Liste der Dreiecke um einen Punkt wurde Zug um Zug kürzer, und beim
+   Zusammenfassen blieben Dreiecke übrig, die niemand mehr kannte: **8.660
+   Randkanten, 1.805 nicht-manigfaltige Kanten und 255 Einzelteile aus einem
+   Stück** nach einer harmlosen Vereinfachung von 775 k auf 300 k.
+2. **Die Nachbarschaftsbedingung fehlte.** Ohne `lk(u) ∩ lk(w) = lk(uw)`
+   entsteht eine Kante mit vier Nachbarn, und das Netz ist nicht mehr dicht,
+   obwohl es genauso aussieht wie vorher.
+3. **Geprüft wurde nur um den sterbenden Punkt herum.** Die Dreiecke am
+   ÜBERLEBENDEN Punkt wandern mit und ändern sich genauso — wer sie nicht
+   prüft, läßt jedes Dreieck wachsen, das zufällig immer dort hängt. Genau so
+   ist dem Ablaufloch der Boden über den Kopf gezogen worden. Beim Umbau
+   dürfen dagegen nur die Dreiecke am sterbenden Punkt angefasst werden;
+   beides in einen Topf zu werfen, tötet Mitwanderer zweimal (Euler −4407).
+4. **Eine ebene Fläche vereinfacht sich kostenlos** und pflastert damit jedes
+   Loch zu, das in ihr liegt. Der Boden des Hohlraums ist eine waagerechte
+   Scheibe mit dem Ablaufloch in der Mitte; drei Punkte im Abstand von 120°
+   ergeben ein Riesendreieck darüber, und der Hohlraum ist ein geschlossenes
+   Gefäß — wasserdicht und undrainiert. Punkte am Loch festzuhalten hilft
+   nicht (die drei Ecken dürfen weit weg liegen); ein **Sperrgebiet** hilft.
+5. **Und die Datei:** STL speichert 32-Bit-Zahlen, und das Optimum der Quadrik
+   fällt oft fast genau auf einen schon vorhandenen Punkt — zwei Punkte, im
+   Speicher 1e-14 mm verschieden, sind in der Datei identisch. 14 Paare
+   genügten für Euler 17 und `is_watertight = False`. Gerückt wird nur, wo es
+   sein muß: jede Lage auf 32 Bit zu runden, kostet 40 % Formfehler, weil es
+   den ganzen weiteren Ablauf ändert.
+
+Zwei Meßfehler kamen dazu: der Formfehler an den VERTICES ist eine Tautologie
+(die Vertices eines vereinfachten Netzes sind Punkte des Originals — p95
+0,0015 mm, egal wie grob; flächengewichtet sind es 0,082 mm), und das Maximum
+ist als Grenze unbrauchbar, weil es an einer Haarspitze sitzt und mit der
+Stichprobe wandert. Gezählt wird der ANTEIL über einer Grenze.
 
 ### 7g. M2b, Teil 5: der Hohlkörper (`build_hollow.py`)
 

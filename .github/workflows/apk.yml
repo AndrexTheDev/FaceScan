@@ -21,6 +21,14 @@
 
 name: Test-APK
 
+# Mehrere Läufe gleichzeitig auf demselben Stand laden dieselben
+# Abhängigkeiten mehrfach herunter. Maven Central quittiert das mit 429
+# („Too Many Requests") und der Build wird rot, ohne dass eine Zeile Code
+# schuld ist. Ein neuer Lauf bricht daher den alten ab.
+concurrency:
+  group: test-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
     inputs:
@@ -85,8 +93,20 @@ jobs:
         working-directory: prototype/android
         run: |
           set -o pipefail
-          gradle --no-daemon :app:testDebugUnitTest 2>&1 | tail -n 400 | tee build.log
+          # Maven Central und plugins.gradle.org antworten gelegentlich mit
+          # 429. Das ist kein Fehler im Projekt -- wer es trotzdem rot
+          # meldet, verliert den Blick darauf, was wirklich kaputt ist.
+          rc=1
+          for versuch in 1 2 3; do
+            if gradle --no-daemon :app:testDebugUnitTest 2>&1 | tail -n 400 | tee build.log; then
+              rc=0
+              break
+            fi
+            echo "::notice title=Abhaengigkeiten nicht erreichbar::Versuch $versuch von 3 gescheitert"
+            [ "$versuch" -lt 3 ] && sleep 30
+          done
           echo "::notice title=Testergebnis::$(grep -c 'PASSED' build.log 2>/dev/null) bestanden"
+          exit $rc
 
       - name: Testergebnis hochladen
         if: always()
@@ -153,7 +173,16 @@ jobs:
         working-directory: prototype/android
         run: |
           set -o pipefail
-          gradle --no-daemon :app:assembleDebug 2>&1 | tail -n 400 | tee build.log
+          rc=1
+          for versuch in 1 2 3; do
+            if gradle --no-daemon :app:assembleDebug 2>&1 | tail -n 400 | tee build.log; then
+              rc=0
+              break
+            fi
+            echo "::notice title=Abhaengigkeiten nicht erreichbar::Versuch $versuch von 3 gescheitert"
+            [ "$versuch" -lt 3 ] && sleep 30
+          done
+          exit $rc
 
       # „Gebaut" ist nicht „benutzbar". Dieser Schritt sagt, ob die APK
       # das enthält, was sie zum Scannen braucht -- sonst steht am Ende

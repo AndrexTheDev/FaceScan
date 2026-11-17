@@ -232,7 +232,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # --target ist Pflicht: ohne ihn haengt das Release am
+          # Standard-Branch (main), obwohl die APK aus diesem Branch
+          # gebaut wurde. main kennt diesen Workflow noch gar nicht --
+          # das Release wuerde also auf einen Stand zeigen, aus dem
+          # diese APK nicht stammen kann.
           gh release create "test-apk-${{ github.run_number }}" \
+            --target "${{ github.ref_name }}" \
             --title "Test-APK #${{ github.run_number }}" \
             --notes "Automatisch gebaut aus ${{ github.sha }}. Debug-Signatur, nur zum Testen." \
             prototype/android/app/build/outputs/apk/debug/app-debug.apk

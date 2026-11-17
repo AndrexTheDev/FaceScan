@@ -177,7 +177,7 @@ def write_fixtures(scene: dict, metrics: dict) -> str:
     return path
 
 
-def write_kotlin_fixtures(scene: dict, metrics: dict) -> str:
+def write_kotlin_fixtures(scene: dict, metrics: dict, pose_metrics: dict) -> str:
     """Erzeugt eine Kotlin-Fixture-Datei fuer reine JVM-Unit-Tests.
 
     Warum Kotlin statt JSON? Damit die Unit-Tests ohne Robolectric und ohne
@@ -249,13 +249,34 @@ def write_kotlin_fixtures(scene: dict, metrics: dict) -> str:
         src.append(arr(f"outlierMask{fi}",
                        fr.get("outliers", np.zeros(fr["visibility"].shape[0])), per_line=16))
         src.append("\n")
+    # ---- Erwartete Ergebnisse (aus dem Python-Referenzlauf) ----
+    #
+    # ZWEI Gruppen, weil der Report zwei Fragen beantwortet:
+    #   * question_1: Pose je Frame, direkt aus den Landmarks  (F1)
+    #   * question_2: gemeinsamer Multi-Frame-Fit              (F2)
+    # F1 und F2 sind NICHT vertauschbar -- F2 ist deutlich genauer, weil die
+    # Identitaet ueber alle Frames geteilt wird. Genau diese Verwechslung hat
+    # einen Test einmal gegen die falsche Zahl pruefen lassen. Deshalb stehen
+    # die Gruppen hier getrennt und benannt, statt unter einem Namen.
     src.append("    // ---- Erwartete Ergebnisse (aus dem Python-Referenzlauf) ----\n")
+    src.append("    //\n")
+    src.append("    // F2: gemeinsamer Multi-Frame-Fit -> ModelFitterTest (F1-Werte\n")
+    src.append("    // sind das NICHT, siehe unten).\n")
     for name, key in [("expectedRotDegMean", "rot_err_deg_mean"),
                       ("expectedTransMmMean", "trans_err_mm_mean"),
                       ("expectedGeometryMm", "geometry_err_mm_mean"),
                       ("expectedInlierRmsPx", "repro_inlier_rms_px"),
                       ("expectedReproFinalPx", "repro_rms_final_px")]:
         src.append(f"    const val {name} = {float(metrics[key]):.6f}\n")
+    src.append("\n")
+    src.append("    // F1: Pose je Frame einzeln, ohne Kenntnis der Identitaet\n")
+    src.append("    // -> PoseEstimatorTest. Groesser als F2, das ist kein Fehler,\n")
+    src.append("    // sondern der Preis dafuer, dass die Identitaet noch fehlt.\n")
+    for name, key in [("expectedPoseOnlyRotDegMean", "rot_deg_mean"),
+                      ("expectedPoseOnlyRotDegMax", "rot_deg_max"),
+                      ("expectedPoseOnlyTransMmMean", "trans_mm_mean"),
+                      ("expectedPoseOnlyTransMmMax", "trans_mm_max")]:
+        src.append(f"    const val {name} = {float(pose_metrics[key]):.6f}\n")
     src.append("}\n")
 
     with open(path, "w", encoding="utf-8") as fh:
@@ -271,7 +292,7 @@ def main() -> int:
     m3 = question_3()
     m4 = question_4()
     path = write_fixtures(scene, m2)
-    kpath = write_kotlin_fixtures(scene, m2)
+    kpath = write_kotlin_fixtures(scene, m2, m1)
 
     os.makedirs(RESULTS, exist_ok=True)
     report = {"pose_only": m1, "multiframe": m2, "robustness": m3, "frames_sweep": m4}

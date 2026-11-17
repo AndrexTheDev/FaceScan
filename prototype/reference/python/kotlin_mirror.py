@@ -807,7 +807,56 @@ def main():
     print("-" * 74)
     print("ERGEBNIS:", "Spiegel stimmt mit der Referenz ueberein."
           if ok else "Abweichung -> Index-/Formelfehler im Kotlin-Kern suchen.")
-    return 0 if ok else 1
+
+    # --- Zuordnung der Kotlin-Konstanten ---------------------------------
+    # Der Generator schreibt FUENF F2-Konstanten und VIER F1-Konstanten in
+    # M0Fixtures.kt. Ein Test hat einmal die F2-Zahlen gegen ein F1-Ergebnis
+    # geprueft; der Fehler fiel erst in der CI auf. Darum wird hier die
+    # Zuordnung selbst geprueft: jede Konstante muss zu der Kennzahl passen,
+    # die unter diesem Namen gemessen wird.
+    fx = _kotlin_constants(root.parent / "android" / "app" / "src" / "test" / "java"
+                           / "com" / "andrexthedev" / "facescan" / "geometry"
+                           / "M0Fixtures.kt")
+    pairs = [
+        ("F1 Rotation Mittel", fx.get("expectedPoseOnlyRotDegMean"), f1_rot),
+        ("F1 Rotation Max", fx.get("expectedPoseOnlyRotDegMax"), max(rot)),
+        ("F1 Translation Mittel", fx.get("expectedPoseOnlyTransMmMean"), f1_tra),
+        ("F1 Translation Max", fx.get("expectedPoseOnlyTransMmMax"), max(tra)),
+        ("F2 Rotation Mittel", fx.get("expectedRotDegMean"), sum(rot_f) / len(rot_f)),
+        ("F2 Translation Mittel", fx.get("expectedTransMmMean"), sum(tra_f) / len(tra_f)),
+        ("F2 Geometrie", fx.get("expectedGeometryMm"), geom),
+        ("F2 Inlier-RMS", fx.get("expectedInlierRmsPx"), f2_inlier),
+        ("F2 Repro Ende", fx.get("expectedReproFinalPx"), res["history"][-1]),
+    ]
+    print()
+    print("Zuordnung der Kotlin-Konstanten (F1 = Pose je Frame, F2 = Gesamtfit)")
+    paired = True
+    for name, want, got in pairs:
+        if want is None:
+            print(f"  {name:26s} FEHLT in M0Fixtures.kt")
+            paired = False
+            continue
+        diff = abs(want - got)
+        tol = max(0.02 * max(abs(want), 1e-9), 1e-3)
+        good = diff <= tol
+        paired = paired and good
+        print(f"  {name:26s} Konstante {want:10.6f}  Spiegel {got:10.6f}  "
+              f"{'OK ' if good else 'FALSCH ZUGEORDNET'}")
+    print("  ->", "Konstanten passen zu ihren Kennzahlen." if paired
+          else "Konstante gehoert zu einer anderen Kennzahl (F1/F2 verwechselt?).")
+    return 0 if (ok and paired) else 1
+
+
+def _kotlin_constants(path):
+    """Liest 'const val NAME = ZAHL' aus einer Kotlin-Quelldatei."""
+    import re
+    out = {}
+    for m in re.finditer(r"const\s+val\s+(\w+)\s*=\s*(-?[\d.eE+-]+)", path.read_text()):
+        try:
+            out[m.group(1)] = float(m.group(2))
+        except ValueError:
+            pass
+    return out
 
 
 if __name__ == "__main__":

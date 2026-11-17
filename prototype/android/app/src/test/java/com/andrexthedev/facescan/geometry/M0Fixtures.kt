@@ -1202,9 +1202,20 @@ internal object M0Fixtures {
     )
 
     // ---- Erwartete Ergebnisse (aus dem Python-Referenzlauf) ----
+    //
+    // F2: gemeinsamer Multi-Frame-Fit -> ModelFitterTest (F1-Werte
+    // sind das NICHT, siehe unten).
     const val expectedRotDegMean = 0.072476
     const val expectedTransMmMean = 0.446355
     const val expectedGeometryMm = 0.333528
     const val expectedInlierRmsPx = 1.555924
     const val expectedReproFinalPx = 6.779670
+
+    // F1: Pose je Frame einzeln, ohne Kenntnis der Identitaet
+    // -> PoseEstimatorTest. Groesser als F2, das ist kein Fehler,
+    // sondern der Preis dafuer, dass die Identitaet noch fehlt.
+    const val expectedPoseOnlyRotDegMean = 0.168603
+    const val expectedPoseOnlyRotDegMax = 0.401816
+    const val expectedPoseOnlyTransMmMean = 0.989651
+    const val expectedPoseOnlyTransMmMax = 2.120425
 }

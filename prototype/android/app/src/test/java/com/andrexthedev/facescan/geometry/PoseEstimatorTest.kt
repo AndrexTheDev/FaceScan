@@ -41,10 +41,27 @@ class PoseEstimatorTest {
 
         val meanRotation = sumRotation / M0Fixtures.N_FRAMES
         val meanTranslation = sumTranslation / M0Fixtures.N_FRAMES
-        assertTrue("Rotationsfehler $meanRotation weicht von ${M0Fixtures.expectedRotDegMean} ab",
-            kotlin.math.abs(meanRotation - M0Fixtures.expectedRotDegMean) < 0.05)
-        assertTrue("Translationsfehler $meanTranslation weicht von ${M0Fixtures.expectedTransMmMean} ab",
-            kotlin.math.abs(meanTranslation - M0Fixtures.expectedTransMmMean) < 0.05)
+        // ACHTUNG: expectedRotDegMean / expectedTransMmMean gehoeren zum
+        // Multi-Frame-Fit (F2, ModelFitterTest) und sind hier FALSCH. F1 ohne
+        // bekannte Identitaet ist groesser -- wer die F2-Zahlen einsetzt,
+        // prueft gegen eine Genauigkeit, die dieser Schritt gar nicht liefert.
+        assertTrue(
+            "Rotationsfehler $meanRotation weicht von ${M0Fixtures.expectedPoseOnlyRotDegMean} ab",
+            kotlin.math.abs(meanRotation - M0Fixtures.expectedPoseOnlyRotDegMean) < 0.05)
+        assertTrue(
+            "Translationsfehler $meanTranslation weicht von ${M0Fixtures.expectedPoseOnlyTransMmMean} ab",
+            kotlin.math.abs(meanTranslation - M0Fixtures.expectedPoseOnlyTransMmMean) < 0.05)
+
+        // Schlechtester Einzelfall gegen die Referenz. 10 % Luft, weil der
+        // Kotlin-Kern nicht bitgleich mit numpy rechnet; eine echte
+        // Verschlechterung faellt trotzdem auf (die alte Schranke lag bei
+        // 1.0 deg bzw. 5.0 mm, also beim 2,5-fachen des Referenzwertes).
+        assertTrue(
+            "Schlechtester Frame: $worstRotation deg, Referenz ${M0Fixtures.expectedPoseOnlyRotDegMax}",
+            worstRotation < M0Fixtures.expectedPoseOnlyRotDegMax * 1.1)
+        assertTrue(
+            "Schlechtester Frame: $worstTranslation mm, Referenz ${M0Fixtures.expectedPoseOnlyTransMmMax}",
+            worstTranslation < M0Fixtures.expectedPoseOnlyTransMmMax * 1.1)
 
         println("[M0] Pose ohne ARCore: rot ${"%.4f".format(meanRotation)} deg " +
             "(max ${"%.4f".format(worstRotation)}), trans ${"%.4f".format(meanTranslation)} mm " +

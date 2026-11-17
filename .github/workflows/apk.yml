@@ -42,8 +42,9 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
+      # Kein setup-android: der ubuntu-Runner bringt das Android-SDK schon
+      # mit (ANDROID_HOME ist gesetzt). Eine Abhaengigkeit weniger ist eine
+      # Fehlerquelle weniger -- und die hat hier schon einmal gereicht.
       - uses: gradle/actions/setup-gradle@v4
         with:
           # AGP 8.7 verlangt mindestens Gradle 8.9 — darunter bricht der
@@ -52,12 +53,40 @@ jobs:
 
       - name: SDK-Plattform 35 installieren
         run: |
-          yes | sdkmanager --licenses > /dev/null
+          set -x
+          echo "ANDROID_HOME=${ANDROID_HOME:-leer} ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-leer}"
+          yes | sdkmanager --licenses > /dev/null || true
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
 
       - name: Unit-Tests (Kotlin gegen die bekannte Wahrheit)
         working-directory: prototype/android
-        run: gradle --no-daemon :app:testDebugUnitTest
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:testDebugUnitTest 2>&1 | tee build.log
+
+
+      - name: Fehlerprotokoll melden
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Die Entwicklungsumgebung kann Logs und Artefakte nicht abrufen
+          # (results-receiver.actions.githubusercontent.com ist gesperrt),
+          # kommt aber an Issues. Also steht das Protokoll hier, sonst
+          # wuerde ein fehlgeschlagener Build nur "failure" melden und
+          # niemand saehe, woran es liegt.
+          if [ ! -f prototype/android/build.log ]; then
+            echo "(kein build.log -- frueher Schritt gescheitert)" > /tmp/meldung.md
+          else
+            echo "## Lauf #${{ github.run_number }} — $(basename $GITHUB_JOB)" > /tmp/meldung.md
+            echo "Commit \`${{ github.sha }}\`, Job \`$GITHUB_JOB\`." >> /tmp/meldung.md
+            echo >> /tmp/meldung.md
+            echo '```' >> /tmp/meldung.md
+            tail -c 48000 prototype/android/build.log >> /tmp/meldung.md
+            echo '```' >> /tmp/meldung.md
+          fi
+          gh issue comment 1 --body-file /tmp/meldung.md || true
 
       - name: Testergebnis hochladen
         if: always()
@@ -77,26 +106,49 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: SDK-Plattform 35 installieren
         run: |
-          yes | sdkmanager --licenses > /dev/null
+          yes | sdkmanager --licenses > /dev/null || true
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Debug-APK bauen
         working-directory: prototype/android
-        run: gradle --no-daemon :app:assembleDebug
+        run: |
+          set -o pipefail
+          gradle --no-daemon :app:assembleDebug 2>&1 | tee build.log
 
       - name: Kurzbericht
         run: |
           APK=prototype/android/app/build/outputs/apk/debug/app-debug.apk
           ls -l "$APK"
           echo "Groesse: $(du -h "$APK" | cut -f1)"
+
+
+      - name: Fehlerprotokoll melden
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Die Entwicklungsumgebung kann Logs und Artefakte nicht abrufen
+          # (results-receiver.actions.githubusercontent.com ist gesperrt),
+          # kommt aber an Issues. Also steht das Protokoll hier, sonst
+          # wuerde ein fehlgeschlagener Build nur "failure" melden und
+          # niemand saehe, woran es liegt.
+          if [ ! -f prototype/android/build.log ]; then
+            echo "(kein build.log -- frueher Schritt gescheitert)" > /tmp/meldung.md
+          else
+            echo "## Lauf #${{ github.run_number }} — $(basename $GITHUB_JOB)" > /tmp/meldung.md
+            echo "Commit \`${{ github.sha }}\`, Job \`$GITHUB_JOB\`." >> /tmp/meldung.md
+            echo >> /tmp/meldung.md
+            echo '```' >> /tmp/meldung.md
+            tail -c 48000 prototype/android/build.log >> /tmp/meldung.md
+            echo '```' >> /tmp/meldung.md
+          fi
+          gh issue comment 1 --body-file /tmp/meldung.md || true
 
       - uses: actions/upload-artifact@v4
         with:

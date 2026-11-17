@@ -1,0 +1,18 @@
+# Von der CI geschrieben: enthält den SDK-Pfad des jeweiligen Runners.
+local.properties
+
+# Build-Ausgaben
+build/
+.gradle/
+.cxx/
+
+# Modellgewichte des Gesichts-Landmarkers.
+#
+# Diese Datei wird beim Bauen heruntergeladen und liegt deshalb nie im
+# Repository. Das ist Absicht und kein Versehen: docs/09 (Tabelle
+# „Komponenten und Lizenzen") verlangt für die MediaPipe-Modelle eine
+# schriftliche Prüfung der Modellkarte und der Google-AI-Edge-Bedingungen
+# VOR dem Einbau; der Prüfstatus ist dort ausdrücklich „offen".
+# Solange das offen ist, gehört die Datei nicht in die Versionsverwaltung
+# und nicht in ein veröffentlichtes Artefakt.
+app/src/main/assets/face_landmarker.task

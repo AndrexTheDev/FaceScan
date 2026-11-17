@@ -28,6 +28,13 @@ on:
         description: Zusätzlich ein GitHub-Release mit der APK anlegen
         type: boolean
         default: false
+      modell:
+        description: >-
+          MediaPipe-Modell (face_landmarker.task) einbetten. Ohne das Modell
+          baut und startet die App, bricht aber beim ersten Scan ab. Vor dem
+          Einbau ist docs/09 zu klären (Lizenz der Modellgewichte: offen).
+        type: boolean
+        default: false
   push:
     branches: ['**']
     paths:
@@ -124,17 +131,41 @@ jobs:
           echo "::notice title=Build-Tools::$(ls -1 "$SDK/build-tools" 2>&1 | tr '\n' ' ')"
           echo "sdk.dir=$SDK" > prototype/android/local.properties
 
+      # Ohne Modell kompiliert die App und startet auch, aber
+      # FaceLandmarker.createFromOptions() wirft beim ersten Scan, weil
+      # setModelAssetPath() aus den Assets liest und die Datei fehlt.
+      # Eingebettet wird sie nur auf ausdrücklichen Wunsch, weil docs/09
+      # für die Gewichte eine Lizenzprüfung verlangt (Stand: offen).
+      - name: MediaPipe-Modell holen
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.modell }}
+        run: |
+          set -euo pipefail
+          ziel=prototype/android/app/src/main/assets
+          mkdir -p "$ziel"
+          curl -fsSL --retry 3 -o "$ziel/face_landmarker.task" \
+            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+          echo "::notice title=Modell eingebettet::$(du -h "$ziel/face_landmarker.task" | cut -f1), sha256 $(sha256sum "$ziel/face_landmarker.task" | cut -d' ' -f1)"
+
       - name: Debug-APK bauen
         working-directory: prototype/android
         run: |
           set -o pipefail
           gradle --no-daemon :app:assembleDebug 2>&1 | tail -n 400 | tee build.log
 
+      # „Gebaut" ist nicht „benutzbar". Dieser Schritt sagt, ob die APK
+      # das enthält, was sie zum Scannen braucht -- sonst steht am Ende
+      # ein Telefon mit einer App, die beim ersten Versuch abbricht.
       - name: Kurzbericht
         run: |
           APK=prototype/android/app/build/outputs/apk/debug/app-debug.apk
           ls -l "$APK"
           echo "::notice title=APK::$(du -h "$APK" | cut -f1)"
+          echo "::notice title=Architekturen::$(unzip -l "$APK" 'lib/*' | grep -oE 'lib/[a-z0-9_-]+/' | sort -u | tr '\n' ' ')"
+          if unzip -l "$APK" | grep -q "assets/face_landmarker.task"; then
+            echo "::notice title=Scan bereit::ja -- Modell eingebettet"
+          else
+            echo "::notice title=Scan bereit::nein -- Modell fehlt, erster Scan bricht ab (docs/09: Lizenz offen)"
+          fi
 
       - uses: actions/upload-artifact@v4
         with:

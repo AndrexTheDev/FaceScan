@@ -2,6 +2,7 @@ package com.andrexthedev.facescan.capture
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Rect
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
@@ -48,8 +49,11 @@ class CameraController(private val context: Context) {
             val focal = chars.get(CameraCharacteristics.LENS_INTRINSIC_CALIBRATION)
             val principal = chars.get(CameraCharacteristics.LENS_INTRINSIC_CALIBRATION)
             val sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
-            val activeSize: Size =
-                chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE) ?: Size(0, 0)
+            // SENSOR_INFO_ACTIVE_ARRAY_SIZE liefert ein Rect, keine Size:
+            // den aktiven PixelBEREICH des Sensors, nicht eine Aufloesung.
+            // android.util.Size bleibt daneben in Gebrauch (setTargetResolution).
+            val activeSize: Rect =
+                chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE) ?: Rect()
             if (focal == null || principal == null) continue
             return Intrinsics(
                 fx = focal[0].toDouble(),

@@ -23,7 +23,6 @@ import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
  * Beides ist in einer frueheren MediaPipe-Version anders benannt gewesen
  * (getCategories() / getaData()). Wenn der Build hier meckert, ist genau das
  * gemeint – nicht die Mathematik. Der Kern (geometry/) haengt nicht daran.
- */
  *
  * Wichtig (haeufigste Fehlerquelle bei Blendshape-Pipelines):
  * Die Modell-Doku weist ausdruecklich darauf hin, dass sich *Left/*Right auf

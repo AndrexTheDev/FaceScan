@@ -201,11 +201,30 @@ Die Brücke dorthin ist FBX/ABC/USD/OBJ + unser Blender-Add-on (Kapitel 9).
   allgemein genug, es fehlte die Bewegung, nicht das Format. Einheiten **Meter und Grad, Y-up** –
   BVH selbst trägt keine (s. §12.1).
 
-### 4.9 VRM (optional, Studio)
-- VRM 0.x/1.0 ist eine glTF-2.0-Erweiterung (`VRMC_vrm`, `VRMC_node_constraint`,
-  `VRMC_springBone`, `VRMC_materials_mtoon`). Wir schreiben sie selbst (kein SDK nötig; die Spezifikation
-  ist offen dokumentiert). Direkte Kompatibilität mit VRChat, VMagicMirror, Luppet, 3tene, Cluster, V-Katsu.
-- Reihenfolge: **nach** glTF implementieren (VRM baut darauf auf).
+### 4.9 VRM 1.0 (Avatar, ab M3 fertig)
+- VRM ist **kein eigenes Format**, sondern glTF 2.0 mit angehängter
+  Erweiterung `VRMC_vrm`. Es gibt deshalb keinen eigenen Writer: `write_glb`
+  schreibt Netz, Skelett und Morph-Ziele, und `build_vrm.py` hängt den
+  Erweiterungsblock an. Ein SDK braucht es nicht — die Spezifikation ist
+  offen dokumentiert.
+- **Pflichtinhalt** (`humanoid.md`, `meta.md`): 15 Knochen
+  (`hips`, `spine`, `head` und je Seite `UpperLeg`, `LowerLeg`, `Foot`,
+  `UpperArm`, `LowerArm`, `Hand`), dazu `meta.name`, mindestens ein
+  `authors`-Eintrag und `licenseUrl = https://vrm.dev/licenses/1.0/`.
+- **T-Pose** (`tpose.md`): Blick nach +Z, symmetrisch in X, Füße stehen auf
+  Y=0, Arme waagerecht entlang ±X. Letzteres heißt: die **Sohle** auf 0,
+  nicht das Fußgelenk — die Spec legt `foot` an den Knöchel.
+- **Mimik** (`expressions.md`): jedes Preset ist freigestellt. Wir binden
+  sechs: `happy`, `angry`, `surprised`, `blink`, `aa`, `oh`.
+- **Blicksteuerung** (`lookAt.md`): `type: "bone"`, dreht die beiden
+  Augengelenke. Die zweite Variante (`expression`) bräuchte eigene
+  Blick-Morphs, die wir nicht haben.
+- Kompatibilität: VRChat, VMagicMirror, Luppet, 3tene, Cluster, V-Katsu.
+- **Bekannte Eigenheit:** VRM verlangt Arm- und Beingelenke, eine Büste hat
+  keine. Die Gelenke sitzen anatomisch plausibel (1,28 m Körpergröße = 7,8
+  Kopfhöhen) und tragen **keine Hautgewichte**. Die Datei ist damit gültig
+  und verhält sich doch wie eine Büste. Das steht so in
+  `results/vrm_report.json` und in Kap. 7i des Prototyp-README.
 
 ## 5. Textur-Set (bei jedem Geometrie-Export dabei)
 
@@ -303,7 +322,7 @@ liefern wir ein **eigenes Blender-Add-on** (Python, GPL-kompatibel, da add-on):
 | 2 | USDA + USDZ, DAE | Text-/XML-basiert, kein Fremdcode, deckt Apple/Houdini/Alt-DCC | **alle drei fertig** |
 | 3 | FBX (binär) | Größter Aufwand, größter Nutzen (Blender/Maya/Max/Unreal/Unity) | **fertig** (7.5 binär) |
 | 4 | ABC (libalembic) | Für Houdini/Point-Cache/Haar-Kurven | **fertig** (Ogawa, eigener Schreiber) |
-| 5 | BVH, CSV/JSON, VRM | Motion-/VTuber-Spezialfälle | **BVH + CSV/JSON fertig** (Aufnahmebahn), VRM offen |
+| 5 | BVH, CSV/JSON, VRM | Motion-/VTuber-Spezialfälle | **alle fertig** (BVH mit Skelett ab M3, VRM 1.0 ab M3) |
 
 ## 11. Lizenz-Hinweise der eingesetzten Fremd-Bibliotheken (Kurzfassung, Detail in `09`)
 
@@ -596,16 +615,26 @@ aus echten Fehlermeldungen fremder Leser entstanden:
 50. **Eine Gesichtsmaske, die Haar enthält, passt das Haar an.** Erst als
     Stirn und Schläfen aus der Maske fielen, sprang der Restfehler von
     0,90 mm auf 0,44 mm.
+51. **Links und rechts sind eine Benennungsfalle.** VRM zaehlt von der Seite
+    des Avatars (+X ist links, so steht es in `lookAt.md`), waehrend
+    `headmesh` seine Messpunkte von der Seite des Betrachters benennt. Wer
+    die Namen einfach uebernimmt, vertauscht die Augengelenke. Richtig ist
+    die Zuordnung nach Vorzeichen der Koordinate.
+52. **`humanoid.humanBones` zeigt auf KNOTEN, nicht auf Gelenke.** Der Index
+    zaehlt im glTF-Knoten-Array. Um eins verschoben laedt die Datei
+    anstandslos, aber jeder Knochen sitzt auf dem falschen Gelenk. Die
+    Gegenprobe ist billig: heisst der Knoten so wie der Knochen?
+53. **Die Sohle steht auf Y=0, nicht das Fussgelenk.** `tpose.md` verlangt
+    Bodenfreiheit in der Erscheinung, die Spec legt `foot` aber an den
+    Knoechel. Wer den Knoechel auf 0 setzt, versenkt die Fuesse bis zu den
+    Knien im Boden.
+54. **glTF-Matrizen stehen spaltenweise, Gelenkknoten rechnen relativ.**
+    Zwei getrennte Fallstricke beim selben Export: die Matrix braucht die
+    umgekehrte WELTPosition des Gelenks, die Knotenverschiebung dagegen den
+    Weg vom Elterngelenk. Beides zu verwechseln ergibt ein Skelett, das im
+    Viewer als Knaeuel ankommt.
 
 ### 12.2 Offen
-* **VRM (glTF-Erweiterung).** Das Skelett ist bereits nach VRM benannt
-  (`hips`, `spine`, `chest`, `neck`, `head`, `leftEye`, `rightEye`), damit es
-  später unverändert in eine VRM-Datei wandern kann. Was fehlt, ist die
-  Hülle selbst: `VRMC_vrm` mit Humanoid-Bone-Zuordnung, `VRMC_materials_mtoon`
-  und die Metadaten. Für VRM 1.0 sind außerdem Arm- und Beingelenke
-  Pflicht — bei einer Büste muss dort bewusst entschieden werden, ob das
-  Skelett zum Schein vervollständigt wird oder ob wir VRM 0.x schreiben,
-  das Augengelenke und Blicksteuerung verlangt, aber keine Gliedmaßen.
 * **Die restlichen 46 ARKit-Formen.** Wir liefern sechs (`jawOpen`,
   `mouthSmile`, `eyeBlink`, `browInnerUp`, `browDown`, `mouthPucker`), weil
   das 3DMM sechs Ausdrucksrichtungen besitzt. Die anderen aus diesen sechs
@@ -624,6 +653,15 @@ aus echten Fehlermeldungen fremder Leser entstanden:
   Lesern geprüft: DAE mit `library_controllers` (assimp: 5 Knochen), BVH mit
   echtem Skelett statt der Aufnahmebahn (assimp: 1 Animation, 8 Kanäle), GLB
   mit sechs Morph-Zielen in ARKit-Benennung.
+* **VRM 1.0** — `python/build_vrm.py` → `meshes/facescan.vrm`. 23 Gelenke,
+  alle 15 Pflichtknochen, T-Pose mit der Sohle auf Y=0, sechs Preset-
+  Ausdrücke, `lookAt` über die Augengelenke. Die gemessenen Kopf-Gelenke
+  (Hals bis Augen) werden unverändert übernommen, Rumpf und Gliedmaßen sind
+  aus der gemessenen Kopfhöhe abgeleitet — kein festes Maß. Arme und Beine
+  tragen keine Hautgewichte; die Datei ist gültig VRM und bewegt doch nur
+  den Kopf. Geprüft gegen die Spec-Texte (Knoten- statt Knochenindizes,
+  Pflichtknochen, T-Pose, Morph-Bindungen).
+
 
 ### 12.3b In M2b erledigt (Stand: siehe prototype/README.md, Kap. 7b)
 * **Quadric Decimation** — LOD-Kette 300 k / 80 k / 20 k / 6 k

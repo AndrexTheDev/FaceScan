@@ -127,18 +127,18 @@
       "elter": "head",
       "name": "leftEye",
       "position_mm": [
-        -27.14,
-        7.99,
-        61.95
+        27.57,
+        8.6,
+        63.56
       ]
     },
     {
       "elter": "head",
       "name": "rightEye",
       "position_mm": [
-        27.57,
-        8.6,
-        63.56
+        -27.14,
+        7.99,
+        61.95
       ]
     }
   ],

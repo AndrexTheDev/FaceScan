@@ -559,6 +559,109 @@ def check_rig_glb(path, n_v, n_f, bounds, expect=None):
                    "stimmt" if stimmt_minmax else "FALSCH"))
 
 
+
+def _glb_json_chunks(path):
+    """GLB in seine Chunks zerlegen: (json, bin)."""
+    import struct
+    roh = open(path, "rb").read()
+    if roh[:4] != b"glTF":
+        raise ValueError("kein GLB")
+    off, chunks = 12, {}
+    while off < len(roh):
+        laenge, typ = struct.unpack("<I4s", roh[off:off + 8])
+        chunks[typ] = roh[off + 8:off + 8 + laenge]
+        off += 8 + laenge
+    return json.loads(chunks[b"JSON"]), chunks[b"BIN\x00"]
+
+
+def check_vrm(path, n_v, n_f, bounds, expect=None):
+    """Die VRM-1.0-Datei.
+
+    VRM ist glTF 2.0 PLUS die Erweiterung VRMC_vrm. Beides wird geprueft.
+    Die drei Pruefungen, die wirklich zaehlen:
+
+      1. **humanoid zeigt auf KNOTEN, nicht auf Gelenke.** In `humanBones`
+         steht der Index im glTF-Knoten-Array. Wer stattdessen den Index im
+         Gelenk-Array eintraegt, verschiebt jeden Knochen um eins -- die
+         Datei laedt, aber der Avatar tanzt verrenkt. Deshalb wird hier
+         gegengeprueft: heisst der Knoten so wie der Knochen?
+      2. **Die 15 Pflichtknochen sind vollzaehlig.** Ohne sie ist die Datei
+         nach humanoid.md schlicht kein VRM.
+      3. **T-Pose (tpose.md 1.3):** die FUSSSOHLE steht auf Y=0. Geprueft
+         wird das Fussgelenk EINE Fusshoehe darueber, weil die Spec `foot`
+         an den Knoechel legt -- wer den Knoechel auf 0 legt, versenkt die
+         Fuesse bis zu den Knien im Boden.
+    """
+    g, _ = _glb_json_chunks(path)
+    if "VRMC_vrm" not in g.get("extensions", {}):
+        return False, "keine VRMC_vrm-Erweiterung"
+    v = g["extensions"]["VRMC_vrm"]
+    if v.get("specVersion") != "1.0":
+        return False, "specVersion %r statt '1.0'" % v.get("specVersion")
+    if "VRMC_vrm" not in g.get("extensionsUsed", []):
+        return False, "VRMC_vrm fehlt in extensionsUsed"
+    meta = v.get("meta", {})
+    if not meta.get("name") or not [a for a in meta.get("authors", []) if a]:
+        return False, "meta braucht name und mindestens einen Autor"
+    if meta.get("licenseUrl") != "https://vrm.dev/licenses/1.0/":
+        return False, "licenseUrl ist nicht die VRM-1.0-Lizenz"
+
+    knoten = g["nodes"]
+    hb = v["humanoid"]["humanBones"]
+    pflicht = ["hips", "spine", "head"] + [
+        s + k for s in ("left", "right")
+        for k in ("UpperLeg", "LowerLeg", "Foot", "UpperArm", "LowerArm", "Hand")]
+    fehlt = [n for n in pflicht if n not in hb]
+    if fehlt:
+        return False, "Pflichtknochen fehlen: %s" % ", ".join(fehlt)
+    verwirrt = [n for n in hb
+                if not (0 <= hb[n]["node"] < len(knoten))
+                or knoten[hb[n]["node"]]["name"] != n]
+    if verwirrt:
+        return False, "humanBones zeigen auf den falschen Knoten: %s" % verwirrt[:3]
+
+    elter = {}
+    for i, n in enumerate(knoten):
+        for c in n.get("children", []):
+            elter[c] = i
+
+    def welt(i, tiefe=0):
+        p = np.array(knoten[i].get("translation", [0, 0, 0]), dtype=float)
+        return p if i not in elter else p + welt(elter[i], tiefe + 1)
+
+    knoechel = min(welt(hb[s + "Foot"]["node"])[1] for s in ("left", "right"))
+    if not 0.02 < knoechel < 0.20:      # Fusshoehe bei 1,3 m Koerpergroesse
+        return False, "Fussgelenk bei %.3f m -- Sohle steht nicht auf Y=0" % knoechel
+    hand_l = welt(hb["leftHand"]["node"])
+    hand_r = welt(hb["rightHand"]["node"])
+    if hand_l[0] <= 0 or hand_r[0] >= 0:
+        return False, "Arme nicht seitlich ausgestreckt (T-Pose)"
+    if abs(hand_l[1] - hand_r[1]) > 0.15:
+        return False, "Arme haengen schief: %.0f mm Hoehenunterschied" % (
+            1000 * abs(hand_l[1] - hand_r[1]))
+
+    ziele = g["meshes"][0]["primitives"][0].get("targets", [])
+    namen = g["meshes"][0].get("extras", {}).get("targetNames", [])
+    for k, e in v["expressions"]["preset"].items():
+        for b in e["morphTargetBinds"]:
+            if not (0 <= b["index"] < len(ziele)):
+                return False, "Ausdruck %s zeigt auf Morph %d von %d" % (
+                    k, b["index"], len(ziele))
+            if b["node"] != 0:
+                return False, "Ausdruck %s haengt an Knoten %d, nicht am Netz" % (
+                    k, b["node"])
+    if v["lookAt"]["type"] not in ("bone", "expression"):
+        return False, "lookAt.type ungueltig: %r" % v["lookAt"]["type"]
+    if v["lookAt"]["type"] == "bone" and \
+            not {"leftEye", "rightEye"} <= set(hb):
+        return False, "lookAt bone braucht beide Augenknochen"
+
+    return True, ("VRM 1.0: %d Knochen, %d Ausdruecke, lookAt %s, "
+                  "Sohle auf Y=0, Arme seitlich" % (
+                      len(hb), len(v["expressions"]["preset"]),
+                      v["lookAt"]["type"]))
+
+
 def _which(prog):
     from shutil import which
     return which(prog)
@@ -740,6 +843,12 @@ def main(argv):
     if os.path.exists(os.path.join(mesh_dir, "facescan_rig.glb")):
         jobs.append(("facescan_rig.glb", "eigen (Struktur)",
                      lambda p, a, b, c, e=None: check_rig_glb(p, 0, 0, None), {}))
+    # Einen Fremdleser fuer VRM gibt es hier nicht -- assimp liest zwar das
+    # GLB, ignoriert die Erweiterung aber stillschweigend. Die Pruefung
+    # liest die Datei deshalb selbst und hält sich an die Spec-Texte.
+    if os.path.exists(os.path.join(mesh_dir, "facescan.vrm")):
+        jobs.append(("facescan.vrm", "eigen (Struktur)",
+                     lambda p, a, b, c, e=None: check_vrm(p, 0, 0, None), {}))
 
     results = []
     for fname, tool, fn, expect in jobs:

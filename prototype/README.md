@@ -105,6 +105,7 @@ M2b, Teil 6 – das Drucknetz vereinfachen (s. §7h), ebenfalls mit dem Feld:
 ```bash
 /tmp/qrenv/bin/python prototype/reference/tools/build_print_lod.py       # ~20 min
 /tmp/qrenv/bin/python prototype/reference/python/build_rig.py            # ~5 s
+/tmp/qrenv/bin/python prototype/reference/python/build_vrm.py            # ~25 s
 ```
 
 ## 3. Ergebnisse (Stand dieses Commits)
@@ -629,10 +630,11 @@ nirgends nachlesen kann:
    eine echte Messung zu halten. Geprüft wird gegen die Kugel: 59,97 mm bei
    einem Soll von 60,00 mm.
 
-Offen bleibt: die Schreib- und LOD-Seite ist fertig, aber es fehlt die
-Bewegung — Rig, Blendshapes, VRM (M3). → siehe Kap. 7i.
+Offen bleibt: die Schreib- und LOD-Seite ist fertig, und auch die Bewegung
+sitzt — Rig, Blendshapes und VRM sind in M3 dazugekommen. → siehe Kap. 7i.
+Was fehlt, sind allein die restlichen 46 ARKit-Mimiken (§12.2).
 
-### 7i. M3: Rig und Animation (`build_rig.py`)
+### 7i. M3: Rig, Animation und VRM (`build_rig.py`, `build_vrm.py`)
 
 Ein Netz aus 300.000 Dreiecken ist starr. Damit der Kopf nicken, den Mund
 öffnen oder in eine Richtung schauen kann, braucht er ein Skelett und je Punkt
@@ -686,7 +688,52 @@ Bei der Mimik bleibt der Prototyp ehrlich: ARKit kennt 52 Formen, geliefert
 werden die **sechs**, zu denen das 3DMM eine Ausdrucksrichtung besitzt
 (`jawOpen`, `mouthSmile`, `eyeBlink`, `browInnerUp`, `browDown`,
 `mouthPucker`). Die restlichen 46 aus diesen abzuleiten wäre erfunden — echte
-Gesichter lächeln nicht spiegelsymmetrisch. **Noch offen: VRM** (§12.2).
+Gesichter lächeln nicht spiegelsymmetrisch.
+
+**VRM 1.0 (`build_vrm.py` → `meshes/facescan.vrm`, 21 MB)** ist der letzte
+der vier M3-Posten. VRM ist kein eigenes Format, sondern glTF 2.0 mit
+angehängter Erweiterung `VRMC_vrm` — es braucht also keinen eigenen Writer,
+nur denselben GLB-Schreiber plus den Erweiterungsblock.
+
+Das Skelett wächst von 8 auf **23 Gelenke**, und zwar so, dass nichts
+gemessenes verlorengeht: Hals bis Augen werden unverändert übernommen, Rumpf
+und Gliedmaßen sind aus der gemessenen Kopfhöhe abgeleitet (Kinn bis
+Scheitel), nicht aus festen Zentimetern. Ergebnis: 1,28 m Körpergröße = 7,8
+Kopfhöhen, Füße auf Y=0, Arme waagerecht — die T-Pose, die `tpose.md`
+verlangt. Damit ist die Büste gültig VRM.
+
+Und hier die Entscheidung, die man kennen muß, bevor man die Datei benutzt:
+VRM verlangt 15 Pflichtknochen, **darunter Arme und Beine**. Eine Büste hat
+keine. Die Gelenke sitzen anatomisch plausibel und tragen **keine
+Hautgewichte** — Gewicht tragen genau drei Gelenke (`neck`, `head`, `jaw`).
+Die Datei ist damit gültig und verhält sich doch wie eine Büste: die Arme
+bewegen sich, es sieht nur niemand. Das ist ehrlicher als erfundene Beine
+unter dem Hals.
+
+Weil die Sohle auf Y=0 steht und nicht die Büste, schwebt der Kopf auf
+1,11 m Höhe. Wer die Büste auf dem Tisch haben will, zieht die Verschiebung
+von **1186 mm** wieder ab; sie steht in `results/vrm_report.json`.
+
+| VRM-Prüfung | Ergebnis |
+|---|---|
+| Pflichtknochen (15) | alle vorhanden, **keiner fehlt** |
+| `humanBones` → Knoten | jeder Knochenname steht auf dem gleichnamigen Knoten |
+| T-Pose | Sohle auf **Y = 0,000 m**, Arme seitlich, Höhenunterschied 9 mm |
+| `meta` | Name, Autor, `licenseUrl = https://vrm.dev/licenses/1.0/` |
+| Ausdrücke | 6 Presets (`happy`, `angry`, `surprised`, `blink`, `aa`, `oh`) |
+| `lookAt` | `bone` — dreht die beiden Augengelenke |
+
+Vier neue Fallen, alle in `docs/05` (Fundstellen 51–54) festgehalten:
+`humanBones` zählt **Knoten, nicht Gelenke** (um eins verschoben lädt die
+Datei anstandslos, sitzt aber falsch); die **Sohle** steht auf 0, nicht das
+Fußgelenk; **+X ist links** (Seite des Avatars), was `headmesh` umgekehrt
+benennt und uns einmal die Augengelenke vertauscht hat; und glTF-Matrizen
+stehen spaltenweise, während Gelenkknoten ihre Verschiebung **relativ zum
+Elterngelenk** rechnen.
+
+Damit ist M3 vollständig: DAE mit Haut, BVH mit Skelett, GLB mit Mimik, VRM
+als Ganzes. Offen bleibt nur noch eins — die restlichen 46 ARKit-Formen, und
+die sind eine Frage des 3D-Modells, nicht des Exports (§12.2).
 
 ### 7h. M2b, Teil 6: das Drucknetz vereinfachen (`build_print_lod.py`)
 

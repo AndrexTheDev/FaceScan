@@ -280,6 +280,7 @@ def read_ply(path: str):
 GL_FLOAT = 5126
 GL_UNSIGNED_INT = 5125
 GL_UNSIGNED_BYTE = 5121
+GL_UNSIGNED_SHORT = 5123
 
 
 def _pad4(b: bytes, fill: bytes = b"\x00") -> bytes:
@@ -297,7 +298,10 @@ def write_glb(path: str, v: np.ndarray, f: np.ndarray,
               colors: np.ndarray | None = None, name: str = "FaceScan",
               normals: np.ndarray | None = None, uv: np.ndarray | None = None,
               texture_png: bytes | None = None,
-              targets: list | None = None, target_names: list | None = None):
+              targets: list | None = None, target_names: list | None = None,
+              skin: dict | None = None,
+              extensions: dict | None = None,
+              extensions_used: list | None = None):
     """Binäres glTF 2.0 (.glb) -- ein Container, alles inline.
 
     Warum GLB und nicht glTF+bin? Weil ein EINZELNES File beim Teilen,
@@ -322,6 +326,24 @@ def write_glb(path: str, v: np.ndarray, f: np.ndarray,
       3. Die **Namen** der Ziele stehen in `mesh.extras.targetNames`. Das ist
          eine Konvention, kein Pflichtfeld -- aber ohne sie heißen die
          Regler in Blender "Key 1, Key 2" statt "jawOpen, mouthSmile".
+
+    **Skelett (M3):** `skin` bringt die Gelenke mit: Knoten je Gelenk, eine
+    `skin` mit `inverseBindMatrices` und die Attribute `JOINTS_0`/
+    `WEIGHTS_0`. Zwei Fallen:
+
+      1. glTF speichert Matrizen **spaltenweise** (column-major), Collada
+         zeilenweise. Bei reinen Verschiebungen sieht man den Unterschied
+         nicht -- sobald aber eine Drehung im Spiel ist, steht jede
+         Bewegung auf dem Kopf.
+      2. Die Verschiebung eines Gelenkknotens ist GEGENÜBER dem Elternknoten
+         zu rechnen, die inverse Bindematrix dagegen aus der WELTposition.
+         Beides zu verwechseln ist der häufigste Grund für ein Skelett, das
+         im Viewer als Knäuel ankommt.
+
+    `extensions`/`extensions_used` werden unverändert in die JSON-Struktur
+    gehängt (dafür da, damit VRM und andere Erweiterungen keinen eigenen
+    Schreiber brauchen). Sie dürfen keine `bufferView` enthalten -- sie
+    werden erst eingefügt, wenn die Binärdaten fertig geschrieben sind.
     """
     v = np.asarray(v, dtype=np.float32)
     f = np.asarray(f, dtype=np.uint32).reshape(-1)
@@ -350,6 +372,15 @@ def write_glb(path: str, v: np.ndarray, f: np.ndarray,
                           "count": count, "type": type_, **kw})
         return len(accessors) - 1
 
+    if skin is not None:
+        g_pos = np.asarray(skin["positions"], dtype=np.float32)
+        g_idx = np.asarray(skin["weights"][0], dtype=np.uint16)
+        g_w = np.asarray(skin["weights"][1], dtype=np.float32)
+        g_eltern = [int(x) for x in skin["parents"]]
+        if len(g_idx) != len(v):
+            raise ValueError("Gewichte fuer %d Punkte, Netz hat %d"
+                             % (len(g_idx), len(v)))
+
     pos_view = add(v)
     acc(pos_view, GL_FLOAT, len(v), "VEC3",
         min=v.min(axis=0).tolist(), max=v.max(axis=0).tolist())
@@ -370,6 +401,11 @@ def write_glb(path: str, v: np.ndarray, f: np.ndarray,
         cview = add(np.asarray(c, dtype=np.uint8))
         attrs["COLOR_0"] = acc(cview, GL_UNSIGNED_BYTE, len(c), "VEC3",
                                normalized=True)
+    if skin is not None:
+        jv = add(g_idx)
+        attrs["JOINTS_0"] = acc(jv, GL_UNSIGNED_SHORT, len(v), "VEC4")
+        wv = add(g_w)
+        attrs["WEIGHTS_0"] = acc(wv, GL_FLOAT, len(v), "VEC4")
 
     ziel_liste = None
     if targets:
@@ -391,11 +427,38 @@ def write_glb(path: str, v: np.ndarray, f: np.ndarray,
     if target_names:
         mesh["extras"] = {"targetNames": [str(n) for n in target_names]}
 
+    knoten = [{"mesh": 0, "name": name}]
+    if skin is not None:
+        # Gelenkknoten: Node 0 bleibt das Netz, die Gelenke folgen ab 1.
+        for i in range(len(g_pos)):
+            elter = g_eltern[i]
+            lokal = g_pos[i] - (g_pos[elter] if elter >= 0 else 0.0)
+            knoten.append({"name": str(skin["joints"][i]),
+                           "translation": [float(x) for x in lokal]})
+        for i, elter in enumerate(g_eltern):
+            if elter >= 0:
+                knoten[1 + elter].setdefault("children", []).append(1 + i)
+        knoten[0]["skin"] = 0
+        # Inverse Bindematrizen aus der WELTposition, spaltenweise.
+        inv = np.zeros((len(g_pos), 16), dtype=np.float32)
+        inv[:, 0] = 1.0
+        inv[:, 5] = 1.0
+        inv[:, 10] = 1.0
+        inv[:, 15] = 1.0
+        inv[:, 12] = -g_pos[:, 0]
+        inv[:, 13] = -g_pos[:, 1]
+        inv[:, 14] = -g_pos[:, 2]
+        iv = add(inv)
+        ibm = acc(iv, GL_FLOAT, len(g_pos), "MAT4")
+
     gltf = {
         "asset": {"version": "2.0", "generator": "FaceScan (AndrexTheDev)"},
         "scene": 0,
-        "scenes": [{"nodes": [0]}],
-        "nodes": [{"mesh": 0, "name": name}],
+        # Das Netz UND die Skelettwurzel muessen in der Szene haengen;
+        # die Gelenke selbst haengen unter der Wurzel und gehoeren nicht
+        # einzeln in die Szene.
+        "scenes": [{"nodes": [0, 1] if skin is not None else [0]}],
+        "nodes": knoten,
         "meshes": [mesh],
         "materials": [{"name": "scan", "doubleSided": True,
                        "pbrMetallicRoughness": {"baseColorFactor": [1, 1, 1, 1],
@@ -405,6 +468,9 @@ def write_glb(path: str, v: np.ndarray, f: np.ndarray,
         "bufferViews": views,
         "accessors": accessors,
     }
+    if skin is not None:
+        gltf["skins"] = [{"joints": list(range(1, len(g_pos) + 1)),
+                          "inverseBindMatrices": ibm, "skeleton": 1}]
 
     if texture_png is not None:
         # Das Bild liegt im selben Puffer wie die Geometrie. Wichtig:
@@ -431,6 +497,10 @@ def write_glb(path: str, v: np.ndarray, f: np.ndarray,
 
     bin_blob = b"".join(chunks)
     gltf["buffers"][0]["byteLength"] = len(bin_blob)
+    if extensions:
+        gltf["extensions"] = extensions
+    if extensions_used:
+        gltf["extensionsUsed"] = list(extensions_used)
     json_blob = _pad4(json.dumps(gltf, separators=(",", ":")).encode("utf-8"),
                       fill=b" ")
     total = 12 + 8 + len(json_blob) + 8 + len(bin_blob)

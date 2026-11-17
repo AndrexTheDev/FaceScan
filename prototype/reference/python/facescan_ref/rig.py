@@ -676,6 +676,22 @@ def build_skeleton(lm: dict[str, np.ndarray], frame: Frame,
     # Alle Gelenke der Wirbelsaeule liegen auf der Mittelebene
     x_mitte = float(frame.center @ frame.R[:, 0])
 
+    # LINKS UND RECHTS -- hier steckt eine Falle, die man spaeter leicht
+    # "verbessert" und dabei kaputt macht. VRM benennt die Seiten aus Sicht
+    # des AVATARS: die Spezifikation sagt "Yaw: Z -> X direction => Left",
+    # die linke Seite des Avatars ist also +X. Unser Netz-Rahmen ist ein
+    # Rechtssystem mit y oben und z vorn (die Blickrichtung), folglich ist
+    # +x die linke Seite des Kopfes. Die Richtungen in ``headmesh`` sind
+    # dagegen aus Sicht des BETRACHTERS benannt -- sein "linkes" Auge liegt
+    # bei -x. Wer die Namen einfach uebernimmt, baut ein Skelett mit
+    # vertauschten Augen: der Avatar schaut dann beim Blick nach links nach
+    # rechts. Deshalb wird hier nach der POSITION zugeordnet, nicht nach dem
+    # Namen, den headmesh dem Merkmal gegeben hat.
+    def auge_auf(richtung_x: float) -> np.ndarray:
+        """Augenmittelpunkt auf der Seite mit dem Vorzeichen +1 (links)."""
+        p = auge_l if auge_l[0] * richtung_x > 0 else auge_r
+        return p - front * 0.18 * radius
+
     knochen = [
         Joint("hips", None, auf_achse(y_hips)),
         Joint("spine", "hips", auf_achse(y_spine)),
@@ -683,8 +699,8 @@ def build_skeleton(lm: dict[str, np.ndarray], frame: Frame,
         Joint("neck", "chest", auf_achse(y_neck)),
         Joint("head", "neck", auf_achse(y_atlas)),
         Joint("jaw", "head", auf_achse(y_jaw, achse_z + 0.45 * radius)),
-        Joint("leftEye", "head", auge_l - front * 0.18 * radius),
-        Joint("rightEye", "head", auge_r - front * 0.18 * radius),
+        Joint("leftEye", "head", auge_auf(+1.0)),
+        Joint("rightEye", "head", auge_auf(-1.0)),
     ]
     return Skeleton(knochen)
 
@@ -774,6 +790,128 @@ def blendshape_deltas(v: np.ndarray, frame: Frame,
         # Zurueck in den Netz-Rahmen: Drehung rueckwaerts, Massstab vor.
         deltas.append(frame.scale * (d @ frame.R.T))
     return deltas, namen
+
+
+# ------------------------------------------------- VRM: ganzes Skelett
+# VRM 1.0 verlangt 15 Pflichtknochen -- auch Arme und Beine. Eine BUESTE
+# hat die nicht, und trotzdem muss die Datei sie enthalten, sonst weist
+# jeder VRM-1.0-Pruefer sie ab. Sie bekommen deshalb Knoten an
+# anatomisch richtiger Stelle, aber KEIN Hautgewicht: dort ist kein Netz,
+# also bewegen sie nichts. Der Avatar ist damit gueltig und benimmt sich
+# wie eine Bueste -- die Arme bewegen sich, es sieht nur niemand.
+#
+# Die Masse sind Erwachsenenmasse in Millimetern, abgeleitet von der
+# gemessenen Kopfhoehe, nicht feste Zahlen: wer den Scan eines Kindes
+# einsetzt, bekommt ein kindlich proportioniertes Skelett.
+VRM_PFLICHT = ("hips", "spine", "head",
+               "leftUpperLeg", "leftLowerLeg", "leftFoot",
+               "rightUpperLeg", "rightLowerLeg", "rightFoot",
+               "leftUpperArm", "leftLowerArm", "leftHand",
+               "rightUpperArm", "rightLowerArm", "rightHand")
+
+
+def build_vrm_skeleton(sk: Skeleton, lm: dict, frame: Frame) -> Skeleton:
+    """Ergänzt das Kopf-Skelett zu einem vollständigen VRM-Humanoiden.
+
+    Die Kopf-Gelenke (Hals bis Augen) werden **übernommen**, nicht neu
+    gerechnet -- sie sitzen bereits vermessen am richtigen Ort. Ergänzt wird
+    der Rumpf darunter und die Gliedmaßen, in VRM-T-Pose: aufrecht, Blick
+    nach +Z, Arme waagerecht seitlich (`VRMC_vrm-1.0/tpose.md`, Definition
+    1.4), Schultern entspannt (1.5).
+
+    Rueckgabe: ein ``Skeleton`` mit 23 Gelenken in Eltern-zuerst-Reihenfolge.
+    """
+    up = frame.R[:, 1]
+    front = frame.R[:, 2]
+    links = frame.R[:, 0] * (+1.0)        # +x = linke Seite des Avatars
+
+    y_kopf = float(frame.center @ up)
+    scheitel = lm["scheitel"]
+    kinn = lm["kinn"]
+    kopf_hoehe = float((scheitel - kinn) @ up)      # Kinn bis Scheitel
+    # Erwachsene: die Kopfhoehe ist etwa ein Achtel der Koerpergroesse.
+    # Erwachsenenproportionen, aus der gemessenen Kopfhoehe abgeleitet
+    # (Kopfhoehe = Kinn bis Scheitel). Der Mensch ist rund 7,7 Kopfhoehen
+    # gross; die Einzelmasse unten ergeben zusammen etwa diese Zahl.
+    rumpf = 2.6 * kopf_hoehe                 # Kopfmitte -> Huefte
+    halbe_schulter = 1.2 * kopf_hoehe
+    oberarm = 1.3 * kopf_hoehe
+    unterarm = 1.2 * kopf_hoehe
+    oberschenkel = 2.25 * kopf_hoehe
+    unterschenkel = 2.0 * kopf_hoehe
+    fuss = 0.4 * kopf_hoehe
+
+    def punkt(y: float, seit: float = 0.0, vor: float = 0.0) -> np.ndarray:
+        """Punkt im Netz-Rahmen: Hoehe y, seitlich `seit`, nach vorn `vor`."""
+        return frame.center + up * (y - y_kopf) + links * seit + front * vor
+
+    i_neck = sk.index("neck")
+    y_huefte = y_kopf - rumpf
+    y_neck = float(sk.joints[i_neck].position @ up)
+    # Der Rumpf teilt sich von der Huefte bis KNAPP UNTER den Hals auf.
+    # Saesse upperChest genau auf Halshoehe, lagen zwei Gelenke am selben
+    # Punkt -- das ist ungueltig und bringt manchen Normalisierer aus dem
+    # Tritt, weil die Knochenlaenge null wird.
+    y_rumpf_oben = y_huefte + 0.85 * (y_neck - y_huefte)
+    y_reihe = np.linspace(y_huefte, y_rumpf_oben, 4)
+
+    g = {j.name: j.position for j in sk.joints}
+    neu = [
+        Joint("hips", None, punkt(y_huefte)),
+        Joint("spine", "hips", punkt(y_reihe[1])),
+        Joint("chest", "spine", punkt(y_reihe[2])),
+        Joint("upperChest", "chest", punkt(y_reihe[3])),
+        Joint("neck", "upperChest", g["neck"]),
+        Joint("head", "neck", g["head"]),
+        Joint("jaw", "head", g["jaw"]),
+        Joint("leftEye", "head", g["leftEye"]),
+        Joint("rightEye", "head", g["rightEye"]),
+    ]
+    # Arme in T-Pose: waagerecht seitlich (tpose.md 1.4), Schultern
+    # entspannt (1.5). Die Spec setzt `upperArm` an den ANSATZ des
+    # Oberarms, `lowerArm` an den Ellbogen und `hand` ans Handgelenk --
+    # nicht ans Ende des jeweiligen Knochens.
+    y_schulter = float(y_reihe[3])
+    for seite, vorz in (("left", +1.0), ("right", -1.0)):
+        neu.append(Joint(seite + "Shoulder", "upperChest",
+                         punkt(y_schulter, vorz * 0.45 * halbe_schulter)))
+        neu.append(Joint(seite + "UpperArm", seite + "Shoulder",
+                         punkt(y_schulter, vorz * halbe_schulter)))
+        neu.append(Joint(seite + "LowerArm", seite + "UpperArm",
+                         punkt(y_schulter, vorz * (halbe_schulter + oberarm))))
+        neu.append(Joint(seite + "Hand", seite + "LowerArm",
+                         punkt(y_schulter, vorz * (halbe_schulter + oberarm
+                                                   + unterarm))))
+    # Beine: `upperLeg` an die Leiste, `lowerLeg` ans Knie, `foot` an den
+    # Knoechel (so will es die Spec). Der Boden liegt eine Fusshoehe
+    # UNTERHALB des Knoechels -- das ist der Unterschied zwischen "Knochen
+    # auf Y=0" und "Modell steht auf Y=0" (Definition 1.3).
+    for seite, vorz in (("left", +1.0), ("right", -1.0)):
+        seit = vorz * 0.35 * halbe_schulter
+        neu.append(Joint(seite + "UpperLeg", "hips", punkt(y_huefte, seit)))
+        neu.append(Joint(seite + "LowerLeg", seite + "UpperLeg",
+                         punkt(y_huefte - oberschenkel, seit)))
+        neu.append(Joint(seite + "Foot", seite + "LowerLeg",
+                         punkt(y_huefte - oberschenkel - unterschenkel, seit,
+                               0.35 * fuss)))
+
+    return Skeleton(neu)
+
+
+def boden_hoehe(sk: Skeleton, frame: Frame, lm: dict) -> float:
+    """Verschiebung nach oben, damit die Fuesse auf Y=0 stehen.
+
+    VRM verlangt, dass das Modell in Y=0 auf dem Boden steht
+    (`tpose.md`, Definition 1.3) -- gemessen am AUSSEHEN des Netzes, nicht
+    an den Knochen. Da eine Bueste keine Fuesse hat, ist die Aufstandsflaeche
+    die Unterkante des Netzes. Rueckgabe in Millimetern.
+    """
+    up = frame.R[:, 1]
+    knoechel = min(float(j.position @ up) for j in sk.joints
+                   if j.name.endswith("Foot"))
+    # Die SOHLE steht auf Y=0, nicht der Knoechel: eine Fusshoehe tiefer.
+    fuss = 0.4 * float((lm["scheitel"] - lm["kinn"]) @ up)
+    return fuss - knoechel
 
 
 def skeleton_to_bvh(sk: Skeleton, frame: Frame, scale: float = 0.001) -> list[dict]:

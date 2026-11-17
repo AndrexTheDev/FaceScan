@@ -910,6 +910,333 @@ def read_dae(path: str, with_arrays: bool = False) -> dict:
     return res
 
 
+# ------------------------------------------------------------------ BVH --
+# Die Euler-Umrechnung steht hier und nicht in math3d.py, weil math3d der
+# gespiegelte Kotlin-Kern ist -- eine Funktion, die nur ein Exportformat
+# braucht, gehoert nicht hinein.
+
+
+def rot_zxy(angles_deg) -> np.ndarray:
+    """Drehmatrix aus drei Euler-Winkeln in Grad, Reihenfolge ZXY.
+
+    `R = Rz(z) @ Rx(x) @ Ry(y)` -- dieselbe Reihenfolge, die `euler_zxy`
+    zurueckliefert. BVH-default ist ZXY (docs/05, 4.8).
+    """
+    z, x, y = (np.radians(float(a)) for a in np.asarray(angles_deg).reshape(3))
+    cz, sz = np.cos(z), np.sin(z)
+    cx, sx = np.cos(x), np.sin(x)
+    cy, sy = np.cos(y), np.sin(y)
+    rz = np.array([[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]])
+    rx = np.array([[1.0, 0.0, 0.0], [0.0, cx, -sx], [0.0, sx, cx]])
+    ry = np.array([[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]])
+    return rz @ rx @ ry
+
+
+def euler_zxy(r) -> np.ndarray:
+    """Euler-Winkel in Grad, Reihenfolge ZXY, zu einer Drehmatrix.
+
+    Gegenstueck zu `rot_zxy`. Bei x = +/-90 Grad (Gimbal) ist die
+    Zerlegung nicht eindeutig -- dann wird z auf 0 gesetzt und y aus der
+    verbleibenden Drehung bestimmt; das ist die uebliche Festlegung.
+    """
+    r = np.asarray(r, dtype=np.float64).reshape(3, 3)
+    sx = float(np.clip(r[2, 1], -1.0, 1.0))
+    x = np.arcsin(sx)
+    if abs(np.cos(x)) < 1e-12:
+        z = 0.0
+        y = np.arctan2(r[0, 2], r[0, 0])
+    else:
+        z = np.arctan2(-r[0, 1], r[1, 1])
+        y = np.arctan2(-r[2, 0], r[2, 2])
+    return np.degrees([z, x, y])
+
+
+def unwrap_degrees(values, rot_mask) -> np.ndarray:
+    """Entwrappt Euler-Kanaele, damit beim Abspielen nichts zurueckschnappt.
+
+    Eine Drehung hat viele Euler-Darstellungen; die Zerlegung liefert die
+    Winkel aber in einem festen Bereich (hier +/-180 Grad). Steht in
+    einem Frame -175 und im naechsten +175, sind das 10 Grad
+    Unterschied -- abspielt wird es aber als 350 Grad Rueckwaertsdrall,
+    denn BVH interpoliert zwischen zwei Frames einfach linear und kennt
+    keine Winkel.
+
+    Die Funktion addiert je Kanal so viele Vielfache von 360 Grad, dass
+    der Unterschied zweier aufeinanderfolgender Frames nie groesser als
+    180 Grad ist. Auf Positionskanaele darf sie NICHT angewandt werden.
+    """
+    values = np.array(values, dtype=np.float64, copy=True)
+    for k in np.flatnonzero(np.asarray(rot_mask, dtype=bool)):
+        step = np.diff(values[:, k])
+        step -= 360.0 * np.round(step / 360.0)
+        values[1:, k] = values[0, k] + np.cumsum(step)
+    return values
+
+
+def write_bvh(path: str, joints, values, frame_time: float) -> str:
+    """BVH -- die Aufnahmebahn (bzw. ab M3 die Skelettanimation) als Text.
+
+    Warum das Format ueberhaupt: BVH ist das einzige Bewegungsformat, das
+    praktisch jedes DCC-Programm ohne Zusatzwerkzeug liest, und es ist
+    eine reine Textdatei -- man kann sie im Editor ansehen und im
+    Notfall von Hand korrigieren.
+
+    Der Schreiber ist bewusst ALLGEMEIN gehalten: er bekommt eine
+    Hierarchie und eine Wertegruppe, nicht "ein Skelett". Damit kann M3
+    den fertigen Rig hindurchschieben, ohne den Schreiber anzufassen.
+
+    `joints` -- Liste in Eltern-zuerst-Reihenfolge, jedes Element ein
+    Dict mit:
+      ``name``      Name des Gelenks
+      ``parent``    Index des Elterngelenks oder ``None`` fuer das Wurzel
+      ``offset``    (3,) Versatz GEGENUEBER dem Elterngelenk
+      ``channels``  Liste wie ``["Xposition", "Yposition", "Zposition",
+                    "Zrotation", "Xrotation", "Yrotation"]``
+      ``end``       (3,) fuer ein ``End Site`` am Gelenk, sonst ``None``
+    `values` -- ``(n_frames, n_channels_total)``; die Spaltenreihenfolge
+    ist die flach aneinandergehaengte Kanalreihenfolge der Gelenke.
+
+    Vier Fallen, die hier vermieden sind:
+
+    1. **BVH hat KEINE Kommentare.** Kein `#`, kein `//` -- der Standard
+       kennt nur Schluesselwoerter. Die erste Version dieser Funktion
+       schrieb eine Kopzeile mit der Einheit hinein, und assimp lehnte
+       die Datei ab: *„Expected root node \\"ROOT\\"“* (es steht direkt
+       nach `HIERARCHY`, wo assimp das Wurzelgelenk erwartet). Wohin die
+       Einheit stattdessen gehoert, sagt Punkt 2.
+    2. **BVH traegt KEINE Einheit.** Kein Kopf, kein Feld, nichts -- der
+       Importierende entscheidet, ob eine Zahl Meter oder Zentimeter
+       ist. Wir schreiben **Meter** und **Grad** (docs/05, 6: m, Y-up)
+       und dokumentieren es in `docs/05` sowie in der begleitenden
+       JSON-Datei, die sehr wohl ein Feld dafuer hat. Wer Millimeter
+       hineinschreibt, bekommt in Blender einen 1000-fach zu grossen
+       Sprung.
+    3. **Die Euler-Reihenfolge steht in den `CHANNELS`**, nicht irgendwo
+       global: `Zrotation Xrotation Yrotation` heisst, die drei Zahlen
+       sind in genau dieser Reihenfolge zu lesen. Ein Leser, der sie
+       als XYZ verarbeitet, verdreht alles.
+    4. **`Frames` und die Zahl der Datenzeilen muessen uebereinstimmen.**
+       BVH hat keine Laengenangabe pro Block; der Leser hoert einfach
+       nach `Frames` Zeilen auf. Eine Zahl zu wenig und ALLE folgenden
+       Kanaele sind um eine Stelle verschoben -- ohne Fehlermeldung.
+
+    `read_bvh` liest genau diese Struktur zurueck.
+    """
+    values = np.atleast_2d(np.asarray(values, dtype=np.float64))
+    n_frames, n_vals = values.shape
+    chan_names, chan_joint = [], []
+    for ji, j in enumerate(joints):
+        for c in j["channels"]:
+            chan_names.append("%s_%s" % (j["name"], c))
+            chan_joint.append(ji)
+    if n_vals != len(chan_names):
+        raise ValueError("%d Wertspalten, aber %d Kanaele in der Hierarchie"
+                         % (n_vals, len(chan_names)))
+
+    out = ["HIERARCHY"]
+    # KEINE Kommentarzeile, auch wenn sie als Dokumentation der Einheit
+    # naheliegt: BVH kennt keine Kommentare, und assimp bricht ab
+    # ("Expected root node ROOT"). Die Einheit steht in docs/05 und in
+    # der begleitenden JSON-Datei.
+    depth = {i: 0 for i in range(len(joints))}
+    for ji, j in enumerate(joints):
+        if j["parent"] is None:
+            depth[ji] = 0
+        else:
+            depth[ji] = depth[j["parent"]] + 1
+    children = {i: [] for i in range(len(joints))}
+    for ji, j in enumerate(joints):
+        if j["parent"] is not None:
+            children[j["parent"]].append(ji)
+
+    def emit(ji, pad):
+        j = joints[ji]
+        ind = "\t" * pad
+        kind = "ROOT" if j["parent"] is None else "JOINT"
+        out.append("%s%s %s" % (ind, kind, j["name"]))
+        out.append(ind + "{")
+        out.append(ind + "\tOFFSET %.6f %.6f %.6f" % tuple(j["offset"]))
+        out.append(ind + "\tCHANNELS %d %s" % (len(j["channels"]),
+                                               " ".join(j["channels"])))
+        for ci in children[ji]:
+            emit(ci, pad + 1)
+        if j.get("end") is not None:
+            out.append(ind + "\tEnd Site")
+            out.append(ind + "\t{")
+            out.append(ind + "\t\tOFFSET %.6f %.6f %.6f" % tuple(j["end"]))
+            out.append(ind + "\t}")
+        out.append(ind + "}")
+
+    for ji in range(len(joints)):
+        if joints[ji]["parent"] is None:
+            emit(ji, 0)
+
+    out.append("MOTION")
+    out.append("Frames: %d" % n_frames)
+    out.append("Frame Time: %.10g" % float(frame_time))
+    for row in values:
+        out.append(" ".join("%.6f" % x for x in row))
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(out) + "\n")
+    return path
+
+
+def read_bvh(path: str) -> dict:
+    """Liest GENAU die Struktur zurueck, die `write_bvh` schreibt.
+
+    Kein vollstaendiger BVH-Parser (der Standard hat mehr), aber er
+    versteht Hierarchie, Kanalreihenfolge und Datenblock -- und er
+    prueft, ob `Frames` zur Zahl der Datenzeilen passt.
+    """
+    lines = [l.strip() for l in open(path, encoding="utf-8").read().splitlines()]
+    lines = [l for l in lines if l and not l.startswith("#")]
+    if not lines or lines[0] != "HIERARCHY":
+        raise ValueError("keine HIERARCHY-Zeile")
+
+    joints, stack, order = [], [], []
+    i = 1
+    motion = None
+    while i < len(lines):
+        line = lines[i]
+        if line == "MOTION":
+            motion = i
+            break
+        if line.startswith(("ROOT", "JOINT")):
+            joints.append({
+                "name": line.split(None, 1)[1],
+                "parent": stack[-1] if stack else None,
+                "offset": None, "channels": [], "end": None,
+            })
+            order.append(len(joints) - 1)
+            stack.append(len(joints) - 1)
+            i += 1
+            continue
+        if line.startswith("End Site"):
+            # Der Block gehoert zum Gelenk, ist aber KEIN Gelenk: er darf
+            # den Gelenkstapel nicht beruehren, sonst wird die schliessende
+            # Klammer des End Site als Ende des Gelenks gelesen und alle
+            # weiteren Gelenke haengen an der falschen Stelle.
+            depth_end, j = 0, i + 1
+            while j < len(lines):
+                if lines[j] == "{":
+                    depth_end += 1
+                elif lines[j] == "}":
+                    depth_end -= 1
+                    if depth_end == 0:
+                        break
+                elif lines[j].startswith("OFFSET"):
+                    joints[stack[-1]]["end"] = tuple(
+                        float(x) for x in lines[j].split()[1:4])
+                j += 1
+            i = j + 1
+            continue
+        if line == "{":
+            i += 1
+            continue
+        if line == "}":
+            stack.pop()
+            i += 1
+            continue
+        if line.startswith("OFFSET") and stack and \
+                joints[stack[-1]]["offset"] is None:
+            joints[stack[-1]]["offset"] = tuple(
+                float(x) for x in line.split()[1:4])
+            i += 1
+            continue
+        if line.startswith("CHANNELS") and stack:
+            joints[stack[-1]]["channels"] = line.split()[2:]
+            i += 1
+            continue
+        i += 1
+    if motion is None:
+        raise ValueError("kein MOTION-Abschnitt")
+
+    head = lines[motion + 1:motion + 3]
+    frames = int(head[0].split(":")[1])
+    frame_time = float(head[1].split(":")[1])
+    rows = [l for l in lines[motion + 3:] if l]
+    vals = np.array([[float(x) for x in r.split()] for r in rows],
+                    dtype=np.float64) if rows else np.zeros((0, 0))
+    channels = ["%s_%s" % (j["name"], c) for j in joints for c in j["channels"]]
+    return {"joints": joints, "channels": channels,
+            "frames_declared": frames, "frames_read": int(vals.shape[0]),
+            "frame_time": frame_time,
+            "consistent": frames == vals.shape[0]
+            and (not channels or vals.shape[1] == len(channels)),
+            "values": vals}
+
+
+def write_motion_csv(path: str, channels, values, frame_time: float) -> str:
+    """Dieselbe Bewegung als CSV: `frame, time_s, <kanalname> ...`.
+
+    Warum zusaetzlich zum BVH: in ein BVH passen nur Gelenkwinkel. Alles
+    andere -- Blendshape-Gewichte, Kamerabahn, Messwerte -- braucht eine
+    Tabelle, und eine Tabelle lesen Pandas, Excel und jedes Skript
+    (docs/05, 4.8).
+    """
+    values = np.atleast_2d(np.asarray(values, dtype=np.float64))
+    out = ["frame,time_s," + ",".join(channels)]
+    for k, row in enumerate(values):
+        out.append("%d,%.6f,%s" % (k, k * float(frame_time),
+                                   ",".join("%.6f" % x for x in row)))
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(out) + "\n")
+    return path
+
+
+def read_motion_csv(path: str) -> dict:
+    """Gegenstueck zu `write_motion_csv`."""
+    lines = [l.strip() for l in open(path, encoding="utf-8").read().splitlines()
+             if l.strip()]
+    channels = lines[0].split(",")[2:]
+    body = [l.split(",") for l in lines[1:]]
+    vals = np.array([[float(x) for x in row[2:]] for row in body],
+                    dtype=np.float64) if body else np.zeros((0, len(channels)))
+    times = np.array([float(row[1]) for row in body]) if body \
+        else np.zeros(0)
+    dt = float(times[1] - times[0]) if len(times) > 1 else 0.0
+    return {"channels": channels, "values": vals, "times": times,
+            "frame_time": dt, "frames": int(vals.shape[0])}
+
+
+def write_motion_json(path: str, channels, values, frame_time: float,
+                      name: str = "FaceScan", meta: dict | None = None) -> str:
+    """Dieselbe Bewegung als JSON -- mit Einheiten und Reihenfolge IM
+    Dokument, nicht in einer Konvention daneben. Genau das ist der
+    Vorteil gegenueber BVH: hier kann stehen, was gemeint ist.
+    """
+    import json
+    values = np.atleast_2d(np.asarray(values, dtype=np.float64))
+    doc = {
+        "format": "facescan-motion/1",
+        "name": name,
+        "frame_time_s": float(frame_time),
+        "frames": int(len(values)),
+        "units": {"translation": "m", "rotation": "deg"},
+        "euler_order": "ZXY",
+        "channels": list(channels),
+        "data": [[round(float(x), 6) for x in row] for row in values],
+    }
+    if meta:
+        doc["meta"] = meta
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(doc, fh, indent=1)
+        fh.write("\n")
+    return path
+
+
+def read_motion_json(path: str) -> dict:
+    """Gegenstueck zu `write_motion_json`."""
+    import json
+    doc = json.load(open(path, encoding="utf-8"))
+    vals = np.array(doc["data"], dtype=np.float64).reshape(len(doc["data"]), -1)
+    return {"channels": list(doc["channels"]), "values": vals,
+            "frame_time": float(doc["frame_time_s"]),
+            "frames": int(doc["frames"]),
+            "units": doc.get("units", {}), "euler_order": doc.get("euler_order"),
+            "format": doc.get("format")}
+
+
 def write_fbx(path: str, v: np.ndarray, f: np.ndarray,
               colors: np.ndarray | None = None, name: str = "FaceScan",
               unit_scale: float = 0.1, normals: np.ndarray | None = None,

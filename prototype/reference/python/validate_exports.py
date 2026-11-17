@@ -39,6 +39,8 @@ Fuer FBX:
 """
 from __future__ import annotations
 
+import csv
+import json
 import os
 import re
 import subprocess
@@ -182,16 +184,33 @@ def check_abc(path, n_v, n_f, bounds, expect=None):
     return ok, note
 
 
+def _assimp_info(path):
+    """Ruft `assimp info` auf und liefert die aufgeraeumte Ausgabe.
+
+    Leerer String, wenn assimp fehlt; ``None``, wenn es die Datei nicht
+    lesen konnte.
+    """
+    tool = os.environ.get("ASSIMP", "").strip() or "assimp"
+    if not _which(tool):
+        return ""
+    out = subprocess.run([tool, "info", path], capture_output=True, text=True)
+    text = out.stdout + out.stderr
+    # Die Fortschrittsanzeige schreibt \r ohne \n -- erst wegraeumen.
+    clean = text.replace("\r", "\n")
+    if "Unable to load input file" in clean:
+        first = next((l for l in clean.splitlines() if "ERROR" in l),
+                     clean[:160])
+        return "FEHLER: " + first[:160]
+    return clean
+
+
 def check_assimp(path, n_v, n_f, bounds, expect=None):
     """Liest mit assimp (C++), gesteuert ueber die Kommandozeile."""
     tool = os.environ.get("ASSIMP", "").strip() or "assimp"
     if not _which(tool):
         return None, ("nicht geprueft -- assimp fehlt (siehe Kopf des "
                       "Skripts, Umgebungsvariable ASSIMP)")
-    out = subprocess.run([tool, "info", path], capture_output=True, text=True)
-    text = out.stdout + out.stderr
-    # Die Fortschrittsanzeige schreibt \r ohne \n -- erst wegraeumen.
-    clean = text.replace("\r", "\n")
+    clean = _assimp_info(path)
     nums = [int(x.replace(",", "")) for x in
             re.findall(r"Vertices:\s+([\d,]+)", clean)]
     faces = [int(x.replace(",", "")) for x in
@@ -296,6 +315,96 @@ def check_dae(path, n_v, n_f, bounds, expect=None):
     note += (f" | pycollada: {len(prims)} Primitiv(en), {n_tri:,} Dreiecke, "
              f"{len(col.materials)} Material(ien), {len(col.effects)} Effect(s), "
              f"{len(col.images)} Bild(er), Fehler {errs or 'keine'}")
+    return ok, note
+
+
+def check_bvh(path, n_v, n_f, bounds, expect=None):
+    """Prueft eine BVH-Datei mit dem eigenen Leser und mit assimp.
+
+    BVH ist das Format mit den wenigsten Selbstauskünften: keine
+    Einheit, kein Kommentar, keine Laengenangabe pro Block. Was der
+    fremde Leser deshalb beisteuert, ist nicht die Geometrie (die
+    erzeugt assimp beim Importieren selbst), sondern die Frage, ob er
+    die Datei ueberhaupt annimmt und ob er daraus eine Animation mit den
+    erwarteten Gelenken macht.
+    """
+    from facescan_ref import export_more as em
+    r = em.read_bvh(path)
+    ok = (r["consistent"] and r["frames_read"] > 0
+          and r["frame_time"] > 0 and len(r["channels"]) > 0)
+    vals = r["values"]
+    # Kein Frame darf springen: mehr als 180 Grad zwischen zwei Frames
+    # heisst, beim Abspielen schnappt die Bewegung zurueck (Euler-Wrap).
+    step = (float(np.abs(np.diff(vals, axis=0)).max())
+            if len(vals) > 1 else 0.0)
+    rot_step = (float(np.abs(np.diff(vals[:, 3:], axis=0)).max())
+                if vals.shape[1] > 3 and len(vals) > 1 else 0.0)
+    ok = ok and np.isfinite(vals).all()
+    note = (f"{r['frames_read']} Frames (deklariert {r['frames_declared']}), "
+            f"{len(r['channels'])} Kanaele, Frame Time "
+            f"{r['frame_time']:.6f} s, groesster Sprung {step:.3f} "
+            f"(Rotation {rot_step:.1f} deg)")
+
+    clean = _assimp_info(path)
+    if not clean:
+        return ok, note + (" | assimp fehlt -- Animation nicht gegengelesen")
+    if clean.startswith("FEHLER"):
+        return False, note + " | " + clean
+    anims = [int(x) for x in re.findall(r"Animations:\s+(\d+)", clean)]
+    nodes = [int(x) for x in re.findall(r"Nodes:\s+(\d+)", clean)]
+    chan = [int(x) for x in
+            re.findall(r"Animation Channels:\s+(\d+)", clean)]
+    # assimp gibt den Knotenbaum mit Baumzeichen davor und dem Mesh in
+    # Klammern dahinter aus ("Head (mesh 0)", "└╴EndSite_Head").
+    hier = clean.split("Node hierarchy:")[-1].splitlines()
+    names = [re.sub(r"^[^\w]+", "", ln).split(" (")[0]
+             for ln in hier if ln.strip()]
+    want = [j["name"] for j in r["joints"]]
+    # assimp baut aus dem BVH einen Knotenbaum; jedes Gelenk muss darin
+    # vorkommen, sonst ist die Animation da, aber haengt an nichts.
+    have = all(any(w == n for n in names) for w in want)
+    ok = ok and bool(anims) and max(anims) >= 1 and have
+    if nodes:
+        ok = ok and max(nodes) >= len(want)
+    note += (f" | assimp: {max(anims) if anims else 0} Animation(en), "
+             f"{max(nodes) if nodes else 0} Knoten, "
+             f"{max(chan) if chan else 0} Animationskanaele, "
+             f"Gelenke {'alle gefunden' if have else 'FEHLEN'}")
+    return ok, note
+
+
+def check_motion_table(path, n_v, n_f, bounds, expect=None):
+    """Prueft CSV bzw. JSON derselben Bewegung -- mit stdlib, nicht mit
+    unserem Leser.
+
+    Der Punkt ist nicht, ob unsere eigenen Funktionen zueinander passen
+    (das prueft `build_motion.py`), sondern ob jemand, der nur `csv` und
+    `json` aus der Standardbibliothek hat, dieselben Zahlen herausbekommt.
+    """
+    if path.endswith(".json"):
+        doc = json.load(open(path, encoding="utf-8"))
+        vals = np.array(doc["data"], dtype=np.float64)
+        channels = list(doc["channels"])
+        frame_time = float(doc["frame_time_s"])
+        frames = int(doc["frames"])
+        extra = ("Einheiten %s, Euler %s"
+                 % (doc.get("units", {}), doc.get("euler_order")))
+    else:
+        with open(path, encoding="utf-8", newline="") as fh:
+            rows = list(csv.reader(fh))
+        channels = list(rows[0][2:])
+        body = rows[1:]
+        vals = np.array([[float(x) for x in r[2:]] for r in body],
+                        dtype=np.float64)
+        times = np.array([float(r[1]) for r in body])
+        frame_time = float(times[1] - times[0]) if len(times) > 1 else 0.0
+        frames = len(body)
+        extra = "Spalten %s" % (rows[0][:2],)
+    ok = (len(channels) > 0 and frames > 0 and vals.shape[0] == frames
+          and vals.shape[1] == len(channels) and frame_time > 0
+          and np.isfinite(vals).all())
+    note = (f"{frames} Frames, {len(channels)} Kanaele, "
+            f"Frame Time {frame_time:.6f} s, {extra}")
     return ok, note
 
 
@@ -432,6 +541,18 @@ def main(argv):
         ("facescan_m1.dae", "eigen+assimp+pycollada", check_dae,
          dict(M1_EXPECT, colors=True)),
     ]
+    # Motion-Formate (docs/05, 4.8): die Aufnahmebahn. Sie gehoeren
+    # nicht zum Mesh-Satz, sondern liegen daneben -- deshalb einzeln und
+    # nur, wenn tools/build_motion.py gelaufen ist.
+    for fname, fn in (("facescan_m1_capture.bvh", check_bvh),
+                      ("facescan_m1_capture.csv", check_motion_table),
+                      ("facescan_m1_capture.json", check_motion_table)):
+        if os.path.exists(os.path.join(mesh_dir, fname)):
+            jobs.append((fname, "eigen+assimp" if fname.endswith(".bvh")
+                         else "stdlib csv/json",
+                         lambda p, a, b, c, e=None, fn=fn: fn(p, 0, 0, None),
+                         {}))
+
     lod_dir = mesh_dir
     lod_glb = os.path.join(lod_dir, "head_lod0.glb")
     if os.path.exists(lod_glb):
@@ -468,17 +589,26 @@ def main(argv):
         state = "--" if ok is None else ("OK" if ok else "FEHLER")
         results.append((fname, tool, state, note))
 
-    print("%-18s %-20s %-10s %s" % ("Datei", "Leser", "Ergebnis", "Befund"))
-    print("-" * 101)
+    print("%-24s %-22s %-10s %s" % ("Datei", "Leser", "Ergebnis", "Befund"))
+    print("-" * 107)
     for fname, tool, state, note in results:
-        print("%-18s %-20s %-10s %s" % (fname, tool, state, note))
-    print("-" * 101)
+        print("%-24s %-22s %-10s %s" % (fname, tool, state, note))
+    print("-" * 107)
 
     good = [r for r in results if r[2] == "OK"]
     bad = [r for r in results if r[2] == "FEHLER"]
     skipped = [r for r in results if r[2] != "OK" and r[2] != "FEHLER"]
-    print("%d von %d Formaten von einem fremden Leser bestaetigt."
-          % (len(good), len(results)))
+    # Nicht jede Datei hat einen Fremdleser: CSV und JSON prueft die
+    # Standardbibliothek, weil es dafuer keinen Fremdleser braucht -- eine
+    # Tabelle zu lesen, ist keine Frage des Programms. Das muss die
+    # Zusammenfassung sagen, sonst steht unten eine Zahl, die mehr
+    # behauptet als geprueft wurde.
+    foreign = [r for r in good
+               if any(k in r[1] for k in
+                      ("trimesh", "pxr", "Alembic", "assimp", "pycollada"))]
+    print("%d von %d Dateien bestanden -- %d davon von einem fremden "
+          "Leser gelesen, %d mit eigenem Leser bzw. stdlib geprueft."
+          % (len(good), len(results), len(foreign), len(good) - len(foreign)))
     if bad:
         print("ABGELEHNT: %s" % ", ".join(r[0] for r in bad))
     if skipped:

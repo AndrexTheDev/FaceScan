@@ -110,7 +110,7 @@ Die Brücke dorthin ist FBX/ABC/USD/OBJ + unser Blender-Add-on (Kapitel 9).
 
 ### 4.4 Collada (DAE 1.4.1)
 - **Im Prototyp geschrieben** (`export_more.write_dae`, seit M2b): `library_geometries` mit
-  positions/normals/uv (bzw. Vertexfarben stattt UVs) und Dreiecksindizes, `library_images`,
+  positions/normals/uv (bzw. Vertexfarben statt UVs) und Dreiecksindizes, `library_images`,
   `library_effects` (`profile_COMMON`, Kette image → sampler2D → surface → lambert),
   `library_materials`, `library_visual_scenes`. Einheiten `meter="0.001"`, `up_axis Y_UP`.
 - Relevanz: Austausch mit Programmen, die glTF schlechter können (ältere C4D-Versionen, diverse
@@ -181,6 +181,11 @@ Die Brücke dorthin ist FBX/ABC/USD/OBJ + unser Blender-Add-on (Kapitel 9).
   und Euler-Werten (Reihenfolge `ZXY`, konfigurierbar). Kanäle: 6 pro Gelenk (Position für `hips`).
   Blendshapes passen nicht in BVH ⇒ immer als begleitende CSV/JSON schreiben und in der UI benennen.
 - **CSV/JSON:** Spalten `frame, time_s, <kanalname> …` – für eigene Skripte, Forschung, Machine Learning.
+- **Im Prototyp (M2b, `tools/build_motion.py`):** der Schreiber ist **allgemein** – er bekommt eine
+  Hierarchie und eine Wertegruppe, nicht „ein Skelett". Der Inhalt ist die **Aufnahmebahn**: die 16
+  Kameraposen, umgerechnet in die Bewegung des Kopfes vor einer festen Kamera („Drehteller"). Der Rig
+  mit Gelenken kommt mit M3 und läuft durch denselben Schreiber. Einheiten **Meter und Grad, Y-up** –
+  BVH selbst trägt keine (s. §12.1).
 
 ### 4.9 VRM (optional, Studio)
 - VRM 0.x/1.0 ist eine glTF-2.0-Erweiterung (`VRMC_vrm`, `VRMC_node_constraint`,
@@ -284,7 +289,7 @@ liefern wir ein **eigenes Blender-Add-on** (Python, GPL-kompatibel, da add-on):
 | 2 | USDA + USDZ, DAE | Text-/XML-basiert, kein Fremdcode, deckt Apple/Houdini/Alt-DCC | **alle drei fertig** |
 | 3 | FBX (binär) | Größter Aufwand, größter Nutzen (Blender/Maya/Max/Unreal/Unity) | **fertig** (7.5 binär) |
 | 4 | ABC (libalembic) | Für Houdini/Point-Cache/Haar-Kurven | **fertig** (Ogawa, eigener Schreiber) |
-| 5 | BVH, CSV/JSON, VRM | Motion-/VTuber-Spezialfälle | offen |
+| 5 | BVH, CSV/JSON, VRM | Motion-/VTuber-Spezialfälle | **BVH + CSV/JSON fertig** (Aufnahmebahn), VRM offen |
 
 ## 11. Lizenz-Hinweise der eingesetzten Fremd-Bibliotheken (Kurzfassung, Detail in `09`)
 
@@ -315,7 +320,8 @@ Stand: `prototype/reference/python/facescan_ref/export_more.py`, geprüft mit
 | FBX 7.5 (binär) | `export_more.py` | 130.829 Punkte, Polygon-Konvention ✔ | assimp ✔ |
 | Alembic (ABC, Ogawa) | `export_more.py` | `AbcGeom_PolyMesh_v1` | Alembic 1.8.12 ✔ |
 | DAE (Collada) | `export_more.py` | 130.829 Punkte identisch (0,0 mm), Indizes identisch | assimp ✔, pycollada ✔ |
-| BVH / CSV / JSON | – | – | offen (Motion, erst mit M3) |
+| BVH (Motion) | `export_more.py` | 16 Frames, 6 Kanäle, größter Sprung 10,0°/Frame | assimp ✔ |
+| CSV / JSON (Motion) | `export_more.py` | 16 Frames × 6 Kanäle, identisch bis 5e-7 | stdlib `csv`/`json` ✔ |
 
 **Entscheidung gegen libalembic im Produkt:** §4.7 sah die Bibliothek vor. Im
 Prototyp ist der Ogawa-Container selbst geschrieben (~250 Zeilen). Grund: die
@@ -433,12 +439,35 @@ aus echten Fehlermeldungen fremder Leser entstanden:
     gröbste Stufe (LOD3, 0,85 MB) — LOD0 käme auf ~30 MB und wäre damit
     teurer als alles andere zusammen.
 
+**BVH / CSV / JSON (Motion)**
+26. **BVH kennt keine Kommentare.** Kein `#`, kein `//` – nur
+    Schlüsselwörter. Die erste Fassung schrieb eine Kopfzeile mit der
+    Einheit hinein; assimp lehnte die Datei ab: *„Expected root node
+    \"ROOT\"“* – die Zeile steht direkt nach `HIERARCHY`, wo assimp das
+    Wurzelgelenk erwartet.
+27. **BVH trägt keine Einheit.** Kein Feld, kein Kopf, nichts – der
+    Importierende entscheidet, ob eine Zahl Meter oder Zentimeter ist.
+    Wir schreiben Meter und Grad (§6: m, Y-up) und dokumentieren es hier
+    sowie im begleitenden JSON, das sehr wohl ein Feld dafür hat.
+28. **Die Euler-Reihenfolge steht in den `CHANNELS`-Zeilen**, nicht
+    global: `Zrotation Xrotation Yrotation` heißt, die drei Zahlen sind
+    in genau dieser Reihenfolge zu lesen.
+29. **`Frames` und die Zahl der Datenzeilen müssen übereinstimmen.** BVH
+    hat keine Längenangabe pro Block; der Leser hört nach `Frames` Zeilen
+    auf. Eine Zahl zu wenig, und alle folgenden Kanäle sind um eine
+    Stelle verschoben – ohne jede Fehlermeldung.
+30. **Euler-Winkel müssen entwrappt werden.** Die Zerlegung liefert
+    ±180°, und zwischen zwei Frames kann dabei ein Sprung von −175° auf
+    +175° stehen: 10° Unterschied, abgespielt aber als 350°
+    Rückwärtsdrall, weil BVH zwischen zwei Frames linear interpoliert und
+    nichts von Winkeln weiß. Bei der Aufnahmebahn: größter Sprung 350,0°
+    → nach dem Entwrapen 10,0°.
+
 ### 12.2 Offen
 * STL für den 3D-Druck: **Wandstärke eines Hohlkörpers** wird nicht geprüft –
   der Prototyp druckt massiv. Sockel, Standfläche, Überhang und kleinste
   lokale Dicke sind seit M2b gemessen (s. §12.3), die Lücken „nicht
   wasserdicht" und „keine Standfläche" sind damit geschlossen.
-* BVH, CSV/JSON.
 
 ### 12.3 In M2b erledigt (Stand: siehe prototype/README.md, Kap. 7b)
 * **Quadric Decimation** — LOD-Kette 300 k / 80 k / 20 k / 6 k
@@ -484,6 +513,19 @@ aus echten Fehlermeldungen fremder Leser entstanden:
   kleinste lokale Dicke 1,82 mm, Überhänge steiler als 45° auf 27,9 % der
   Fläche. Gegen die Kugel (r = 30 mm) nachgerechnet: 59,97 mm gemessene
   Dicke bei 60,00 mm Soll. Einzelheiten in README, Kap. 7e.
+* **Aufnahmebahn als BVH, CSV und JSON** — `tools/build_motion.py`,
+  Schreiber und Leser in `export_more.py`. Was M2 an Bewegung hat, ist
+  nicht der Rig (der kommt mit M3), sondern die Aufnahme selbst: 16
+  Kameraposen auf einem Bogen. Die Pose (R, t) mit `p_cam = R p + t` ist
+  genau die Transformation, die der Kopf relativ zur Kamera erfährt –
+  umgerechnet heißt das: feste Kamera, drehender Kopf, durch genau die
+  16 Lagen, aus denen gemessen wurde. BVH 1,1 kB / CSV 1,2 kB / JSON
+  1,6 kB, Rücklese identisch bis 5e-7 (Schreibgenauigkeit `%.6f`).
+  assimp liest das BVH: 1 Animation, 2 Knoten, das Gelenk `Head` im
+  Knotenbaum gefunden. Zwei Fehler unterwegs, beide von assimp bzw. von
+  den Zahlen selbst gefunden: eine Kommentarzeile im BVH (assimp:
+  *„Expected root node ROOT“*) und der Euler-Sprung um 350° zwischen
+  Frame 8 und 9 (entwrappt, s. §12.1, Punkt 30).
 * **Collada (DAE) als neuntes Exportformat** —
   `export_more.write_dae` / `read_dae`. Schreibt Collada 1.4.1 mit
   `unit meter="0.001"`, `up_axis Y_UP`, Quellen für Positionen, Normalen
@@ -497,8 +539,8 @@ aus echten Fehlermeldungen fremder Leser entstanden:
   Punkte identisch bis 0,0 mm, Indizes identisch, Farben identisch
   (0,0e+00/255). Dateigrößen: M1 30,5 MB (257.044 Dreiecke, XML eben —
   deshalb schreibt die LOD-Kette DAE nur für LOD3, 0,85 MB).
-  Gegenprobe insgesamt: **21 von 21 Formate** von einem fremden Leser
-  bestätigt (`validate_exports.py`).
+  Gegenprobe insgesamt: **24 von 24 Dateien** bestanden, 22 davon von
+  einem fremden Leser gelesen (`validate_exports.py`).
 * **USDZ mit binärem Crate** — `export_more.write_usdz(..., crate=True)`
   schreibt als Root-Layer ein `.usdc` statt Text, damit Apple-Geräte das
   Paket annehmen (Reality Converter: „the package's root layer must be a

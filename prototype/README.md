@@ -53,7 +53,7 @@ Beide Skripte sind deterministisch (Seed 2026) und brauchen kein Netz.
 Gegenprobe der Exporte mit fremden Lesern (optional, s. §7):
 
 ```bash
-/tmp/qrenv/bin/pip install trimesh usd-core
+/tmp/qrenv/bin/pip install trimesh usd-core pycollada
 /tmp/qrenv/bin/python prototype/reference/python/validate_exports.py
 ```
 
@@ -86,6 +86,12 @@ M2b, Teil 3 – Sockel und Druckprüfung (s. §7e):
 
 ```bash
 /tmp/qrenv/bin/python prototype/reference/tools/build_print.py           # ~100 s
+```
+
+M2b, Teil 4 – die Aufnahmebahn als BVH, CSV und JSON (s. §7f):
+
+```bash
+/tmp/qrenv/bin/python prototype/reference/tools/build_motion.py          # <1 s
 ```
 
 ## 3. Ergebnisse (Stand dieses Commits)
@@ -395,8 +401,10 @@ prüft, `orient_mesh()` heilt (235.526 falsch laufende Kanten im Rohnetz → 0).
 
 ### 7c. Gegenprobe mit fremden Lesern (M2 + M2b)
 
-`validate_exports.py` öffnet **21 Dateien** mit trimesh, `pxr`, echter
-Alembic-Bibliothek, assimp und pycollada: **21 von 21 bestanden**.
+`validate_exports.py` öffnet **24 Dateien** mit trimesh, `pxr`, echter
+Alembic-Bibliothek, assimp und pycollada: **24 von 24 bestanden**, 22 davon
+von einem fremden Leser gelesen (CSV und JSON prüft die Standardbibliothek –
+eine Tabelle zu lesen, ist keine Frage des Programms).
 
 * **Normalen** in OBJ, PLY, USDA, USDZ, ABC – gelesen von trimesh, pxr und
   Alembic (`N=130829 scope='3'` = `vtx`, längste Normale 1.0000). STL trägt
@@ -611,6 +619,41 @@ nirgends nachlesen kann:
 Offen: eine Wandstärke im Sinne eines **Hohlkörpers** wird nicht geprüft –
 der Prototyp druckt massiv. Und das Netz ist mit 775 k Dreiecken für einen
 Druck unnötig fein; eine vereinfachte Fassung gibt es noch nicht.
+
+### 7f. M2b, Teil 4: die Aufnahmebahn als BVH, CSV und JSON (`build_motion.py`)
+
+docs/05 (4.8) verlangt drei Motion-Formate. Was M2 an Bewegung hat, ist nicht
+der Rig – der kommt mit M3 – sondern **die Aufnahme selbst**: 16 Kameraposen
+auf einem Bogen um den Kopf. Und eine Kamerapose (R, t) mit `p_cam = R p + t`
+ist genau die Transformation, die der Kopf relativ zur Kamera erfährt.
+Umgerechnet heißt das: die Kamera steht fest und der Kopf dreht sich auf einem
+Drehteller, durch genau die 16 Lagen, aus denen gemessen wurde. Das ist keine
+Näherung, sondern dieselbe Bewegung aus der anderen Richtung betrachtet.
+
+Der Schreiber (`export_more.write_bvh`) ist bewusst **allgemein** gehalten: er
+bekommt eine Hierarchie und eine Wertegruppe, nicht „ein Skelett". M3 kann den
+fertigen Rig hindurchschieben, ohne ihn anzufassen.
+
+| Datei | Größe | Rücklese | fremder Leser |
+|---|---|---|---|
+| `facescan_m1_capture.bvh` | 1,1 kB | 16 Frames, 6 Kanäle, identisch bis 5e-7 | assimp: 1 Animation, Gelenk `Head` im Knotenbaum |
+| `facescan_m1_capture.csv` | 1,2 kB | 16 Frames × 6 Kanäle, identisch bis 5e-7 | stdlib `csv` |
+| `facescan_m1_capture.json` | 1,6 kB | dto., Einheiten im Dokument | stdlib `json` |
+
+Zwei Fehler, die erst unterwegs auffielen:
+
+1. **BVH kennt keine Kommentare.** Die erste Fassung schrieb eine Kopfzeile mit
+   der Einheit hinein – assimp lehnte die Datei ab: *„Expected root node
+   ROOT“*. Die Zeile steht direkt nach `HIERARCHY`, wo das Wurzelgelenk erwartet
+   wird. Die Einheit steht jetzt in `docs/05` und im begleitenden JSON, das sehr
+   wohl ein Feld dafür hat. (BVH selbst trägt keine: der Importierende
+   entscheidet, ob eine Zahl Meter oder Zentimeter ist. Wir schreiben Meter und
+   Grad.)
+2. **Euler-Winkel springen.** Die Zerlegung liefert ±180°, und zwischen Frame 8
+   und 9 stand −175° neben +175°: 10° Unterschied, abgespielt aber als 350°
+   Rückwärtsdrall, weil BVH zwischen zwei Frames linear interpoliert und nichts
+   von Winkeln weiß. Entwrappt (größter Schritt 10,0° statt 350,0°) steht die
+   Bewegung richtig herum da.
 
 ## 8. Was M0, M1 und M2 bewusst NICHT enthalten
 

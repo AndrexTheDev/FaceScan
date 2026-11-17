@@ -14,20 +14,27 @@ import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
  * 0.10.14). Dabei hat sich eine Sache anders gezeigt, als man sie nach der
  * Doku erwarten wuerde:
  *
- *   faceBlendshapes()              -> Optional<List<Classifications>>
- *   facialTransformationMatrixes() -> Optional<List<Matrix>>
  *   faceLandmarks()                -> List<List<NormalizedLandmark>>
+ *   faceBlendshapes()              -> Optional<List<List<Category>>>
+ *   facialTransformationMatrixes() -> Optional<List<FloatArray>>
  *
- * Die Mimik und die Matrix kommen als **Optional**, die Landmarks nicht.
- * Wer alle drei gleich behandelt (etwa mit .firstOrNull()), bekommt den
- * Fehler an der falschen Stelle: Kotlin meldet dann "None of the following
- * candidates is applicable" auf firstOrNull() und danach eine Kaskade von
- * Folgefehlern ("Unresolved reference"), die alle nur davon kommen, dass
- * der Typ nicht aufgeloest werden konnte. Die Landmarks liefen daneben
- * fehlerfrei durch -- das ist der Hinweis, dass nicht die API falsch ist,
- * sondern nur die beiden Optional.
+ * Zwei Fallen, beide teuer bezahlt:
  *
- * Zugriffe tragen kein "get": it.x(), categoryName(), score(), data().
+ * 1) Mimik und Matrix stecken in einem Optional, die Landmarks nicht. Wer
+ *    alle drei gleich behandelt, bekommt den Fehler an der falschen Stelle:
+ *    Kotlin meldet "None of the following candidates is applicable" auf
+ *    firstOrNull() und danach eine Kaskade von "Unresolved reference", die
+ *    nur daraus folgt, dass der Typ nicht aufgeloest werden konnte. Dass
+ *    die Landmarks daneben fehlerfrei durchliefen, war der Hinweis -- nicht
+ *    die API war falsch, nur die beiden Optional.
+ *
+ * 2) Die Doku auf developers.google.com/edge beschreibt eine NEUERE Version:
+ *    dort heisst es Optional<List<Classifications>> und Optional<List<Matrix>>
+ *    mit .categories() und .data(). In 0.10.14 gibt es diese Typen an dieser
+ *    Stelle noch nicht. Massgeblich ist der Quelltext des Tags v0.10.14,
+ *    nicht die Doku. Bei einem Release-Wechsel ist hier nachzupruefen.
+ *
+ * Zugriffe tragen kein "get": it.x(), categoryName(), score().
  *
  * Wichtig (haeufigste Fehlerquelle bei Blendshape-Pipelines):
  * Die Modell-Doku weist ausdruecklich darauf hin, dass sich *Left und
@@ -90,15 +97,16 @@ class FaceLandmarkerRunner(private val context: Context) {
         } ?: emptyList()
 
         val shapes = mutableMapOf<String, Float>()
-        // Optional<List<Classifications>> -- erst das Optional auspacken,
-        // dann die Liste, dann je Eintrag categories().
-        faceBlendshapes().orElse(null)?.firstOrNull()
-            ?.categories()
+        // Optional<List<List<Category>>> -- drei Ebenen, keine davon heisst
+        // Classifications (das gilt erst in neueren Releases).
+        faceBlendshapes().orElse(null)
+            ?.firstOrNull()
             ?.forEach { shapes[it.categoryName()] = it.score() }
 
-        // Spaltenweise, 16 Zahlen (Doku: "flat column-major float array").
-        val matrix = facialTransformationMatrixes().orElse(null)?.firstOrNull()
-            ?.data() ?: FloatArray(16)
+        // Spaltenweise, 16 Zahlen (Quelltext: "flat column-major float array").
+        val matrix = facialTransformationMatrixes().orElse(null)
+            ?.firstOrNull()
+            ?: FloatArray(16)
         return Result(points, shapes, matrix)
     }
 }

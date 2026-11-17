@@ -408,6 +408,157 @@ def check_motion_table(path, n_v, n_f, bounds, expect=None):
     return ok, note
 
 
+def check_rig_dae(path, n_v, n_f, bounds, expect=None):
+    """Das Rig-DAE: hier muss nicht nur Geometrie stimmen, sondern die HAUT.
+
+    Ein Collada mit ``<skin>`` kann auf zwei Arten kaputt sein, die ein
+    Geometrie-Test nie sieht:
+
+      * Die Gelenke sind da, aber die Gewichte fehlen -- dann steht das
+        Netz beim Bewegen still.
+      * Die Gewichte sind da, aber die Namen in ``<Name_array>`` stimmen
+        nicht mit den Knoten-SIDs ueberein -- dann bewegen sich zwar
+        Punkte, aber am falschen Gelenk. Manche Leser merken das gar
+        nicht, sie bewegen dann einfach nichts.
+
+    Geprueft wird deshalb dreifach: unser Leser (Einheiten, Verweise ins
+    Leere), pycollada (loest die Controller-Kette wirklich auf) und
+    assimp als Fremdleser (zaehlt die Knochen, die tatsaechlich Gewicht
+    tragen).
+    """
+    from facescan_ref import export_more as em
+    text = open(path, encoding="utf-8").read()
+    r = em.read_dae(path)
+    einheit = r["unit_meter"] is not None and abs(r["unit_meter"] - 0.001) < 1e-12
+    hoch = r["up_axis"] == "Y_UP"
+    controller = "<skin source=\"#mesh\">" in text
+    instanz = "<instance_controller" in text
+    skelett = "<skeleton>#joint_0</skeleton>" in text
+    n_gelenke = text.count('type="JOINT"')
+    if "<Name_array" not in text or "<vertex_weights" not in text:
+        return False, "Skin unvollstaendig: Name_array oder vertex_weights fehlt"
+    if text.count("<vcount>") != 1 or text.count("<v>") < 1:
+        return False, "vertex_weights ohne vcount/v"
+
+    noten = ["Einheit %s" % ("mm" if einheit else "FALSCH"),
+             "Hochachse %s" % ("Y" if hoch else "FALSCH"),
+             "Controller %s" % ("ja" if controller else "NEIN"),
+             "%d Gelenkknoten" % n_gelenke]
+    ok = einheit and hoch and controller and instanz and skelett and n_gelenke >= 6
+
+    # pycollada: der strenge Leser
+    try:
+        import collada
+        c = collada.Collada(path)
+        namen = [x.id for x in c.controllers]
+        knoten = len([1 for n in c.scene.nodes for _ in _walk(n)])
+        noten.append("pycollada: %d Controller, %d Knoten" % (len(namen), knoten))
+        ok = ok and "skin" in namen
+    except ImportError:
+        noten.append("pycollada fehlt")
+        return None, ", ".join(noten)
+    except Exception as exc:                          # noqa: BLE001
+        return False, "pycollada: %s" % exc
+
+    # assimp zaehlt die Knochen, die WIRKLICH Gewicht tragen
+    info = _assimp_info(path)
+    if info is not None:
+        knochen = _assimp_zahl(info, r"Bones:\s+(\d+)")
+        noten.append("assimp: %s Knochen" % knochen)
+        ok = ok and knochen is not None and knochen >= 2
+    else:
+        noten.append("assimp fehlt")
+    return (ok, ", ".join(noten)) if _assimp_info(path) is not None else (None, ", ".join(noten))
+
+
+def _walk(node):
+    yield node
+    for k in getattr(node, "children", []):
+        yield from _walk(k)
+
+
+def _assimp_zahl(text, muster):
+    m = re.search(muster, text or "")
+    return int(m.group(1)) if m else None
+
+
+def check_rig_bvh(path, n_v, n_f, bounds, expect=None):
+    """Das Rig-BVH: ein echtes Skelett mit Bewegung, nicht die Kamerabahn.
+
+    Der Unterschied zu M2: dort lief die Aufnahmebahn durch denselben
+    Schreiber (ein Gelenk, sechs Kanaele). Hier muessen acht Gelenke mit
+    27 Kanaelen und eine Bewegung herauskommen. Geprueft wird, ob
+    deklarierte und tatsaechliche Framezahl uebereinstimmen -- genau der
+    Fehler, bei dem BVH keine Warnung ausgibt, sondern alle Kanaele
+    stillschweigend verschiebt.
+    """
+    from facescan_ref import export_more as em
+    r = em.read_bvh(path)
+    namen = [j["name"] for j in r["joints"]]
+    stimmig = bool(r["consistent"])
+    kanaele = len(r["channels"])
+    ok = stimmig and r["frames_read"] == r["frames_declared"] and len(namen) >= 6
+    noten = ["%d Gelenke" % len(namen), "%d Kanaele" % kanaele,
+             "%d Frames (%d deklariert)" % (r["frames_read"], r["frames_declared"]),
+             "stimmig %s" % stimmig]
+    info = _assimp_info(path)
+    if info is not None:
+        anim = _assimp_zahl(info, r"Animations:\s+(\d+)")
+        kan = _assimp_zahl(info, r"Animation Channels:\s+(\d+)")
+        noten.append("assimp: %s Animation, %s Kanaele" % (anim, kan))
+        ok = ok and anim == 1 and kan is not None and kan >= 6
+    else:
+        noten.append("assimp fehlt")
+        return None, ", ".join(noten)
+    return ok, ", ".join(noten)
+
+
+def check_rig_glb(path, n_v, n_f, bounds, expect=None):
+    """Das Rig-GLB: Morph-Ziele in ARKit-Benennung.
+
+    Morph-Ziele sind in glTF VERSCHIEBUNGEN, keine Zielpositionen. Der
+    haeufigste Fehler ist eine falsche Einheit: Positionen in Metern und
+    Ziele in Millimetern ergibt ein Modell, das beim Lachen um das
+    Tausendfache auseinanderfliegt. Geprueft wird deshalb, ob die groesste
+    Verschiebung in der Groessenordnung der Amplitude liegt (hier 5 mm).
+    """
+    import struct
+    roh = open(path, "rb").read()
+    if roh[:4] != b"glTF":
+        return False, "kein GLB"
+    off, chunks = 12, {}
+    while off < len(roh):
+        laenge, typ = struct.unpack("<I4s", roh[off:off + 8])
+        chunks[typ] = roh[off + 8:off + 8 + laenge]
+        off += 8 + laenge
+    g = json.loads(chunks[b"JSON"])
+    prim = g["meshes"][0]["primitives"][0]
+    ziele = prim.get("targets", [])
+    namen = g["meshes"][0].get("extras", {}).get("targetNames", [])
+    if not ziele:
+        return False, "keine Morph-Ziele"
+    if len(namen) != len(ziele):
+        return False, "%d Ziele, aber %d Namen" % (len(ziele), len(namen))
+    bin_ = chunks[b"BIN\x00"]
+    groesstes = 0.0
+    stimmt_minmax = True
+    for z in ziele:
+        a = g["accessors"][z["POSITION"]]
+        bv = g["bufferViews"][a["bufferView"]]
+        arr = np.frombuffer(bin_[bv["byteOffset"]:bv["byteOffset"] + bv["byteLength"]],
+                            dtype=np.float32).reshape(-1, 3)
+        groesstes = max(groesstes, float(np.abs(arr).max()))
+        stimmt_minmax = stimmt_minmax and np.allclose(arr.min(axis=0), a["min"]) \
+            and np.allclose(arr.max(axis=0), a["max"])
+        if len(arr) != g["accessors"][prim["attributes"]["POSITION"]]["count"]:
+            return False, "Morph-Ziel hat %d Punkte, das Netz %d" % (
+                len(arr), g["accessors"][prim["attributes"]["POSITION"]]["count"])
+    ok = stimmt_minmax and 1e-4 < groesstes < 0.05      # 0,1 mm .. 50 mm
+    return ok, ("%d Morph-Ziele, groesste Verschiebung %.1f mm, min/max %s"
+                % (len(ziele), 1000 * groesstes,
+                   "stimmt" if stimmt_minmax else "FALSCH"))
+
+
 def _which(prog):
     from shutil import which
     return which(prog)
@@ -575,6 +726,20 @@ def main(argv):
                                  p, 0, 0, None,
                                  dict(LOD_EXPECT, texture=True)),
                              LOD_EXPECT))
+
+    # --- M3: Rig, Mimik und Bewegung ------------------------------------
+    # Diese drei Dateien pruefen etwas anderes als der Rest: nicht die
+    # Geometrie (die ist schon aus M1/M2 geprueft), sondern ob Haut,
+    # Gelenke und Mimik im Dateiformat wirklich ankommen.
+    if os.path.exists(os.path.join(mesh_dir, "facescan_rig.dae")):
+        jobs.append(("facescan_rig.dae", "eigen+assimp+pycollada",
+                     lambda p, a, b, c, e=None: check_rig_dae(p, 0, 0, None), {}))
+    if os.path.exists(os.path.join(mesh_dir, "facescan_rig.bvh")):
+        jobs.append(("facescan_rig.bvh", "eigen+assimp",
+                     lambda p, a, b, c, e=None: check_rig_bvh(p, 0, 0, None), {}))
+    if os.path.exists(os.path.join(mesh_dir, "facescan_rig.glb")):
+        jobs.append(("facescan_rig.glb", "eigen (Struktur)",
+                     lambda p, a, b, c, e=None: check_rig_glb(p, 0, 0, None), {}))
 
     results = []
     for fname, tool, fn, expect in jobs:

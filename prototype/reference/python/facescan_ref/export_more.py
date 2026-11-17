@@ -595,7 +595,7 @@ def _emit(tree, base: int) -> bytes:
 def write_dae(path: str, v: np.ndarray, f: np.ndarray,
               colors: np.ndarray | None = None, name: str = "FaceScan",
               normals: np.ndarray | None = None, uv: np.ndarray | None = None,
-              texture: str | None = None) -> str:
+              texture: str | None = None, skin: dict | None = None) -> str:
     """Collada 1.4.1 -- das Austauschformat fuer Werkzeuge, die glTF nicht
     oder schlecht koennen (docs/05 4.4: aeltere C4D-Versionen, diverse
     Forschungswerkzeuge) und das menschenlesbare Format fuer den Support.
@@ -636,6 +636,24 @@ def write_dae(path: str, v: np.ndarray, f: np.ndarray,
 
     Ohne Textur schreibt die Funktion die Vertexfarben (M1-Netz); mit
     Textur die UVs und die Kette image -> sampler -> surface -> lambert.
+
+    **Mit ``skin`` kommt das Skelett dazu** (M3): ein ``<controller>`` mit
+    Gelenknamen, inversen Bindematrizen und Gewichten, ein Knotenbaum mit
+    ``type="JOINT"`` und statt ``<instance_geometry>`` ein
+    ``<instance_controller>``. Vier Fallen, die hier vermieden sind:
+
+    1. Die Namen in ``<Name_array>`` muessen die **SIDs** der Gelenkknoten
+       sein, nicht ihre IDs und nicht ihre Anzeigenamen.
+    2. Collada schreibt Matrizen zeilenweise (row-major). Eine
+       Verschiebung um d ist also ``1 0 0 dx  0 1 0 dy  0 0 1 dz  0 0 0 1``
+       -- wer spaltenweise schreibt, dreht an jeder Bewegung das Vorzeichen.
+    3. Die inverse Bindematrix ist die Inverse der **Welt**matrix des
+       Gelenks in der Ruhepose, nicht die der lokalen Matrix. Bei reinen
+       Verschiebungen (unser Ruhezustand) ist sie die negative Verschiebung.
+    4. In ``<vertex_weights>`` zaehlt ``<vcount>`` die Einfluesse **je
+       Vertex**; die Paare in ``<v>`` verweisen auf Gelenk- und
+       Gewichtsquelle. Gewicht 0 wird weggelassen -- sonst meldet manches
+       Werkzeug vier Einfluesse, von denen drei nichts tun.
     """
     v = np.asarray(v, dtype=np.float64)
     f = np.asarray(f, dtype=np.int64)
@@ -762,12 +780,97 @@ def write_dae(path: str, v: np.ndarray, f: np.ndarray,
     out.append("      </mesh>")
     out.append("    </geometry>")
     out.append("  </library_geometries>")
+
+    if skin is not None:
+        g_namen = [str(x) for x in skin["joints"]]
+        g_eltern = [int(x) for x in skin["parents"]]
+        g_pos = np.asarray(skin["positions"], dtype=np.float64)
+        g_idx = np.asarray(skin["weights"][0], dtype=np.int64)
+        g_val = np.asarray(skin["weights"][1], dtype=np.float64)
+        n_j = len(g_namen)
+
+        # Nur Gewichte ueber 0 kommen in die Quelle; <vcount> zaehlt je Vertex.
+        nz = g_val > 1e-6
+        anzahl = nz.sum(axis=1)
+        zeilen, spalten = np.nonzero(nz)
+        reihenfolge = np.lexsort((spalten, zeilen))
+        j_seq = g_idx[zeilen[reihenfolge], spalten[reihenfolge]]
+        w_seq = np.arange(int(anzahl.sum()), dtype=np.int64)
+        v_seq = np.empty(2 * len(j_seq), dtype=np.int64)
+        v_seq[0::2] = j_seq
+        v_seq[1::2] = w_seq
+
+        out.append("  <library_controllers>")
+        out.append('    <controller id="skin" name="%s_skin">' % name)
+        out.append('      <skin source="#mesh">')
+        out.append("        <bind_shape_matrix>"
+                   "1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1</bind_shape_matrix>")
+        # Quelle 1: die Gelenknamen (SIDs der Knoten unten)
+        out.append('        <source id="joints">')
+        out.append('          <Name_array id="joints-array" count="%d">%s</Name_array>'
+                   % (n_j, " ".join(g_namen)))
+        out.append("          <technique_common>")
+        out.append('            <accessor source="#joints-array" count="%d" stride="1">'
+                   % n_j)
+        out.append('              <param name="JOINT" type="Name"/>')
+        out.append("            </accessor>")
+        out.append("          </technique_common>")
+        out.append("        </source>")
+        # Quelle 2: inverse Bindematrizen. Die Ruhepose enthaelt nur
+        # Verschiebungen, also ist die Weltmatrix des Gelenks die
+        # Verschiebung an seine Position und die Inverse die negative.
+        inv = np.zeros((n_j, 16))
+        inv[:, 0] = 1.0
+        inv[:, 5] = 1.0
+        inv[:, 10] = 1.0
+        inv[:, 15] = 1.0
+        inv[:, 3] = -g_pos[:, 0]
+        inv[:, 7] = -g_pos[:, 1]
+        inv[:, 11] = -g_pos[:, 2]
+        out.append('        <source id="inv_bind">')
+        out.append('          <float_array id="inv_bind-array" count="%d">%s</float_array>'
+                   % (n_j * 16, floats(inv)))
+        out.append("          <technique_common>")
+        out.append('            <accessor source="#inv_bind-array" count="%d" stride="16">'
+                   % n_j)
+        out.append('              <param name="TRANSFORM" type="float4x4"/>')
+        out.append("            </accessor>")
+        out.append("          </technique_common>")
+        out.append("        </source>")
+        # Quelle 3: die Gewichte
+        out.append('        <source id="weights">')
+        out.append('          <float_array id="weights-array" count="%d">%s</float_array>'
+                   % (int(anzahl.sum()), floats(g_val[nz])))
+        out.append("          <technique_common>")
+        out.append('            <accessor source="#weights-array" count="%d" stride="1">'
+                   % int(anzahl.sum()))
+        out.append('              <param name="WEIGHT" type="float"/>')
+        out.append("            </accessor>")
+        out.append("          </technique_common>")
+        out.append("        </source>")
+        out.append("        <joints>")
+        out.append('          <input semantic="JOINT" source="#joints"/>')
+        out.append('          <input semantic="INV_BIND_MATRIX" source="#inv_bind"/>')
+        out.append("        </joints>")
+        out.append('        <vertex_weights count="%d">' % n_v)
+        out.append('          <input semantic="JOINT" source="#joints" offset="0"/>')
+        out.append('          <input semantic="WEIGHT" source="#weights" offset="1"/>')
+        out.append("          <vcount>%s</vcount>" % " ".join(map(str, anzahl)))
+        out.append("          <v>%s</v>" % " ".join(map(str, v_seq)))
+        out.append("        </vertex_weights>")
+        out.append("      </skin>")
+        out.append("    </controller>")
+        out.append("  </library_controllers>")
     out.append("  <library_visual_scenes>")
     out.append('    <visual_scene id="scene" name="scene">')
     out.append('      <node id="node" name="%s" type="NODE">' % name)
     out.append('        <matrix sid="transform">1 0 0 0 0 1 0 0 0 0 1 0 '
                "0 0 0 1</matrix>")
-    out.append('        <instance_geometry url="#mesh">')
+    inst = "instance_controller" if skin is not None else "instance_geometry"
+    ziel = "#skin" if skin is not None else "#mesh"
+    out.append('        <%s url="%s">' % (inst, ziel))
+    if skin is not None:
+        out.append('          <skeleton>#joint_0</skeleton>')
     out.append("          <bind_material>")
     out.append("            <technique_common>")
     out.append('              <instance_material symbol="face_symbol"'
@@ -780,8 +883,29 @@ def write_dae(path: str, v: np.ndarray, f: np.ndarray,
     out.append("              </instance_material>")
     out.append("            </technique_common>")
     out.append("          </bind_material>")
-    out.append("        </instance_geometry>")
+    out.append("        </%s>" % inst)
     out.append("      </node>")
+
+    if skin is not None:
+        # Der Gelenkbaum steht mit in der Szene: <skeleton>#joint_0</skeleton>
+        # oben verweist auf den Wurzelknoten. Die sid jedes Knotens ist der
+        # Gelenkname -- genau der, der in <Name_array> steht.
+        def knoten(i: int, einzug: str) -> None:
+            kinder = [k for k in range(n_j) if g_eltern[k] == i]
+            elter = g_eltern[i]
+            lokal = g_pos[i] - (g_pos[elter] if elter >= 0 else 0.0)
+            out.append('%s<node id="joint_%d" name="%s" sid="%s" type="JOINT">'
+                       % (einzug, i, g_namen[i], g_namen[i]))
+            out.append('%s  <matrix sid="transform">'
+                       "1 0 0 %.17g 0 1 0 %.17g 0 0 1 %.17g 0 0 0 1</matrix>"
+                       % (einzug, lokal[0], lokal[1], lokal[2]))
+            for k in kinder:
+                knoten(k, einzug + "  ")
+            out.append("%s</node>" % einzug)
+
+        for i in range(n_j):
+            if g_eltern[i] < 0:
+                knoten(i, "      ")
     out.append("    </visual_scene>")
     out.append("  </library_visual_scenes>")
     out.append('  <scene><instance_visual_scene url="#scene"/></scene>')

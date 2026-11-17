@@ -1,0 +1,206 @@
+{
+  "blendshapes": {
+    "amplitude_mm": 5.0,
+    "max_mm": {
+      "browDown": 5.01,
+      "browInnerUp": 5.11,
+      "eyeBlink": 5.01,
+      "jawOpen": 5.3,
+      "mouthPucker": 5.01,
+      "mouthSmile": 6.02
+    },
+    "namen": [
+      "jawOpen",
+      "mouthSmile",
+      "eyeBlink",
+      "browInnerUp",
+      "browDown",
+      "mouthPucker"
+    ]
+  },
+  "dateien": {
+    "bvh": "facescan_rig.bvh",
+    "bvh_frames": 120,
+    "bvh_frames_deklariert": 120,
+    "bvh_kanaele": 27,
+    "bvh_stimmig": true,
+    "dae": "facescan_rig.dae",
+    "dae_gelesen": {
+      "dangling_refs": [],
+      "has_texture": false,
+      "inputs": [
+        [
+          "VERTEX",
+          "#vertices",
+          "0"
+        ]
+      ],
+      "materials": [
+        "face_material"
+      ],
+      "p_cols": 1,
+      "p_count": 240000,
+      "sources": {
+        "positions": {
+          "accessor_count": 45182,
+          "array_count": 135546,
+          "stride": 3,
+          "values": 135546
+        }
+      },
+      "texture_files": [],
+      "triangles": 80000,
+      "unit_meter": 0.001,
+      "up_axis": "Y_UP"
+    },
+    "dae_mb": 5.35,
+    "glb": "facescan_rig.glb",
+    "glb_morph_ziele": 6
+  },
+  "dauer_s": 4.5,
+  "gegenproben": {
+    "blickrichtung_vs_nasenueberstand_grad": 5.0,
+    "hochachse_neigung_bester_grad": 0.0,
+    "hochachse_verbesserung_mm": 0.0,
+    "hochachse_vs_schnittflaeche_grad": 0.0,
+    "nasenueberstand_mm": 10.8056,
+    "restfehler_median_mm": 0.4325,
+    "schnittflaeche_dicke_mm": 2.608,
+    "warnung": false
+  },
+  "gelenke": [
+    {
+      "elter": null,
+      "name": "hips",
+      "position_mm": [
+        1.3,
+        -166.14,
+        -26.62
+      ]
+    },
+    {
+      "elter": "hips",
+      "name": "spine",
+      "position_mm": [
+        1.1,
+        -139.97,
+        -26.79
+      ]
+    },
+    {
+      "elter": "spine",
+      "name": "chest",
+      "position_mm": [
+        0.92,
+        -117.08,
+        -26.94
+      ]
+    },
+    {
+      "elter": "chest",
+      "name": "neck",
+      "position_mm": [
+        0.74,
+        -94.18,
+        -27.09
+      ]
+    },
+    {
+      "elter": "neck",
+      "name": "head",
+      "position_mm": [
+        0.17,
+        -22.22,
+        -27.57
+      ]
+    },
+    {
+      "elter": "head",
+      "name": "jaw",
+      "position_mm": [
+        0.12,
+        -15.15,
+        10.21
+      ]
+    },
+    {
+      "elter": "head",
+      "name": "leftEye",
+      "position_mm": [
+        -27.14,
+        7.99,
+        61.95
+      ]
+    },
+    {
+      "elter": "head",
+      "name": "rightEye",
+      "position_mm": [
+        27.57,
+        8.6,
+        63.56
+      ]
+    }
+  ],
+  "gewichte": {
+    "anteil_prozent": {
+      "chest": 0.0,
+      "head": 95.95,
+      "hips": 0.0,
+      "jaw": 4.03,
+      "leftEye": 0.0,
+      "neck": 0.02,
+      "rightEye": 0.0,
+      "spine": 0.0
+    },
+    "fuehrend_bei_punkten": {
+      "chest": 0,
+      "head": 43492,
+      "hips": 0,
+      "jaw": 1690,
+      "leftEye": 0,
+      "neck": 0,
+      "rightEye": 0,
+      "spine": 0
+    },
+    "groesster_sprung_nachbar": 0.0943,
+    "summe_max": 1.0,
+    "summe_min": 1.0
+  },
+  "netz": {
+    "dreiecke": 80000,
+    "punkte": 45182,
+    "quelle": "lod_state.npz v1/f1"
+  },
+  "rahmen": {
+    "gesichtspunkte": 40839,
+    "kopfmitte_mm": [
+      0.0,
+      -0.404,
+      0.029
+    ],
+    "massstab": 1.00131,
+    "oben": [
+      -0.0079,
+      0.9999,
+      -0.0066
+    ],
+    "restfehler_median_mm": 0.432,
+    "restfehler_p90_mm": 19.317,
+    "vorn": [
+      -0.0001,
+      0.0066,
+      1.0
+    ]
+  },
+  "wahrheit_abweichung_mm": {
+    "auge_l": 0.162,
+    "auge_r": 0.35,
+    "kinn": 0.769,
+    "mund": 0.472,
+    "nase": 0.319,
+    "ohr_l": 1.128,
+    "ohr_r": 0.234,
+    "scheitel": 1.006
+  }
+}

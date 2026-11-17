@@ -296,7 +296,8 @@ def _pad4(b: bytes, fill: bytes = b"\x00") -> bytes:
 def write_glb(path: str, v: np.ndarray, f: np.ndarray,
               colors: np.ndarray | None = None, name: str = "FaceScan",
               normals: np.ndarray | None = None, uv: np.ndarray | None = None,
-              texture_png: bytes | None = None):
+              texture_png: bytes | None = None,
+              targets: list | None = None, target_names: list | None = None):
     """Binäres glTF 2.0 (.glb) -- ein Container, alles inline.
 
     Warum GLB und nicht glTF+bin? Weil ein EINZELNES File beim Teilen,
@@ -306,8 +307,21 @@ def write_glb(path: str, v: np.ndarray, f: np.ndarray,
     Wenn `texture_png` (fertig kodierte PNG-Bytes) und `uv` übergeben
     werden, bekommt das Material ein `baseColorTexture` und die Farben
     werden NICHT als COLOR_0 geschrieben. Grund: beide gleichzeitig ist in
-    glTF erlaubt, führt aber in Blender und im Android-Viewer zu
-    "doppelt gefärbten" Modellen.
+    Blender und im Android-Viewer zu "doppelt gefärbten" Modellen.
+
+    **Morph-Ziele (M3):** `targets` ist eine Liste von `(n_punkte, 3)`-Feldern
+    mit den VERSCHIEBUNGEN je Ausdruck -- nicht die Zielpositionen. glTF
+    rechnet `position + summe(gewicht * ziel)`, ein Ziel ist also immer eine
+    Differenz. Drei Fallen:
+
+      1. Die Verschiebungen müssen in **derselben Einheit** stehen wie die
+         Positionen. Wer Millimeter-Positionen und Millimeter-Deltas mischt,
+         bekommt ein Modell, das beim Lächeln auseinanderfliegt.
+      2. `min`/`max` sind auch für Ziel-Accessoren vorgeschrieben; manche
+         Prüfer lehnen die Datei ohne sie ab.
+      3. Die **Namen** der Ziele stehen in `mesh.extras.targetNames`. Das ist
+         eine Konvention, kein Pflichtfeld -- aber ohne sie heißen die
+         Regler in Blender "Key 1, Key 2" statt "jawOpen, mouthSmile".
     """
     v = np.asarray(v, dtype=np.float32)
     f = np.asarray(f, dtype=np.uint32).reshape(-1)
@@ -357,13 +371,32 @@ def write_glb(path: str, v: np.ndarray, f: np.ndarray,
         attrs["COLOR_0"] = acc(cview, GL_UNSIGNED_BYTE, len(c), "VEC3",
                                normalized=True)
 
+    ziel_liste = None
+    if targets:
+        ziel_liste = []
+        for d in targets:
+            d = np.asarray(d, dtype=np.float32).reshape(-1, 3)
+            if len(d) != len(v):
+                raise ValueError(
+                    "Morph-Ziel hat %d Punkte, das Netz %d" % (len(d), len(v)))
+            dv = add(d)
+            ziel_liste.append({"POSITION": acc(
+                dv, GL_FLOAT, len(d), "VEC3",
+                min=d.min(axis=0).tolist(), max=d.max(axis=0).tolist())})
+
+    prim = {"attributes": attrs, "indices": 1, "material": 0}
+    if ziel_liste is not None:
+        prim["targets"] = ziel_liste
+    mesh = {"primitives": [prim]}
+    if target_names:
+        mesh["extras"] = {"targetNames": [str(n) for n in target_names]}
+
     gltf = {
         "asset": {"version": "2.0", "generator": "FaceScan (AndrexTheDev)"},
         "scene": 0,
         "scenes": [{"nodes": [0]}],
         "nodes": [{"mesh": 0, "name": name}],
-        "meshes": [{"primitives": [{"attributes": attrs, "indices": 1,
-                                    "material": 0}]}],
+        "meshes": [mesh],
         "materials": [{"name": "scan", "doubleSided": True,
                        "pbrMetallicRoughness": {"baseColorFactor": [1, 1, 1, 1],
                                                 "metallicFactor": 0.0,

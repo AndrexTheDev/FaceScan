@@ -1,0 +1,13 @@
+{
+  "namen": [
+    "jawOpen",
+    "mouthSmile",
+    "eyeBlink",
+    "browInnerUp",
+    "browDown",
+    "mouthPucker"
+  ],
+  "einheit": "mm",
+  "amplitude_mm": 5.0,
+  "hinweis": "ARKit-Benennung; nur die Ausdruecke, zu denen das 3DMM eine Richtung besitzt."
+}

@@ -125,10 +125,12 @@ Die Brücke dorthin ist FBX/ABC/USD/OBJ + unser Blender-Add-on (Kapitel 9).
   `library_materials`, `library_visual_scenes`. Einheiten `meter="0.001"`, `up_axis Y_UP`.
 - Relevanz: Austausch mit Programmen, die glTF schlechter können (ältere C4D-Versionen, diverse
   Forschungswerkzeuge) und als menschenlesbares Format für Debugging und Support.
-- **Noch nicht (M3):** `library_controllers` mit `<skin>` (Joints, `bind_shape_matrix`,
-  `vertex_weights`) und `<morph>` (`method="NORMALIZED"`) sowie `library_animations`
-  (Sampler/Channel). Dafür fehlt in M2 die Bewegung selbst — Rig und Mimik kommen erst mit M3,
-  und ohne die ist ein Controller-Block nur Ballast.
+- **Ab M3 (`python/build_rig.py`):** `library_controllers` mit `<skin>` — Gelenknamen,
+  `bind_shape_matrix`, inverse Bindematrizen und `vertex_weights`. Das Netz hängt damit an
+  acht Gelenken (hips → spine → chest → neck → head → jaw/linksEye/rechtsEye). Geprüft mit
+  pycollada (löst die Controller-Kette auf) und assimp (zählt die Knochen, die wirklich Gewicht
+  tragen). **Noch nicht:** `<morph>` (`method="NORMALIZED"`) und `library_animations`
+  (Sampler/Channel) — die Mimik geht stattdessen in das GLB, das Morph-Ziele von Haus aus kann.
 
 ### 4.5 USD / USDZ
 - **USDA (ASCII)** wird **von uns geschrieben** (kein USD-SDK nötig – das SDK für Android zu bauen, ist mit
@@ -193,8 +195,10 @@ Die Brücke dorthin ist FBX/ABC/USD/OBJ + unser Blender-Add-on (Kapitel 9).
 - **CSV/JSON:** Spalten `frame, time_s, <kanalname> …` – für eigene Skripte, Forschung, Machine Learning.
 - **Im Prototyp (M2b, `tools/build_motion.py`):** der Schreiber ist **allgemein** – er bekommt eine
   Hierarchie und eine Wertegruppe, nicht „ein Skelett". Der Inhalt ist die **Aufnahmebahn**: die 16
-  Kameraposen, umgerechnet in die Bewegung des Kopfes vor einer festen Kamera („Drehteller"). Der Rig
-  mit Gelenken kommt mit M3 und läuft durch denselben Schreiber. Einheiten **Meter und Grad, Y-up** –
+  Kameraposen, umgerechnet in die Bewegung des Kopfes vor einer festen Kamera („Drehteller").
+- **Im Prototyp (M3, `python/build_rig.py`):** derselbe Schreiber, aber mit dem **echten Skelett**:
+  acht Gelenke, 27 Kanäle, 120 Frames. Damit ist die Aussage von M2 eingelöst — der Schreiber war
+  allgemein genug, es fehlte die Bewegung, nicht das Format. Einheiten **Meter und Grad, Y-up** –
   BVH selbst trägt keine (s. §12.1).
 
 ### 4.9 VRM (optional, Studio)
@@ -563,15 +567,65 @@ aus echten Fehlermeldungen fremder Leser entstanden:
     Dreieckszahl, frisch aus dem Original gerechnet statt Stufe für
     Stufe: p95 0,087 statt 0,098 mm. Gesucht wird deshalb in zwei
     Gängen — die Kette findet den Bereich, der frische Lauf die Stufe.
+45. **Die Trägheitsachse taugt nicht als „oben" bei einem Kopf.** Ein Kopf
+    ist fast so breit wie hoch (hier 220 mm zu 213 mm); die drei
+    Hauptachsen liegen deshalb dicht beieinander und tauschen bei kleinen
+    Formänderungen schon die Plätze. Gemessen: 78 Grad Abweichung zur
+    echten Hochachse. Verlässlich sind die Schnittfläche unten und — als
+    Gegenprobe — der Modell-Fit mit geneigter Achse.
+46. **Die Maske darf sich während der Optimierung nicht bewegen.** Wird die
+    Gesichtsmaske bei jedem Probeschritt neu aus dem gerade geprüften Rahmen
+    bestimmt, jagt die Optimierung ein Ziel, das sich unter ihr verändert.
+    Auf unserem Netz blieb sie 4 Grad und 2,4 mm neben der Wahrheit stehen.
+    Richtig ist das ICP-Prinzip: Korrespondenzen festlegen, lösen, neu
+    zuordnen.
+47. **Gittersuche statt Bergwanderung.** Dieselbe Zielfunktion, aber vom
+    Schwerpunkt aus nur bergab gelaufen, bleibt in einem Nebenminimum
+    (Restfehler 0,44 mm). Von grob nach fein verengt findet sie das globale
+    Minimum exakt: Blickrichtung auf 0,0 Grad, Kopfmitte auf 0,4 mm,
+    Maßstab auf 0,13 %.
+48. **Über alle 360 Grad gesucht gewinnt der Hinterkopf, nicht das Gesicht.**
+    Er ist schön glatt und passt deshalb besser zum glatten Modell als Nase,
+    Kinn und Augenpartie. Das Vorzeichen „vorn gegen hinten" muss deshalb
+    der maskenfreie Fit entscheiden, der den ganzen Kopf im Blick hat.
+49. **Collada-Matrizen stehen zeilenweise, glTF-Morphs sind Verschiebungen.**
+    Zwei Einzelfehler mit derselben Folge: Bei Collada dreht spaltenweise
+    geschriebene Matrix das Vorzeichen jeder Bewegung um; im glTF fliegt das
+    Modell beim Lächeln um den Faktor 1000 auseinander, wenn die Ziele in
+    Millimetern stehen und die Positionen in Metern.
+50. **Eine Gesichtsmaske, die Haar enthält, passt das Haar an.** Erst als
+    Stirn und Schläfen aus der Maske fielen, sprang der Restfehler von
+    0,90 mm auf 0,44 mm.
 
 ### 12.2 Offen
-* **Rig und Animation (M3).** Ohne sie bleiben `library_controllers` im DAE,
-  ein BVH mit echtem Skelett statt der Aufnahmebahn, VRM und die
-  Blendshapes offene Posten. Die Schreiber für BVH, CSV und JSON sind
-  fertig und allgemein (Hierarchie + Kanäle); es fehlt die Bewegung, nicht
-  das Format.
+* **VRM (glTF-Erweiterung).** Das Skelett ist bereits nach VRM benannt
+  (`hips`, `spine`, `chest`, `neck`, `head`, `leftEye`, `rightEye`), damit es
+  später unverändert in eine VRM-Datei wandern kann. Was fehlt, ist die
+  Hülle selbst: `VRMC_vrm` mit Humanoid-Bone-Zuordnung, `VRMC_materials_mtoon`
+  und die Metadaten. Für VRM 1.0 sind außerdem Arm- und Beingelenke
+  Pflicht — bei einer Büste muss dort bewusst entschieden werden, ob das
+  Skelett zum Schein vervollständigt wird oder ob wir VRM 0.x schreiben,
+  das Augengelenke und Blicksteuerung verlangt, aber keine Gliedmaßen.
+* **Die restlichen 46 ARKit-Formen.** Wir liefern sechs (`jawOpen`,
+  `mouthSmile`, `eyeBlink`, `browInnerUp`, `browDown`, `mouthPucker`), weil
+  das 3DMM sechs Ausdrucksrichtungen besitzt. Die anderen aus diesen sechs
+  abzuleiten (etwa `mouthSmileLeft` durch Halbieren von `mouthSmile`) wäre
+  erfunden: echte Gesichter lächeln nicht spiegelsymmetrisch. 52 Formen
+  brauchen ein 3DMM mit 52 Ausdrucksbasen — eine Frage des Modells, nicht
+  des Exports. Die Struktur nimmt sie auf, sobald sie da sind.
 
-### 12.3 In M2b erledigt (Stand: siehe prototype/README.md, Kap. 7b)
+### 12.3 In M3 erledigt (Stand: siehe prototype/README.md, Kap. 7i)
+* **Rig und Animation** — `facescan_ref/rig.py`. Rahmen (oben, Blickrichtung,
+  Kopfmitte, Maßstab) aus dem Netz selbst bestimmt und gegen die bekannte
+  Wahrheit geprüft: Blickrichtung exakt, Kopfmitte 0,4 mm, Maßstab 0,13 %,
+  Landmarken 0,16 … 1,13 mm. Acht Gelenke nach VRM benannt, Hautgewichte
+  über die Netzkanten geglättet (Summe je Punkt genau 1, größter Sprung
+  zwischen Nachbarpunkten 0,05). Export in drei Formate, alle von fremden
+  Lesern geprüft: DAE mit `library_controllers` (assimp: 5 Knochen), BVH mit
+  echtem Skelett statt der Aufnahmebahn (assimp: 1 Animation, 8 Kanäle), GLB
+  mit sechs Morph-Zielen in ARKit-Benennung.
+
+### 12.3b In M2b erledigt (Stand: siehe prototype/README.md, Kap. 7b)
 * **Quadric Decimation** — LOD-Kette 300 k / 80 k / 20 k / 6 k
   (Garland-Heckbert, mitgeführte UVs), Formfehler 0,035 … 0,396 mm gegen das
   Master-Netz. Zusätzlich: Normalen und UVs werden beim Vereinfachen

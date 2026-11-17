@@ -104,6 +104,7 @@ M2b, Teil 6 – das Drucknetz vereinfachen (s. §7h), ebenfalls mit dem Feld:
 
 ```bash
 /tmp/qrenv/bin/python prototype/reference/tools/build_print_lod.py       # ~20 min
+/tmp/qrenv/bin/python prototype/reference/python/build_rig.py            # ~5 s
 ```
 
 ## 3. Ergebnisse (Stand dieses Commits)
@@ -629,7 +630,63 @@ nirgends nachlesen kann:
    einem Soll von 60,00 mm.
 
 Offen bleibt: die Schreib- und LOD-Seite ist fertig, aber es fehlt die
-Bewegung — Rig, Blendshapes, VRM (M3).
+Bewegung — Rig, Blendshapes, VRM (M3). → siehe Kap. 7i.
+
+### 7i. M3: Rig und Animation (`build_rig.py`)
+
+Ein Netz aus 300.000 Dreiecken ist starr. Damit der Kopf nicken, den Mund
+öffnen oder in eine Richtung schauen kann, braucht er ein Skelett und je Punkt
+die Angabe, wie stark welches Gelenk ihn bewegt. `facescan_ref/rig.py`
+bestimmt beides **aus dem Netz selbst** — und prüft es gegen die bekannte
+Wahrheit, denn das synthetische Kopfmodell liegt im Ursprung, unverdreht, im
+Maßstab 1.
+
+| geprüft | Ergebnis |
+|---|---|
+| Blickrichtung | **exakt** (Fit-Minimum bei −90,0°) |
+| Kopfmitte | **0,4 mm** neben der Wahrheit |
+| Maßstab | 1,0013 (0,13 % Abweichung) |
+| Restfehler Modell ↔ Scan | 0,43 mm (Median) |
+| Landmarken (Nase, Kinn, Augen …) | 0,16 … 1,13 mm |
+| Hautgewichte | Summe je Punkt genau 1, größter Sprung zwischen Nachbarpunkten 0,05 |
+
+Zu jeder Achse gibt es **zwei unabhängige Schätzungen**, die sich prüfen:
+„oben" aus der Schnittfläche unten und aus dem Modell-Fit mit geneigter
+Achse; „vorn" aus dem Modell-Fit und aus dem gemessenen Nasenüberstand
+(5° auseinander); seitlich aus der Spiegelsymmetrie. Die Trägheitsachse
+taugt dabei ausdrücklich **nicht** — ein Kopf ist fast so breit wie hoch
+(220 zu 213 mm), die Hauptachsen liegen deshalb zu dicht beieinander
+(gemessen: 78° Abweichung).
+
+Drei Fallen, die hier drinstecken und anderswo gern übersehen werden:
+
+1. **Die Maske darf sich beim Optimieren nicht bewegen.** Wird die
+   Gesichtsmaske bei jedem Probeschritt neu bestimmt, jagt die Optimierung
+   ein Ziel, das sich unter ihr verändert — sie blieb 4° und 2,4 mm neben der
+   Wahrheit stehen. Richtig: Korrespondenzen festlegen, lösen, neu zuordnen
+   (wie bei ICP).
+2. **Über alle 360° gesucht gewinnt der Hinterkopf.** Er ist glatt und passt
+   deshalb besser zum glatten Modell als Nase und Kinn. Das Vorzeichen
+   „vorn gegen hinten" muß der maskenfreie Fit entscheiden.
+3. **Collada-Matrizen stehen zeilenweise, glTF-Morphs sind Verschiebungen.**
+   Wer Morph-Ziele als Zielpositionen schreibt oder die Einheit verwechselt,
+   bekommt ein Modell, das beim Lächeln auseinanderfliegt.
+
+Ergebnis: acht Gelenke (`hips → spine → chest → neck → head → jaw/leftEye/
+rightEye`, nach VRM benannt) und drei Dateien, alle von fremden Lesern
+geprüft:
+
+| Datei | Inhalt | Prüfung |
+|---|---|---|
+| `facescan_rig.dae` | `library_controllers` mit `<skin>` | pycollada löst die Kette auf, assimp zählt **5 Knochen** |
+| `facescan_rig.bvh` | echtes Skelett statt Aufnahmebahn, 120 Frames | assimp: **1 Animation, 8 Kanäle** |
+| `facescan_rig.glb` | **6 Morph-Ziele** in ARKit-Benennung | 5,0 mm größte Verschiebung, min/max stimmt |
+
+Bei der Mimik bleibt der Prototyp ehrlich: ARKit kennt 52 Formen, geliefert
+werden die **sechs**, zu denen das 3DMM eine Ausdrucksrichtung besitzt
+(`jawOpen`, `mouthSmile`, `eyeBlink`, `browInnerUp`, `browDown`,
+`mouthPucker`). Die restlichen 46 aus diesen abzuleiten wäre erfunden — echte
+Gesichter lächeln nicht spiegelsymmetrisch. **Noch offen: VRM** (§12.2).
 
 ### 7h. M2b, Teil 6: das Drucknetz vereinfachen (`build_print_lod.py`)
 

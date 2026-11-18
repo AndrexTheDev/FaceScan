@@ -56,7 +56,7 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
     val controller = remember { CameraController(context) }
 
     var progress by remember { mutableFloatStateOf(0.12f) }   // 0..1
-    var ampel by remember { mutableStateOf(Ampel.GREEN) }
+    var ampel by remember { mutableStateOf(Ampel.YELLOW) }
     var hinweis by remember { mutableStateOf("") }
 
     DisposableEffect(Unit) {
@@ -69,7 +69,10 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 PreviewView(ctx).also { previewView ->
-                    controller.bind(lifecycleOwner, previewView.surfaceProvider) { /* Frame-Callback M1 */ }
+                    controller.bind(lifecycleOwner, previewView.surfaceProvider) { proxy ->
+                        // Demo: Frames werden noch nicht verarbeitet; CameraX muss sie freigeben.
+                        proxy.close()
+                    }
                 }
             }
         )

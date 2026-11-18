@@ -3,22 +3,22 @@
     <string name="app_name">FaceScan</string>
 
     <!-- Home -->
-    <string name="home_start_scan">NEW SCAN</string>
+    <string name="home_start_scan">START DEMO</string>
     <string name="home_open_project">Open project</string>
     <string name="home_settings">Settings</string>
-    <string name="home_empty">No model yet – scan yourself in one minute.</string>
+    <string name="home_empty">Prototype: real scanning is not available yet.</string>
     <string name="home_offline_badge">Everything stays on your phone. No cloud, no account.</string>
-    <string name="cd_start_scan">Start a new scan</string>
+    <string name="cd_start_scan">Start demo</string>
 
     <!-- Capture -->
-    <string name="capture_hint_default">Perfect – hold that.</string>
+    <string name="capture_hint_default">Demo: face points are not captured yet.</string>
     <string name="capture_done">Done</string>
     <string name="common_cancel">Cancel</string>
 
     <!-- Processing -->
-    <string name="processing_title">Computing</string>
-    <string name="processing_subtitle">This all happens on your phone.</string>
-    <string name="processing_offline_note">You can leave the app – we keep going.</string>
+    <string name="processing_title">Processing (demo)</string>
+    <string name="processing_subtitle">Progress is simulated; no model is calculated.</string>
+    <string name="processing_offline_note">This is only a preview of the flow.</string>
     <string name="processing_continue">Continue</string>
     <string name="stage_perception">Detecting face points</string>
     <string name="stage_calibration">Computing camera poses</string>
@@ -26,7 +26,7 @@
     <string name="stage_refine">Refining details</string>
 
     <!-- Review -->
-    <string name="review_title">Your 3D model</string>
+    <string name="review_title">Example report (demo)</string>
     <string name="review_tips_title">How to make it even better</string>
     <string name="review_animate">Animate</string>
     <string name="review_export">Export</string>

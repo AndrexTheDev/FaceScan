@@ -81,6 +81,7 @@ fun ReviewScreen(onBackHome: () -> Unit) {
 
         Button(
             onClick = { /* TODO M3: Animieren */ },
+            enabled = false,
             modifier = Modifier.fillMaxWidth().height(58.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = FaceScanColors.JamaicaGold,
@@ -93,6 +94,7 @@ fun ReviewScreen(onBackHome: () -> Unit) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(
                 onClick = { /* TODO M4: Export */ },
+                enabled = false,
                 modifier = Modifier.weight(1f).height(54.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = FaceScanColors.JamaicaGreen,

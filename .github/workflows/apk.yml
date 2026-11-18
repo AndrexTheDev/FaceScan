@@ -39,8 +39,9 @@ on:
       modell:
         description: >-
           MediaPipe-Modell (face_landmarker.task) einbetten. Ohne das Modell
-          baut und startet die App, bricht aber beim ersten Scan ab. Vor dem
-          Einbau ist docs/09 zu klären (Lizenz der Modellgewichte: offen).
+          ist eine spätere Gesichtserkennung nicht möglich. Der aktuelle
+          Aufnahmeablauf ist eine Demo, auch mit Modell. Vor dem Einbau
+          ist docs/09 zu klären (Lizenz der Modellgewichte: offen).
         type: boolean
         default: false
   push:
@@ -102,7 +103,7 @@ jobs:
               rc=0
               break
             fi
-            echo "::notice title=Abhaengigkeiten nicht erreichbar::Versuch $versuch von 3 gescheitert"
+            echo "::notice title=Gradle-Versuch gescheitert::Versuch $versuch von 3 fehlgeschlagen; Ursache im Build-Protokoll prüfen"
             [ "$versuch" -lt 3 ] && sleep 30
           done
           echo "::notice title=Testergebnis::$(grep -c 'PASSED' build.log 2>/dev/null) bestanden"
@@ -154,11 +155,8 @@ jobs:
           echo "::notice title=Build-Tools::$(ls -1 "$SDK/build-tools" 2>&1 | tr '\n' ' ')"
           echo "sdk.dir=$SDK" > prototype/android/local.properties
 
-      # Ohne Modell kompiliert die App und startet auch, aber
-      # FaceLandmarker.createFromOptions() wirft beim ersten Scan, weil
-      # setModelAssetPath() aus den Assets liest und die Datei fehlt.
-      # Eingebettet wird sie nur auf ausdrücklichen Wunsch, weil docs/09
-      # für die Gewichte eine Lizenzprüfung verlangt (Stand: offen).
+      # Die Datei wird nur auf ausdrücklichen Wunsch eingebettet. Der
+      # aktuelle UI-Ablauf nutzt den FaceLandmarker noch nicht (M1).
       - name: MediaPipe-Modell holen
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.modell }}
         run: |
@@ -179,14 +177,13 @@ jobs:
               rc=0
               break
             fi
-            echo "::notice title=Abhaengigkeiten nicht erreichbar::Versuch $versuch von 3 gescheitert"
+            echo "::notice title=Gradle-Versuch gescheitert::Versuch $versuch von 3 fehlgeschlagen; Ursache im Build-Protokoll prüfen"
             [ "$versuch" -lt 3 ] && sleep 30
           done
           exit $rc
 
-      # „Gebaut" ist nicht „benutzbar". Dieser Schritt sagt, ob die APK
-      # das enthält, was sie zum Scannen braucht -- sonst steht am Ende
-      # ein Telefon mit einer App, die beim ersten Versuch abbricht.
+      # Nur das Vorhandensein des Assets prüfen, keine Scanbereitschaft:
+      # Aufnahme, Verarbeitung und Ergebnis sind derzeit Platzhalter.
       - name: Kurzbericht
         run: |
           APK=prototype/android/app/build/outputs/apk/debug/app-debug.apk
@@ -198,11 +195,11 @@ jobs:
           # Fehler. Erst die Auflisteung macht den Unterschied zwischen
           # „viele Native-Libs" und „etwas ist doppelt drin" sichtbar.
           echo "::notice title=Groesste Eintraege::$(unzip -l "$APK" | awk 'NR>3 && $1 ~ /^[0-9]+$/ {print $1" "$4}' | sort -rn | head -8 | tr '\n' ';')"
-          echo "::notice title=Nativ gesamt::$(unzip -l "$APK" | awk 'NR>3 && $4 ~ /^lib\// {s+=$1} END {printf "%.1f MB in %d Dateien", s/1048576, NR}')"
+          echo "::notice title=Nativ gesamt::$(unzip -l "$APK" | awk 'NR>3 && $4 ~ /^lib\// {s+=$1; n++} END {printf "%.1f MiB in %d Eintraegen", s/1048576, n}')"
           if unzip -l "$APK" | grep -q "assets/face_landmarker.task"; then
-            echo "::notice title=Scan bereit::ja -- Modell eingebettet"
+            echo "::notice title=Modellasset::eingebettet; Scanablauf noch nicht implementiert"
           else
-            echo "::notice title=Scan bereit::nein -- Modell fehlt, erster Scan bricht ab (docs/09: Lizenz offen)"
+            echo "::notice title=Modellasset::fehlt; Scanablauf noch nicht implementiert (docs/09: Lizenz offen)"
           fi
 
       - uses: actions/upload-artifact@v4
@@ -240,5 +237,5 @@ jobs:
           gh release create "test-apk-${{ github.run_number }}" \
             --target "${{ github.ref_name }}" \
             --title "Test-APK #${{ github.run_number }}" \
-            --notes "Automatisch gebaut aus ${{ github.sha }}. Debug-Signatur, nur zum Testen." \
+            --notes "Automatisch gebaut aus ${{ github.sha }}. Debug-Signatur, nur zum Testen. Aufnahme, Verarbeitung und Ergebnis sind eine Demo; ein echter Scan ist noch nicht implementiert." \
             prototype/android/app/build/outputs/apk/debug/app-debug.apk

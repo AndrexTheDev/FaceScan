@@ -1,99 +1,42 @@
-# FaceScan – Test-APK
+# FaceScan – Android-Prototyp
 
-Stand: APK baut in der CI ([`.github/workflows/apk.yml`](../../.github/workflows/apk.yml)),
-beide Jobs grün.
+## Aktueller Stand
 
-## Herunterladen und installieren
+**Die App ist eine Demo, kein funktionsfähiger Gesichtsscan.** Der Aufnahmebildschirm zeigt die Kameravorschau, übergibt aber noch keine Frames an die Gesichtserkennung. Fortschritt und Qualitätsbericht sind simuliert. Es wird kein persönliches 3D-Modell erstellt; Animation und Export sind noch nicht implementiert. Ein eingebettetes MediaPipe-Modell allein ändert daran nichts.
 
-Die APK liegt am Release des jeweils letzten Laufs:
+Die Mathematik-Komponenten sind durch Unit-Tests und Referenzdaten geprüft, der vollständige Ablauf aber noch nicht auf einem Gerät verifiziert. Die Kamera-Berechtigungsbehandlung ist ebenfalls noch nicht fertig: Bei Ablehnung wird der weitere Ablauf derzeit nicht zuverlässig blockiert.
 
-    https://github.com/AndrexTheDev/FaceScan/releases
+## Test-APK
 
-Dort `app-debug.apk` antippen (etwa **80 MB**).
+[Test-APK #19 herunterladen](https://github.com/AndrexTheDev/FaceScan/releases/tag/test-apk-19): `app-debug.apk`, rund 80 MiB, Android 10 oder neuer. Es handelt sich um einen Debug-Build, nicht um ein Produktiv-Release. Diese ältere APK kennzeichnet den Demo-Zustand **noch nicht** ausreichend in der Oberfläche; sie erstellt kein Modell, auch wenn der Bildschirm anderes suggeriert.
 
-1. Auf dem Handy: **Einstellungen → Sicherheit → Unbekannte Quellen** für den
-   Browser erlauben (Android fragt beim Installieren von selbst danach).
-2. APK antippen und installieren.
-3. Beim ersten Start die **Kameraerlaubnis** geben.
-4. **NEU SCANNEN** antippen.
+Zum Installieren die APK auf das Android-Gerät laden und bei Bedarf die Installation aus dieser Quelle in den Android-Einstellungen erlauben. Die Kamera-Berechtigung nur erteilen, wenn die Kameravorschau getestet werden soll. Im Manifest ist keine `INTERNET`-Berechtigung eingetragen; ein tatsächlicher Offline-Gerätetest steht noch aus.
 
-Voraussetzung: **Android 10 oder neuer** (`minSdk 29`).
-Die App braucht keine Internetverbindung (die Kamera ist die einzige
-Hardware, auf die sie zugreift; im Manifest ist ausdrücklich keine
-`INTERNET`-Berechtigung eingetragen).
+### Vorschlag für einen ersten Gerätetest
 
-## Was in der App passiert
+1. Gerät, Android-Version und APK-Version notieren; APK installieren und starten.
+2. Kamera erlauben und prüfen, ob die Frontkamera-Vorschau erscheint. Demo durchlaufen und wieder verlassen. **Kein echtes Scanergebnis erwarten.**
+3. App neu starten; zusätzlich testen, wie sie sich nach dem Entzug der Kamera-Berechtigung verhält. Fehler und Abstürze dokumentieren; die Behandlung ist noch unvollständig.
+4. Optional im Flugmodus wiederholen. Kameravorschau, Navigation und etwaige Fehler dokumentieren; daraus keine Aussage über eine noch nicht implementierte Rekonstruktion ableiten.
 
-| Schritt | Anzeige | Bedeutung |
-|---|---|---|
-| Aufnahme | „Perfekt – bleib so." | Kamera läuft, Gesichtspunkte werden erkannt |
-| Verarbeitung | „Gesichtspunkte erkennen" → „Kameraposen berechnen" → „Kopfform anpassen" → „Details verfeinern" | Pose und 3D-Modell werden gerechnet |
-| Ergebnis | „Dein 3D-Modell" | Modell ansehen, animieren, exportieren |
+## Modell und Lizenz
 
-## Warum die APK 80 MB groß ist
+Die Gewichte `face_landmarker.task` sind nicht im Repository. Der Workflow lädt sie nur bei explizitem `modell=true` herunter und bettet sie dann in die APK ein. Der Standard ist `false`; ohne Modell könnte die spätere Gesichtserkennung nicht initialisiert werden. Der aktuelle Demo-Ablauf ruft sie noch nicht auf.
 
-| Anteil | Größe |
-|---|---|
-| MediaPipe-Nativcode (4 Architekturen) | 42,1 MB |
-| Java/Kotlin-Bytecode (mehrere dex-Dateien, R8 aus) | 34 MB |
-| `face_landmarker.task` (Modellgewichte) | 3,6 MB |
+Die Prüfung der Modellkarte und Google-AI-Edge-Bedingungen ist in [`docs/09`](../../docs/09-recht-compliance.md) **offen**. Vor einer Weitergabe oder anderweitigen Nutzung der Gewichte muss die Prüfung abgeschlossen und dokumentiert werden. Das Modell in der verlinkten APK ist bereits eingebettet; das ist keine Lizenzfreigabe.
 
-Ein Debug-Bau schrumpft nicht und enthält alle vier Architekturen; beim
-Installieren nutzt das Handy davon nur die passende. Ein Release-Bau mit
-R8 und nur einer Architektur wäre deutlich kleiner.
+## Build
 
-## Bekannte Grenzen
+Der Workflow [`.github/workflows/apk.yml`](../../.github/workflows/apk.yml) baut und testet den Prototyp auf GitHub Actions. In dieser Entwicklungsumgebung stehen Java, Gradle und Android-SDK nicht zur Verfügung.
 
-- **Debug-Signatur.** Nur zum Testen, nicht zum Weitergeben.
-- **Modellgewichte sind nicht eingecheckt.** `docs/09` verlangt für die
-  MediaPipe-Modelle eine schriftliche Prüfung von Modellkarte und
-  Google-AI-Edge-Bedingungen *vor* dem Einbau; der Prüfstatus ist dort
-  **offen**. Die Datei wird beim Bauen heruntergeladen (Schalter
-  `modell`, Standard **aus**) und liegt deshalb nie im Repository —
-  siehe `.gitignore`. Ohne sie baut die App und startet auch, aber der
-  erste Scan bricht ab.
-- **Der Prototyp ist nicht auf einem Gerät gelaufen.** Kompiliert und
-  unit-getestet ist er; die Bedienung auf echter Hardware ist der
-  nächste Schritt.
-
-## Neu bauen
-
-Die APK entsteht **ausschließlich in GitHub Actions** — in der
-Entwicklungsumgebung gibt es kein Java, kein Gradle und kein Android-SDK.
-
-    gh workflow run apk.yml -f modell=true -f release=true
-
-| Eingabe | Wirkung |
-|---|---|
-| `modell` | `face_landmarker.task` einbetten (Standard: aus) |
-| `release` | zusätzlich ein GitHub-Release anlegen (Standard: aus) |
-
-Der Workflow meldet von selbst, ob die gebaute APK scannen kann; ohne
-Modell steht in den Annotations ausdrücklich, dass der erste Scan
-abbricht.
-
-Zwei Eigenheiten der Umgebung, die man kennen muss, wenn man den Workflow
-ändern will:
-
-- **`sdkmanager` liegt nicht auf dem PATH** (Exit 127, kein
-  `cmdline-tools`). Das SDK ist auf dem Runner ohnehin vollständig
-  vorhanden (bis `android-37.2`); es wird nur geprüft, nicht installiert.
-- **Logs und Artefakte sind aus der Entwicklungsumgebung nicht abrufbar**
-  (`results-receiver.actions.githubusercontent.com` ist gesperrt).
-  Fehlermeldungen kommen deshalb als `::error::` / `::notice::` in die
-  Annotations.
-
-## Die Bibliothek
-
-`com.google.mediapipe:tasks-vision:0.10.14`. Die Java-API weicht an zwei
-Stellen von der Doku auf developers.google.com ab — die Doku beschreibt
-eine neuere Version. Maßgeblich ist
-[`FaceLandmarkerResult.java` im Tag v0.10.14](https://raw.githubusercontent.com/google-ai-edge/mediapipe/v0.10.14/mediapipe/tasks/java/com/google/mediapipe/tasks/vision/facelandmarker/FaceLandmarkerResult.java):
-
-```java
-List<List<NormalizedLandmark>> faceLandmarks();               // kein Optional
-Optional<List<List<Category>>> faceBlendshapes();             // nicht Classifications
-Optional<List<float[]>>        facialTransformationMatrixes(); // nicht Matrix
+```sh
+gh workflow run apk.yml --ref arena/ee31e880-facescan -f modell=false -f release=true
 ```
 
-Die Einzelheiten stehen im Kopf von `FaceLandmarkerRunner.kt`.
+`release=true` erstellt zusätzlich ein GitHub-Release. `modell=true` bettet die separat heruntergeladenen Gewichte ein; Lizenzprüfung beachten. Der Kurzbericht prüft nur, ob das Asset in der APK enthalten ist, und bescheinigt keine Scanbereitschaft.
+
+Die große Debug-APK enthält Bibliotheken für vier Architekturen und ungeschrumpften Bytecode. Beispiel #19: rund 42 MiB native Bibliotheken, 34 MB DEX und 3,6 MB Modell; diese Anteile beziehen sich auf den entpackten Inhalt und sind nicht direkt mit der APK-Dateigröße vergleichbar.
+
+## MediaPipe-Version
+
+Verwendet wird `com.google.mediapipe:tasks-vision:0.10.14`. Die Java-Signaturen im [Quelltext dieser Version](https://github.com/google-ai-edge/mediapipe/blob/v0.10.14/mediapipe/tasks/java/com/google/mediapipe/tasks/vision/facelandmarker/FaceLandmarkerResult.java) sind maßgeblich; die Dokumentation kann eine andere Version beschreiben. Einzelheiten stehen in `FaceLandmarkerRunner.kt`.

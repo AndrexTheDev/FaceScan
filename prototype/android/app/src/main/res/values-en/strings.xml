@@ -175,6 +175,7 @@
     <string name="multiview_completeness_zones">Anchors per face zone (triangulated/available): forehead %1$s, eyes %2$s, nose %3$s, mouth %4$s, chin %5$s. Empty zones are entirely missing from the mesh.</string>
     <string name="multiview_completeness_empty">Zones without data: %1$s. There is no surface there; it is not filled in.</string>
     <string name="multiview_depth_uncertainty">Rough depth uncertainty (first order, from reprojection residual and parallax): median %1$.2f cm, 90th percentile %2$.2f cm over %3$d points. Not a validated accuracy.</string>
+    <string name="multiview_redundancy">View support: median %1$.1f views per point; %2$.0f %% of points are supported by at least three views, %3$d by only two. This describes redundancy of the calculation, not accuracy.</string>
     <string name="multiview_result_preview">Preview of the reconstructed partial mesh. Drag to rotate. Open edges and holes are expected and are not filled in.</string>
     <string name="multiview_result_limits">Units and scale follow the canonical average anchors, not your face. The reprojection residual says nothing about real 3D accuracy. Holes, outliers and wrong depth are possible; there is no animation, no photo texture and no completeness guarantee.</string>
     <string name="multiview_result_weak_pose">At least one view had a large anchor residual. Treat the shape with extra caution.</string>

@@ -465,6 +465,70 @@ class MultiViewCaptureTest {
         assertTrue(invalid.colors.all { it == 0.toByte() })
     }
 
+    @Test fun redundancyCountsViewSupportInsteadOfGuessing() {
+        // Vier Punkte: drei trianguliert mit 4, 3, 2 Stützen, einer ohne Konsens.
+        val points = listOf(
+            MultiViewTriangulation.Result.Point(doubleArrayOf(0.0, 0.0, 1.0), 5.0, 0.1, 0.2),
+            MultiViewTriangulation.Result.Point(doubleArrayOf(1.0, 0.0, 1.0), 5.0, 0.1, 0.2),
+            MultiViewTriangulation.Result.Point(doubleArrayOf(2.0, 0.0, 1.0), 5.0, 0.1, 0.2),
+            MultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.NO_CONSENSUS)
+        )
+        val seen = intArrayOf(4, 4, 2, 4)
+        val robust = com.andrexthedev.facescan.geometry.MultiViewPointCloud.RobustResult(
+            points.map { p ->
+                if (p is MultiViewTriangulation.Result.Point)
+                    com.andrexthedev.facescan.geometry.RobustMultiViewTriangulation.Result.Point(p, emptyList())
+                else com.andrexthedev.facescan.geometry.RobustMultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.NO_CONSENSUS)
+            }, 3, seen)
+        val report = MultiViewRedundancy.analyzeRobust(robust, intArrayOf(4, 3, 2, 0))
+        assertEquals(3, report.triangulatedPoints)
+        assertEquals(1, report.usedHistogram.getOrElse(2) { 0 })
+        assertEquals(1, report.usedHistogram.getOrElse(3) { 0 })
+        assertEquals(1, report.usedHistogram.getOrElse(4) { 0 })
+        assertEquals(2, report.supportedByTwoViews)
+        // Median über 2,3,4 ist 3; mindestens drei Stützen: 2 von 3.
+        assertEquals(3.0, report.medianUsedViews!!, 0.0)
+        assertEquals(2.0 / 3.0, report.fractionWithThreeOrMore!!, 1e-12)
+        // Beobachtungszahlen bleiben getrennt von den Stützen.
+        assertEquals(3, report.seenHistogram[4])
+        assertEquals(1, report.seenHistogram[2])
+        assertTrue(report.hasInlierData)
+        assertTrue(MultiViewRedundancy.describe(report).contains("usedViewsMedian=3.0"))
+    }
+
+    @Test fun redundancyWithoutInlierDataReportsNoMedianInsteadOfZero() {
+        val points = listOf(MultiViewTriangulation.Result.Point(doubleArrayOf(0.0, 0.0, 1.0), 5.0, 0.1, 0.2))
+        val report = MultiViewRedundancy.analyze(points, IntArray(1))
+        assertNull(report.medianUsedViews)
+        assertNull(report.fractionWithThreeOrMore)
+        assertFalse(report.hasInlierData)
+        assertEquals(0, report.supportedByTwoViews)
+        assertTrue(MultiViewRedundancy.describe(report).contains("usedViewsMedian=n/a"))
+    }
+
+    @Test fun captureReportsRealViewSupportAndWritesItToBothExports() {
+        val outcome = MultiViewCapture.reconstruct(listOf(view(0.0), view(-22.0), view(24.0)), intrinsics)
+            as MultiViewCapture.Outcome.Reconstructed
+        val report = outcome.result.redundancy!!
+        assertTrue(report.hasInlierData)
+        // Drei Ansichten: kein Punkt kann mehr als drei Stützen haben.
+        assertTrue(report.medianUsedViews!! in 2.0..3.0)
+        assertTrue(report.usedHistogram.drop(4).all { it == 0 })
+        assertEquals(report.triangulatedPoints, outcome.result.cloud.acceptedCount)
+        val obj = String(MultiViewCapture.writeObjWithHeader(outcome.result)!!, Charsets.UTF_8)
+        assertTrue(obj.contains("# redundancy "))
+        val glb = String(PartialGlbWriter.write(outcome.result.surface.mesh!!, redundancy = report), Charsets.ISO_8859_1)
+        assertTrue(glb.contains("\"viewSupport\":{\"medianUsedViews\":"))
+        assertTrue(glb.contains("\"twoViewOnly\":${report.supportedByTwoViews}"))
+        assertTrue(glb.contains("how many views support each point, not accuracy"))
+        // Ohne Inlier-Daten (zwei Ansichten) steht keine Zahl im OBJ-Kopf.
+        val two = MultiViewCapture.reconstruct(listOf(view(0.0), view(-22.0)), intrinsics)
+            as MultiViewCapture.Outcome.Reconstructed
+        assertFalse(two.result.redundancy!!.hasInlierData)
+        assertFalse(String(MultiViewCapture.writeObjWithHeader(two.result)!!, Charsets.UTF_8)
+            .contains("# redundancy "))
+    }
+
     @Test fun topologyReportsBoundaryNonManifoldAndComponents() {
         // Ein einzelnes Dreieck hat drei Randkanten und eine Komponente.
         val single = PartialMeshTopology.inspect(3, intArrayOf(0, 1, 2))

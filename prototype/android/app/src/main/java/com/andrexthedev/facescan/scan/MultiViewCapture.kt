@@ -66,6 +66,8 @@ object MultiViewCapture {
         val topology: PartialMeshTopology.Report = PartialMeshTopology.Report(0, 0, 0, 0, 0, 0),
         /** Zonenabdeckung und Tiefenunsicherheit erster Ordnung; keine validierte Genauigkeit. */
         val completeness: MultiViewCompleteness.Report? = null,
+        /** Wie viele Ansichten welchen Punkt stützen; keine Genauigkeitsaussage. */
+        val redundancy: MultiViewRedundancy.Report? = null,
         /** Pose der Referenzansicht für Tiefenangaben; null, wenn keine vorliegt. */
         val referenceRotation: Mat3? = null,
         val referenceTranslation: DoubleArray? = null
@@ -116,6 +118,7 @@ object MultiViewCapture {
         // Mehrheitskonsens verworfen werden; bei zwei Ansichten bleibt nur die
         // strenge Reprojektionsprüfung. Kein Konsens erfindet Punkte: nicht
         // bestätigte Landmarks fehlen im Ergebnis.
+        var redundancy: MultiViewRedundancy.Report? = null
         val cloud = if (robust && anchored.acceptedViewIndices.size >= 3) {
             // Nur die akzeptierten Posen dürfen in die robuste Triangulation.
             val calibratedViews = anchored.acceptedViewIndices.map { index ->
@@ -125,6 +128,15 @@ object MultiViewCapture {
                     view.camera, pose.transform.rotation, pose.transform.translation, view.points)
             }
             val robustCloud = com.andrexthedev.facescan.geometry.MultiViewPointCloud.reconstructRobust(calibratedViews)
+            // Wie viele Ansichten stützen welchen Punkt? Das steht nur hier zur
+            // Verfügung, weil die Konsenslisten in der robusten Wolke liegen.
+            val usedByPoint = IntArray(robustCloud.points.size) { i ->
+                when (val value = robustCloud.points[i]) {
+                    is com.andrexthedev.facescan.geometry.RobustMultiViewTriangulation.Result.Point -> value.inliers.size
+                    is com.andrexthedev.facescan.geometry.RobustMultiViewTriangulation.Result.Rejected -> 0
+                }
+            }
+            redundancy = MultiViewRedundancy.analyzeRobust(robustCloud, usedByPoint)
             val converted = robustCloud.points.map { value ->
                 when (value) {
                     is com.andrexthedev.facescan.geometry.RobustMultiViewTriangulation.Result.Point -> value.fit
@@ -136,6 +148,7 @@ object MultiViewCapture {
                 converted.count { it is com.andrexthedev.facescan.geometry.MultiViewTriangulation.Result.Point })
         } else anchored.cloud
         if (cloud == null) return reject(Failure.POSE_REJECTED)
+        if (redundancy == null) redundancy = MultiViewRedundancy.analyze(cloud.points, IntArray(cloud.points.size))
         val surface = PartialFaceMesh.build(cloud, maxEdgeCm)
         if (surface.mesh == null) return reject(Failure.EMPTY_CLOUD)
         val accepted = anchored.acceptedViewIndices.map { i ->
@@ -156,7 +169,7 @@ object MultiViewCapture {
             MultiViewCompleteness.analyze(cloud, pose.transform.rotation, pose.transform.translation, intrinsics.fx)
         }
         return Outcome.Reconstructed(Result(surface, accepted, cloud, intrinsics, worst, topology, completeness,
-            referencePose?.transform?.rotation, referencePose?.transform?.translation))
+            redundancy, referencePose?.transform?.rotation, referencePose?.transform?.translation))
     }
 
     /**
@@ -183,7 +196,8 @@ object MultiViewCapture {
             "maxAnchorRmsPx=${"%.3f".format(java.util.Locale.ROOT, result.maxAnchorRmsPixels)} " +
             "assumedFocalPx=${"%.1f".format(java.util.Locale.ROOT, result.intrinsics.fx)}\n" +
             "# Canonical average anchors in centimetres, not a measurement of the subject.\n" +
-            (result.completeness?.let { "# completeness ${MultiViewCompleteness.describe(it)}\n" } ?: "")
+            (result.completeness?.let { "# completeness ${MultiViewCompleteness.describe(it)}\n" } ?: "") +
+            (result.redundancy?.takeIf { it.hasInlierData }?.let { "# redundancy ${MultiViewRedundancy.describe(it)}\n" } ?: "")
         return header.toByteArray(Charsets.UTF_8) + base
     }
 }

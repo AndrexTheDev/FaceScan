@@ -368,6 +368,14 @@ fun MultiViewCaptureScreen(
                             ready.topology.nonManifoldEdges, ready.topology.components,
                             ready.topology.largestComponentTriangles),
                             style = MaterialTheme.typography.bodySmall)
+                        ready.redundancy?.takeIf { it.hasInlierData }?.let { report ->
+                            val median = report.medianUsedViews
+                            val fraction = report.fractionWithThreeOrMore
+                            if (median != null && fraction != null)
+                                Text(stringResource(R.string.multiview_redundancy,
+                                    median, fraction * 100.0, report.supportedByTwoViews),
+                                    style = MaterialTheme.typography.bodySmall)
+                        }
                         ready.completeness?.let { report ->
                             val zones = report.zoneCoverages
                             if (zones.size == 5) {

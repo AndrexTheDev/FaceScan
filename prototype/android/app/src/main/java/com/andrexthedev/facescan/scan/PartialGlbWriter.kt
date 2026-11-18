@@ -23,7 +23,11 @@ object PartialGlbWriter {
      * @param completeness optionaler Bericht aus [MultiViewCompleteness]; er
      *   wird nur als Text in `extras` abgelegt und ändert keine Geometrie.
      */
-    fun write(mesh: PartialFaceMesh.Mesh, completeness: MultiViewCompleteness.Report? = null): ByteArray {
+    fun write(
+        mesh: PartialFaceMesh.Mesh,
+        completeness: MultiViewCompleteness.Report? = null,
+        redundancy: MultiViewRedundancy.Report? = null
+    ): ByteArray {
         require(mesh.vertices.isNotEmpty() && mesh.vertices.all { it.size == 3 && it.all(Double::isFinite) })
         require(mesh.sourceIndices.size == mesh.vertices.size)
         require(mesh.triangles.isNotEmpty() && mesh.triangles.size % 3 == 0 &&
@@ -73,7 +77,7 @@ object PartialGlbWriter {
         val topology = PartialMeshTopology.inspect(count, indices)
 
         val json = """{
-"asset":{"version":"2.0","generator":"FaceScan prototype","extras":{"units":"centimetres derived from canonical average anchors; not a measurement of the subject","limitations":"open partial surface, no completion, no texture, no animation, no real-device accuracy validation","droppedDegenerateTriangles":$dropped,"topology":{"vertices":${topology.vertexCount},"triangles":${topology.triangleCount},"boundaryEdges":${topology.boundaryEdges},"nonManifoldEdges":${topology.nonManifoldEdges},"components":${topology.components},"largestComponentTriangles":${topology.largestComponentTriangles},"note":"structure only, not a quality or accuracy measure"},"zoneCoverage":"${zoneText(completeness)}","depthUncertaintyCm":{"median":${number(completeness?.medianDepthUncertaintyCm)},"high":${number(completeness?.highDepthUncertaintyCm)},"samples":${completeness?.uncertaintySamples ?: 0},"note":"first-order estimate from reprojection residual and parallax, not validated"}}},
+"asset":{"version":"2.0","generator":"FaceScan prototype","extras":{"units":"centimetres derived from canonical average anchors; not a measurement of the subject","limitations":"open partial surface, no completion, no texture, no animation, no real-device accuracy validation","droppedDegenerateTriangles":$dropped,"topology":{"vertices":${topology.vertexCount},"triangles":${topology.triangleCount},"boundaryEdges":${topology.boundaryEdges},"nonManifoldEdges":${topology.nonManifoldEdges},"components":${topology.components},"largestComponentTriangles":${topology.largestComponentTriangles},"note":"structure only, not a quality or accuracy measure"},"zoneCoverage":"${zoneText(completeness)}","depthUncertaintyCm":{"median":${number(completeness?.medianDepthUncertaintyCm)},"high":${number(completeness?.highDepthUncertaintyCm)},"samples":${completeness?.uncertaintySamples ?: 0},"note":"first-order estimate from reprojection residual and parallax, not validated"},"viewSupport":{"medianUsedViews":${number(redundancy?.medianUsedViews)},"fractionThreePlus":${number(redundancy?.fractionWithThreeOrMore)},"twoViewOnly":${redundancy?.supportedByTwoViews ?: 0},"triangulated":${redundancy?.triangulatedPoints ?: 0},"note":"how many views support each point, not accuracy"}}},
 "scene":0,"scenes":[{"nodes":[0]}],"nodes":[{"mesh":0,"name":"PartialFaceMesh"}],
 "meshes":[{"name":"PartialFaceMesh","primitives":[{"attributes":{"POSITION":0,"NORMAL":1},"indices":2,"material":0,"mode":4}]}],
 "materials":[{"name":"Partial","doubleSided":true,"pbrMetallicRoughness":{"baseColorFactor":[0.75,0.62,0.55,1],"metallicFactor":0,"roughnessFactor":1}}],

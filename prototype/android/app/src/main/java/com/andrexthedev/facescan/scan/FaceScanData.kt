@@ -5,7 +5,19 @@ import kotlin.math.sqrt
 /** 468 ungespiegelte Landmarks auf dem aufrecht gedrehten Kamerabild, nur im RAM. */
 data class FaceFrame(val points: FloatArray, val width: Int, val height: Int, val atMs: Long)
 data class FaceSnapshot(val points: FloatArray, val width: Int, val height: Int, val jitterPx: Double, val samples: Int)
-data class FaceSurface(val neutral: FloatArray, val expression: FloatArray, val neutralJitterPx: Double, val expressionJitterPx: Double)
+data class FaceKeyframe(val seconds: Float, val points: FloatArray)
+data class FaceSurface(
+    val neutral: FloatArray,
+    val expression: FloatArray,
+    val neutralJitterPx: Double,
+    val expressionJitterPx: Double,
+    val sequence: List<FaceKeyframe> = emptyList()
+) {
+    /** Alte Zwei-Posen-Daten bleiben als explizite Übergangsanimation abspielbar. */
+    fun keyframes(): List<FaceKeyframe> = if (sequence.isEmpty()) listOf(
+        FaceKeyframe(0f, neutral), FaceKeyframe(1f, expression), FaceKeyframe(2f, neutral)
+    ) else sequence
+}
 
 /** Kleine Rolling-Window-Mittelung; Ausfall oder veraltete Frames ergeben keinen Scan. */
 class FaceFrameBuffer {
@@ -47,7 +59,7 @@ object FaceSurfaceBuilder {
         return FaceSurface(convert(neutral), convert(expression), neutral.jitterPx, expression.jitterPx)
     }
 
-    private fun convert(frame: FaceSnapshot): FloatArray {
+    fun convert(frame: FaceSnapshot): FloatArray {
         require(frame.points.size >= FaceTopology.VERTEX_COUNT * 3 && frame.width > 0 && frame.height > 0)
         require(frame.points.take(FaceTopology.VERTEX_COUNT * 3).all { it.isFinite() })
         fun x(i: Int) = frame.points[3 * i] * frame.width

@@ -51,11 +51,73 @@ class FaceScanTest {
         try { FaceSurfaceBuilder.build(FaceSnapshot(badEyes, 640, 480, 0.0, 3), good); fail() } catch (_: IllegalArgumentException) { }
     }
 
-    @Test fun glbContainsIndexedMeshAndAnimatedMorphTarget() {
+    private fun recordSequence(): FaceSurface {
+        val recorder = FaceSequenceRecorder()
+        recorder.start(1000)
+        for (i in 0 until 16) {
+            val sample = points().apply { this[13 * 3 + 1] += i * 0.002f }
+            recorder.add(FaceFrame(sample, 640, 480, 1200L + i * 250))
+        }
+        return recorder.finish(5000, FaceSnapshot(points(), 640, 480, 0.0, 3))!!
+    }
+
+    @Test fun sequenceHasBoundedTimedFramesAndPlaybackInterpolates() {
+        val sequence = recordSequence()
+        val keys = sequence.keyframes()
+        assertEquals(17, keys.size)
+        assertEquals(0f, keys.first().seconds, 0f)
+        assertEquals(3.95f, keys.last().seconds, 0.0001f)
+        assertTrue(keys.zipWithNext().all { (a, b) -> b.seconds > a.seconds })
+        val a = keys[5]; val b = keys[6]
+        val mid = FaceSequencePlayback.sample(sequence, (a.seconds + b.seconds) / 2f)
+        for (i in mid.indices) assertEquals((a.points[i] + b.points[i]) / 2, mid[i], 0.00001f)
+        assertArrayEquals(keys.first().points, FaceSequencePlayback.sample(sequence, -1f), 0f)
+        assertArrayEquals(keys.last().points, FaceSequencePlayback.sample(sequence, 99f), 0f)
+    }
+
+    @Test fun recorderRejectsLostFaceAndGapsAndCanCancelAndRestart() {
         val neutral = FaceSnapshot(points(), 640, 480, 0.0, 3)
-        val expressionPoints = points().apply { this[13 * 3 + 1] += 0.03f }
-        val expression = FaceSnapshot(expressionPoints, 640, 480, 0.0, 3)
-        val glb = GlbWriter.write(FaceSurfaceBuilder.build(neutral, expression))
+        val r = FaceSequenceRecorder()
+        r.start(1000)
+        r.add(FaceFrame(points(), 640, 480, 1200)); r.add(null)
+        for (i in 0 until 10) r.add(FaceFrame(points(), 640, 480, 1500L + 250 * i))
+        assertNull(r.finish(5000, neutral))
+        r.start(1000); r.add(FaceFrame(points(), 640, 480, 1200)); r.add(FaceFrame(points(), 640, 480, 3000))
+        assertNull(r.finish(5000, neutral))
+        r.start(1000); r.add(FaceFrame(points(), 640, 480, 1200)); r.cancel()
+        assertNull(r.finish(5000, neutral))
+        assertNotNull(recordSequence())
+    }
+
+    @Test fun recordingCopiesFramesRejectsDimensionChangeAndStaleStart() {
+        val r = FaceSequenceRecorder()
+        val neutral = FaceSnapshot(points(), 640, 480, 0.0, 3)
+        r.start(1000)
+        r.add(FaceFrame(points(), 640, 480, 900)) // vor Nutzerstart
+        val mutable = points().apply { this[13 * 3 + 1] += 0.1f }
+        r.add(FaceFrame(mutable, 640, 480, 1200))
+        mutable[13 * 3 + 1] = 0.9f
+        for (i in 1..15) r.add(FaceFrame(points(), 640, 480, 1200L + i * 250))
+        val surface = r.finish(5000, neutral)!!
+        assertEquals(0.2f, surface.keyframes()[1].seconds, 0.0001f)
+        assertTrue(abs(surface.keyframes()[1].points[13 * 3 + 1] - surface.keyframes()[2].points[13 * 3 + 1]) > 0.01f)
+        r.start(1000)
+        r.add(FaceFrame(points(), 640, 480, 1200))
+        r.add(FaceFrame(points(), 480, 640, 1450))
+        assertNull(r.finish(5000, neutral))
+    }
+
+    @Test fun neutralQualityChecksScaleEdgesAndMotionWithoutClaimingAccuracy() {
+        val p = points()
+        assertTrue(NeutralCaptureQuality.isUsable(FaceSnapshot(p, 640, 480, 2.0, 3)))
+        assertFalse(NeutralCaptureQuality.isUsable(FaceSnapshot(p, 640, 480, 40.0, 3)))
+        assertFalse(NeutralCaptureQuality.isUsable(FaceSnapshot(p.copyOf().apply { this[0] = 0f }, 640, 480, 0.0, 3)))
+        assertFalse(NeutralCaptureQuality.isUsable(FaceSnapshot(p.copyOf().apply { this[263*3] = this[33*3] }, 640, 480, 0.0, 3)))
+    }
+
+    @Test fun glbContainsIndexedMeshAndAnimatedMorphTarget() {
+        val surface = recordSequence()
+        val glb = GlbWriter.write(surface)
         val input = ByteBuffer.wrap(glb).order(ByteOrder.LITTLE_ENDIAN)
         assertEquals(0x46546c67, input.int)
         assertEquals(2, input.int)
@@ -69,10 +131,25 @@ class FaceScanTest {
         assertTrue(json.contains("\"animations\""))
         assertTrue(json.contains("\"path\":\"weights\""))
         assertTrue(json.contains("uncalibrated"))
+        assertTrue(json.contains("\"frame_16\""))
+        assertTrue(json.contains("\"count\":272"))
         val binarySize = input.int
         assertEquals(0x004e4942, input.int)
         assertEquals(0, binarySize % 4)
         assertEquals(binarySize, input.remaining())
+        // Ein Einheitsgewicht je Keyframe muss exakt die aufgenommenen Formen ergeben.
+        val binaryStart = input.position()
+        val trianglesBytes = FaceTopology.triangles.size * 2
+        val deltaStart = binaryStart + 468 * 12 + ((trianglesBytes + 3) and -4)
+        for (k in 1 until surface.keyframes().size) {
+            val point = 13 * 3 + 1
+            val delta = input.getFloat(deltaStart + (k - 1) * 468 * 12 + point * 4)
+            assertEquals(surface.keyframes()[k].points[point], surface.neutral[point] + delta, 1e-6f)
+        }
+        val weightsStart = deltaStart + 16 * 468 * 12 + 17 * 4
+        for (k in 0 until 17) for (target in 0 until 16) {
+            assertEquals(if (k == target + 1) 1f else 0f, input.getFloat(weightsStart + (k * 16 + target) * 4), 0f)
+        }
         // CI lässt diesen ausschließlich synthetischen Export zusätzlich vom
         // unabhängigen Khronos glTF-Validator prüfen.
         System.getenv("RUNNER_TEMP")?.let { File(it, "facescan-synthetic.glb").writeBytes(glb) }

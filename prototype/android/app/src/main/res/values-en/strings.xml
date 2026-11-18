@@ -38,26 +38,34 @@
 
     <string name="scan_start">Start experimental face scan</string>
     <string name="scan_capture_title">Capture face</string>
-    <string name="scan_capture_instruction">Hold the phone steady and look straight ahead. First capture a neutral expression. Then change your expression, wait a few seconds and capture the second expression. Images are not saved.</string>
+    <string name="scan_capture_instruction">Hold phone and head steady, look straight ahead, and capture neutral first. Then start the four-second expression recording. Move your face, not your head. Images are not saved.</string>
     <string name="scan_face_ready">Face detected – hold still for capture.</string>
     <string name="scan_face_wait">Waiting for a face in the camera.</string>
     <string name="scan_wait_samples">Not enough recent face points yet. Hold still and try again.</string>
-    <string name="scan_neutral_saved">Neutral captured (%1$d frames, variation %2$.1f px). Change expression and wait briefly.</string>
+    <string name="scan_neutral_saved">Neutral captured (%1$d frames, variation %2$.1f px). Ready to record expression.</string>
     <string name="scan_neutral">1. Capture neutral</string>
-    <string name="scan_expression">2. Capture expression and show model</string>
+    <string name="scan_expression">2. Record expression for 4 seconds</string>
     <string name="scan_invalid">The face points cannot be used. Please capture again.</string>
     <string name="scan_review_title">Face surface (experimental)</string>
-    <string name="scan_limitations">Only the visible front-camera face surface: no texture, hair or back of head. Depth and scale are not metrically calibrated; absolute accuracy has not been measured. Expression and head motion can mix. The model stays in memory until you export it.</string>
+    <string name="scan_limitations">Only the visible front-camera face surface: no texture, hair or back of head. Depth and scale are not metrically calibrated; absolute accuracy has not been measured. Head motion can appear as expression. The model stays in memory until export.</string>
     <string name="scan_jitter">Landmark variation during capture: neutral %1$.1f px, expression %2$.1f px. This is stability, not 3D accuracy.</string>
-    <string name="scan_preview_hint">Drag the preview to rotate. The slider mixes the two captured expressions.</string>
-    <string name="scan_play">Play expression</string>
+    <string name="scan_preview_hint">Drag to rotate. The slider follows the recorded sequence. Playback repeats the sequence and may jump at the end.</string>
+    <string name="scan_play">Play sequence</string>
     <string name="scan_pause">Pause animation</string>
     <string name="scan_export">Export animated GLB</string>
     <string name="scan_export_ok">GLB saved. It contains face data – share it deliberately.</string>
-    <string name="scan_export_error">Export failed. Try another destination.</string>
+    <string name="scan_export_error">Export failed. An incomplete file may remain at the chosen destination; please check and try again.</string>
     <string name="scan_discard">Discard model and go back</string>
 
     <string name="selftest_scan">Device self-test (synthetic scan mesh/GLB): %1$s</string>
+    <string name="scan_quality_retry">Neutral capture unusable: fit your entire face closer in the frame and hold still for several seconds. This is only a rough heuristic.</string>
+    <string name="scan_recording">Recording (4 seconds). Keep your face in view and change expression.</string>
+    <string name="scan_record_interrupted">Recording failed or was interrupted. Keep your face in view and try again.</string>
+    <string name="scan_record_cancel">Cancel recording</string>
+    <string name="scan_record_cancelled">Recording cancelled. You can start again.</string>
+    <string name="scan_jitter_neutral">Neutral landmark variation: %1$.1f px. This measures stability, not 3D accuracy.</string>
+    <string name="scan_sequence_info">%1$d captured shapes over %2$.1f seconds.</string>
+
     <!-- Home -->
     <string name="home_start_scan">START DEMO</string>
     <string name="home_open_project">Open project</string>

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.andrexthedev.facescan.R
 import com.andrexthedev.facescan.scan.FaceSurface
 import com.andrexthedev.facescan.scan.FaceTopology
+import com.andrexthedev.facescan.scan.FaceSequencePlayback
 import com.andrexthedev.facescan.scan.GlbWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -59,10 +60,10 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
 
     LaunchedEffect(playing) {
         if (playing) {
-            val start = SystemClock.elapsedRealtime()
+            val duration = surface.keyframes().last().seconds
+            val start = SystemClock.elapsedRealtime() - (weight * duration * 1000).toLong()
             while (true) {
-                val phase = (SystemClock.elapsedRealtime() - start) / 1000.0
-                weight = ((1.0 - cos(phase * Math.PI)) / 2.0).toFloat()
+                weight = (((SystemClock.elapsedRealtime() - start) / 1000f) % duration) / duration
                 delay(33)
             }
         }
@@ -73,15 +74,9 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
             scope.launch {
                 try {
                     withContext(Dispatchers.IO) {
-                        var complete = false
-                        try {
-                            val data = GlbWriter.write(surface)
-                            val stream = context.contentResolver.openOutputStream(uri, "w") ?: error("No output stream")
-                            stream.use { it.write(data) }
-                            complete = true
-                        } finally {
-                            if (!complete) try { context.contentResolver.delete(uri, null, null) } catch (_: Exception) { }
-                        }
+                        val data = GlbWriter.write(surface)
+                        val stream = context.contentResolver.openOutputStream(uri, "w") ?: error("No output stream")
+                        stream.use { it.write(data) }
                     }
                     feedback = context.getString(R.string.scan_export_ok)
                 } catch (e: kotlinx.coroutines.CancellationException) {
@@ -98,20 +93,22 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.scan_review_title), style = MaterialTheme.typography.headlineSmall)
         Text(stringResource(R.string.scan_limitations), style = MaterialTheme.typography.bodyMedium)
-        Text(stringResource(R.string.scan_jitter, surface.neutralJitterPx, surface.expressionJitterPx))
+        Text(stringResource(R.string.scan_jitter_neutral, surface.neutralJitterPx))
+        Text(stringResource(R.string.scan_sequence_info, surface.keyframes().size - 1, surface.keyframes().last().seconds))
         Canvas(
             Modifier.fillMaxWidth().height(280.dp).background(Color(0xff10141b))
                 .pointerInput(Unit) { detectDragGestures { change, drag -> change.consume(); yaw += drag.x * 0.01f } }
         ) {
-            val n = surface.neutral.size / 3
+            val points = FaceSequencePlayback.sample(surface, weight * surface.keyframes().last().seconds)
+            val n = points.size / 3
             val xy = Array(n) { Offset.Zero }
             val angleCos = cos(yaw)
             val angleSin = sin(yaw)
             val scale = minOf(size.width, size.height) * 0.27f
             for (i in 0 until n) {
-                val x = surface.neutral[3 * i] + (surface.expression[3 * i] - surface.neutral[3 * i]) * weight
-                val y = surface.neutral[3 * i + 1] + (surface.expression[3 * i + 1] - surface.neutral[3 * i + 1]) * weight
-                val z = surface.neutral[3 * i + 2] + (surface.expression[3 * i + 2] - surface.neutral[3 * i + 2]) * weight
+                val x = points[3 * i]
+                val y = points[3 * i + 1]
+                val z = points[3 * i + 2]
                 xy[i] = Offset(size.width * 0.5f + (x * angleCos + z * angleSin) * scale, size.height * 0.36f - y * scale)
             }
             val triangles = FaceTopology.triangles

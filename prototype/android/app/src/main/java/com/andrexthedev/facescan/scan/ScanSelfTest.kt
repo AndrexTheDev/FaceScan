@@ -18,10 +18,18 @@ object ScanSelfTest {
         val buffer = FaceFrameBuffer()
         for (t in 1L..3L) buffer.add(FaceFrame(points, 640, 480, t * 100))
         val neutral = buffer.snapshot(300) ?: return false
-        val changed = points.copyOf().apply { this[13 * 3 + 1] += 0.04f }
-        val expression = FaceSnapshot(changed, 640, 480, 0.0, 1)
-        val surface = FaceSurfaceBuilder.build(neutral, expression)
-        if (surface.neutral.contentEquals(surface.expression)) return false
+        val recorder = FaceSequenceRecorder()
+        recorder.start(1000)
+        for (i in 0 until 16) {
+            val changed = points.copyOf().apply { this[13 * 3 + 1] += i * 0.003f }
+            recorder.add(FaceFrame(changed, 640, 480, 1200L + i * 250))
+        }
+        val surface = recorder.finish(5000, neutral) ?: return false
+        val keys = surface.keyframes()
+        if (keys.size != 17 || keys.first().points.contentEquals(keys.last().points)) return false
+        val mid = FaceSequencePlayback.sample(surface, (keys[3].seconds + keys[4].seconds) / 2f)
+        val axis = 13 * 3 + 1
+        if (kotlin.math.abs(mid[axis] - (keys[3].points[axis] + keys[4].points[axis]) / 2) > 0.0001f) return false
         val bytes = GlbWriter.write(surface)
         val glb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         if (glb.int != 0x46546c67 || glb.int != 2 || glb.int != bytes.size) return false

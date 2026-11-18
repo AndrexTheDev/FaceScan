@@ -345,31 +345,36 @@ class MultiViewCaptureTest {
     }
 
     @Test fun noisyViewsRaiseTheDepthUncertaintyEstimate() {
-        // Jede Ansicht um 0,4 px horizontal verschoben: die Ankerpose bleibt
-        // akzeptabel, aber die Punkte haben einen echten Rest. Die Schätzung
-        // muss dann deutlich über dem rauschfreien Fall liegen.
-        fun shifted(yaw: Double): MultiViewCapture.View {
+        // Künstliches, gemischtes Rauschen von 0,5 px: die Ankerpose bleibt
+        // akzeptabel, die Punkte haben aber einen echten Rest. Die Schätzung
+        // muss dann über dem rauschfreien Fall liegen.
+        // Verschiebung abwechselnd je Punkt und Ansicht: eine reine
+        // Translation würde die Ankerpose teilweise auffangen und den Rest
+        // verschwinden lassen. Das ist Absicht, kein Messfehler.
+        fun shifted(yaw: Double, viewIndex: Int): MultiViewCapture.View {
             val base = view(yaw)
             val points = base.points.copyOf()
             for (i in 0 until CanonicalAnchors.LANDMARK_COUNT) {
                 if (!points[3 * i].isFinite()) continue
-                points[3 * i] += (0.4 / w).toFloat()
+                val sign = (if (i % 2 == 0) 1.0 else -1.0) * (if (viewIndex % 2 == 0) 1.0 else -1.0)
+                points[3 * i] += (sign * 0.5 / w).toFloat()
             }
             return MultiViewCapture.View(points, w, h)
         }
         val exact = MultiViewCapture.reconstruct(listOf(view(0.0), view(-22.0), view(24.0)), intrinsics)
             as MultiViewCapture.Outcome.Reconstructed
-        val noisy = MultiViewCapture.reconstruct(listOf(shifted(0.0), shifted(-22.0), shifted(24.0)), intrinsics)
+        val noisy = MultiViewCapture.reconstruct(
+            listOf(shifted(0.0, 0), shifted(-22.0, 1), shifted(24.0, 0)), intrinsics)
         if (noisy is MultiViewCapture.Outcome.Rejected) return  // Pose zu schlecht: kein stiller Wert.
         val report = (noisy as MultiViewCapture.Outcome.Reconstructed).result.completeness!!
         assertTrue(report.uncertaintySamples > 0)
         val median = report.medianDepthUncertaintyCm!!
         val baseline = exact.result.completeness!!.medianDepthUncertaintyCm ?: 0.0
-        // Eine Verschiebung aller Punkte wird von der Pose teilweise
-        // aufgefangen; entscheidend ist, dass die Schätzung nicht unter dem
-        // rauschfreien Fall liegt und überhaupt einen Rest sieht.
-        assertTrue("Median $median liegt unter dem rauschfreien Fall $baseline", median >= baseline)
-        assertTrue("Kein Rest erkannt: median=$median", median > 0.0 || report.highDepthUncertaintyCm!! > 0.0)
+        // Eine gleichmäßige Verschiebung wird von der Pose teilweise
+        // aufgefangen; gemischtes Rauschen nicht. Entscheidend ist, dass die
+        // Schätzung den Rest sieht und über dem rauschfreien Fall liegt.
+        assertTrue("Median $median liegt nicht über dem rauschfreien Fall $baseline", median > baseline)
+        assertTrue("Kein Rest erkannt: median=$median", median > 0.0)
         assertTrue(report.highDepthUncertaintyCm!! >= median)
     }
 

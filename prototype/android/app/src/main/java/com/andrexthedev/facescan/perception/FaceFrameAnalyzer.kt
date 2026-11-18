@@ -49,14 +49,22 @@ class FaceFrameAnalyzer(
             diagnostics.result(found, SystemClock.elapsedRealtime() - startedAt)
             if (active.get()) onStatus(if (found) FaceStatus.FACE else FaceStatus.NO_FACE)
         } catch (e: Exception) {
-            stopped = true
-            val code = if (e is MediaPipeException) ":${e.statusCode.name}" else ""
-            diagnostics.inferenceError("$phase:${e.javaClass.simpleName}$code")
-            Log.e("FaceScan", "Gesichtserkennung konnte nicht ausgeführt werden", e)
-            if (active.get()) onStatus(FaceStatus.ERROR)
+            reportFailure(phase, e)
+        } catch (e: LinkageError) {
+            // Fehlende oder inkompatible JNI-Bibliotheken sind Errors, keine
+            // Exceptions. Der Testbericht muss auch diesen Fall erfassen.
+            reportFailure(phase, e)
         } finally {
             proxy.close()
         }
+    }
+
+    private fun reportFailure(phase: String, error: Throwable) {
+        stopped = true
+        val code = if (error is MediaPipeException) ":${error.statusCode.name}" else ""
+        diagnostics.inferenceError("$phase:${error.javaClass.simpleName}$code")
+        Log.e("FaceScan", "Gesichtserkennung konnte nicht ausgeführt werden", error)
+        if (active.get()) onStatus(FaceStatus.ERROR)
     }
 
     override fun close() {

@@ -14,6 +14,9 @@ android {
         targetSdk = 35
         versionCode = 2
         versionName = "0.2.0-test"
+        // MediaPipe 0.10.14 liefert kein x86_64-JNI. Auf x86_64-Geräten
+        // mit 32-Bit-Support muss Android daher die x86-Variante auswählen.
+        ndk { abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

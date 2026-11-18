@@ -33,6 +33,9 @@ trap restore_network EXIT
 adb wait-for-device
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+echo "::notice title=Geräte-ABIs::$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')"
+echo "::notice title=App-ABI::$(adb shell dumpsys package "$app" | grep -m 1 'primaryCpuAbi=' | tr -d '\r')"
+echo "::notice title=MediaPipe-Bibliotheken::$(unzip -l app/build/outputs/apk/debug/app-debug.apk | grep 'libmediapipe_tasks_vision_jni.so' | awk '{print $4}' | tr '\n' ' ')"
 adb shell pm clear "$app"
 
 # Frischer Erststart ohne Netz: Fehlermeldung statt endloser Ladeanzeige.

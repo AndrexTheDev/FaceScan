@@ -3,9 +3,15 @@
 > **Vision:** Mit dem Handy in 60 Sekunden ein animierbares 3D-Porträt von sich selbst einscannen –
 > inklusive Haare, in Studio-Qualität, **komplett offline**, exportierbar in jedes Profi-3D-Format.
 > Kein ARCore. Keine Cloud. Kein Konto.
+>
+> **Aktueller Stand, nicht das fertige Produkt:** Die Android-App erstellt eine experimentelle, offene
+> Gesichtsoberfläche aus einer Kameraansicht und exportiert GLB/OBJ. Sie benötigt beim ersten Start
+> Internet für einen Modelldownload. Haare, Hinterkopf, validierte metrische Genauigkeit und die meisten
+> unten beschriebenen Funktionen sind noch nicht implementiert oder nicht real getestet. Details und
+> Grenzen: [Android-README](prototype/android/README.md), [Implementierungsstatus](docs/14-implementierungsstatus.md).
 
 **Entwickler:** AndrexTheDev · E-Mail: hippie.highho@gmail.com
-**Branch:** `arena/ee31e880-facescan` · **Stand:** 2026-11-15
+**Stand:** experimenteller Android-Prototyp; siehe [Implementierungsstatus](docs/14-implementierungsstatus.md).
 
 ---
 
@@ -27,12 +33,13 @@
 | [`docs/11-roadmap.md`](docs/11-roadmap.md) | Phasen M0–M6, Team, Kosten, KPIs |
 | [`docs/12-landingpage-cloudflare.md`](docs/12-landingpage-cloudflare.md) | Aufbau + Deployment der Landingpage (Cloudflare Pages) |
 | [`docs/13-adr.md`](docs/13-adr.md) | Architecture Decision Records (alle harten Entscheidungen) |
+| [`docs/14-implementierungsstatus.md`](docs/14-implementierungsstatus.md) | Tatsächlich implementierte und noch offene Funktionen, Prüfstatus |
 | [`docs/99-quellen.md`](docs/99-quellen.md) | Belegte Quellen der Recherche |
 | [`landing/`](landing/) | Statische Landingpage (DE/EN) für Cloudflare Pages – Zero-Build |
 
 ---
 
-## Die fünf Säulen des Produkts
+## Die fünf Säulen der Produktvision (geplant)
 
 1. **Offline first** – Kamera, Rekonstruktion, Animation, Export: alles auf dem Gerät. Kein Konto, kein Upload,
    keine Telemetrie ohne explizite Zustimmung. Nur der optionale Kauf (Krypto) braucht einmalig Netz.
@@ -57,7 +64,7 @@
 
 Details, Kontrastwerte und Token-Tabelle: [`docs/07-ui-ux-designsystem.md`](docs/07-ui-ux-designsystem.md).
 
-## Kurz-Tech-Stack
+## Geplanter Tech-Stack
 
 Kotlin · Jetpack Compose · CameraX + Camera2 (manuelle Sensorkontrolle) · MediaPipe Tasks (Face/Pose/Hand/Hair-Segmentation) ·
 TensorFlow Lite (GPU/NNAPI) · C++17-Kern über JNI · Vulkan-Compute (Fallback OpenGL ES 3.1) · Room · WorkManager ·
@@ -65,5 +72,4 @@ Android Keystore (AES-256-GCM) · eigene Export-Writer · Cloudflare Pages (nur 
 
 ## Status
 
-**Konzept-/Recherchestand: 100 %** – **Implementierungsstand: ~3 %** (Dokumente + Landingpage, noch kein App-Code).
-Siehe [`docs/00-management-summary.md`](docs/00-management-summary.md).
+Der Android-Prototyp und synthetische Referenzimplementierungen sind vorhanden; das vollständige Produkt ist nicht fertig. Eine belastbare Prozentzahl und eine validierte reale Messgenauigkeit liegen nicht vor. Der [Implementierungsstatus](docs/14-implementierungsstatus.md) trennt tatsächlich vorhandene Funktionen von Planung und noch ausstehenden Prüfungen.

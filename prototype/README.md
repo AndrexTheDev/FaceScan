@@ -6,7 +6,7 @@ Antwort auf die eine Frage, an der das ganze Produkt hängt:
 > Bekommen wir aus 2D-Gesichtspunkten und den Kamera-Parametern eines Handys eine
 > **metrische** 3D-Rekonstruktion – **ohne ARCore**, ohne SLAM, ohne Tiefensensor?
 
-Antwort: **ja**, mit Zahlen belegt gegen synthetische Ground Truth (siehe unten).
+Antwort: Unter den Annahmen der synthetischen Daten gelingt die Rekonstruktion mit den unten angegebenen Abweichungen. Das belegt **keine** metrische Genauigkeit auf echten Android-Geräten oder bei echten Gesichtern. Den aktuellen Android-Stand beschreibt [`docs/14`](../docs/14-implementierungsstatus.md).
 
 ---
 

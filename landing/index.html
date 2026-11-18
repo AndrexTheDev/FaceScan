@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FaceScan – 3D-Gesichtsscan offline (Android) | Gesicht &amp; Haare als 3D-Modell</title>
-<meta name="description" content="Scanne dein Gesicht und deine Haare mit dem Handy in 3D – komplett offline, animierbar und exportierbar in alle Profi-Formate (FBX, USD, ABC, GLB, OBJ). Ohne ARCore, ohne Cloud, ohne Konto.">
+<title>FaceScan – experimenteller Android-Gesichtsscan</title>
+<meta name="description" content="Android-Prototyp für eine geschätzte Gesichtsoberfläche. Vollständiger 3D-Kopf und metrische Genauigkeit sind noch nicht verfügbar.">
+<meta name="robots" content="noindex, nofollow">
 <meta name="author" content="AndrexTheDev">
 <link rel="canonical" href="https://facescan.app/">
 <link rel="alternate" hreflang="de" href="https://facescan.app/">
@@ -13,7 +14,7 @@
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:title" content="FaceScan – 3D-Gesichtsscan offline (Android)">
-<meta property="og:description" content="Gesicht &amp; Haare in 3D scannen, animieren und in alle Profi-Formate exportieren – offline, ohne Konto, ohne ARCore.">
+<meta property="og:description" content="Android-Prototyp für eine geschätzte Gesichtsoberfläche. Vollständiger 3D-Kopf und metrische Genauigkeit sind noch nicht verfügbar.">
 <meta property="og:image" content="https://facescan.app/assets/img/og-image.png">
 <meta property="og:locale" content="de_DE">
 <meta property="og:locale:alternate" content="en_US">
@@ -27,13 +28,11 @@
   "name": "FaceScan",
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "Android 10+",
-  "description": "Offline-First-3D-Scanner für Gesicht und Haare mit Animation und Export in alle gängigen Profi-3D-Formate.",
-  "author": { "@type": "Person", "name": "AndrexTheDev" },
-  "offers": [
-    { "@type": "Offer", "name": "Starter", "price": "0", "priceCurrency": "EUR" },
-    { "@type": "Offer", "name": "Creator", "price": "39.00", "priceCurrency": "EUR" },
-    { "@type": "Offer", "name": "Studio", "price": "129.00", "priceCurrency": "EUR" }
-  ]
+  "description": "Android-Prototyp für eine geschätzte Gesichtsoberfläche. Vollständiger 3D-Kopf und metrische Genauigkeit sind noch nicht verfügbar.",
+  "author": {
+    "@type": "Person",
+    "name": "AndrexTheDev"
+  }
 }
 </script>
 </head>
@@ -60,24 +59,23 @@
 
 <main id="main">
 
+  <section id="status"><div class="wrap"><p class="note"><strong>Entwicklungsstand:</strong> FaceScan ist ein experimenteller Prototyp. Die folgende Seite beschreibt eine <strong>Produktvision</strong>, keine vorhandenen oder erhältlichen Funktionen. Haar- und Hinterkopfscan, metrische Genauigkeit, die meisten Formate und der Kaufablauf fehlen. Der erste Start des Prototyps lädt ein Modell über das Internet. Bitte keine Zahlungen senden. <a href="https://github.com/AndrexTheDev/FaceScan/blob/main/docs/14-implementierungsstatus.md">Aktuellen Implementierungsstatus ansehen</a>.</p></div></section>
+
   <!-- HERO -->
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
         <span class="eyebrow">Android · Offline first · Ohne ARCore</span>
-        <h1>Scanne dich in 3D.<br>In einer Minute.<em> Komplett offline.</em></h1>
-        <p class="lead">
-          Gesicht <strong>und</strong> Haare als detailreiches 3D-Modell – animierbar mit deiner Handykamera
-          und exportierbar in alle gängigen Profi-Formate. Keine Cloud. Kein Konto. Keine Ausreden.
-        </p>
+        <h1>FaceScan.<br><em>Ein experimenteller Prototyp.</em></h1>
+        <p class="lead">Eine geschätzte Gesichtsoberfläche aus der Frontkamera, mit optionaler Textur und Animation. Noch kein vollständiger Kopf und keine validierte 3D-Genauigkeit.</p>
         <div class="cta-row">
-          <a class="btn btn-gold" href="https://play.google.com/store/apps/details?id=com.andrexthedev.facescan">
-            Kostenlos scannen
+          <a class="btn btn-gold" href="https://github.com/AndrexTheDev/FaceScan">
+            Projekt ansehen
           </a>
           <a class="btn btn-ghost" href="#wie">Wie es funktioniert</a>
         </div>
         <ul class="trust">
-          <li><span class="tick">✔</span> Nichts verlässt dein Handy</li>
+          <li><span class="tick">✔</span> Erststart: Modelldownload über Internet</li>
           <li><span class="tick">✔</span> Kein Konto nötig</li>
           <li><span class="tick">✔</span> Kein ARCore, kein Tiefensensor</li>
         </ul>
@@ -216,7 +214,7 @@
   <section id="datenschutz" class="privacy">
     <div class="wrap">
       <p class="kicker">Datenschutz</p>
-      <h2>Nichts verlässt dein Handy</h2>
+      <h2>Erststart: Modelldownload über Internet</h2>
       <p class="section-lead">Dein Gesicht ist keine Ware. Deshalb arbeitet FaceScan konsequent lokal.</p>
       <ul class="privacy-list">
         <li><span class="tick">✔</span><span><strong>Keine Cloud.</strong> Aufnahme, Berechnung, Speicherung
@@ -239,10 +237,8 @@
   <section id="preise">
     <div class="wrap">
       <p class="kicker">Preise</p>
-      <h2>Einmalkauf statt Abo</h2>
-      <p class="section-lead">Bezahlt wird mit Solana, Bitcoin oder Ethereum – dafür gibt es dauerhaft die
-        Crypto-Bonus-Kondition (keine Zahlungsdienstgebühren): <strong>−20 %</strong> gegenüber dem
-        kalkulierten Kartenpreis.</p>
+      <h2>Preiskonzept – noch nicht verfügbar</h2><p>Diese Preise und Funktionen sind nur Entwürfe, kein Angebot. Bitte nichts bezahlen.</p>
+      <p class="section-lead">Mögliche Preise und Zahlungsarten werden erforscht; es gibt derzeit keine Verkäufe oder Zahlungsabwicklung.</p>
 
       <div class="price-grid">
         <article class="tier">
@@ -256,7 +252,7 @@
             <li><span class="tick">✔</span> Texturen 2K</li>
             <li><span class="tick">✔</span> Haar-Stufe 1 (Volumen)</li>
           </ul>
-          <a class="btn btn-ghost" href="https://play.google.com/store/apps/details?id=com.andrexthedev.facescan">Kostenlos starten</a>
+          <a class="btn btn-ghost" href="https://github.com/AndrexTheDev/FaceScan">Projekt ansehen</a>
         </article>
 
         <article class="tier featured">
@@ -272,7 +268,7 @@
             <li><span class="tick">✔</span> Kommerzielle Indie-Lizenz (&lt; 100 k € Umsatz)</li>
             <li><span class="tick">✔</span> Kein Wasserzeichen</li>
           </ul>
-          <a class="btn btn-green" href="#krypto">Mit Krypto freischalten</a>
+          <a class="btn btn-green" href="#krypto">Noch nicht verfügbar</a>
         </article>
 
         <article class="tier">
@@ -287,7 +283,7 @@
             <li><span class="tick">✔</span> Kommerzielle Studio-Lizenz (unbegrenzt)</li>
             <li><span class="tick">✔</span> Update-Pass inklusive</li>
           </ul>
-          <a class="btn btn-ghost" href="#krypto">Mit Krypto freischalten</a>
+          <a class="btn btn-ghost" href="#krypto">Noch nicht verfügbar</a>
         </article>
       </div>
 
@@ -299,49 +295,7 @@
     </div>
   </section>
 
-  <!-- KRYPTO -->
-  <section id="krypto">
-    <div class="wrap">
-      <p class="kicker">Bezahlung</p>
-      <h2>Bezahlt wird mit Krypto</h2>
-      <p class="section-lead">
-        Keine Kreditkarte, kein Konto, keine Rückbuchungsdaten. Du zahlst direkt aus deinem Wallet an eine der
-        drei Adressen. <strong>Wichtig:</strong> bitte sende immer genau den Betrag, den die App dir anzeigt –
-        die letzten Stellen sind deine Bestellnummer.
-      </p>
-      <div class="crypto-grid">
-        <article class="coin">
-          <h3>Solana (SOL) <span class="pill">Empfohlen</span></h3>
-          <p><small>Bestätigung in ~10 Sekunden, Cent-Gebühren, automatische Zuordnung.</small></p>
-          <div class="qr"><img src="assets/img/qr-sol.svg" alt="QR-Code der Solana-Adresse" width="150" height="150"></div>
-          <code>79KsqtJJdhKFJ9woxnYgtf3nq7HxQveafWBCtC3mxWi8</code>
-          <button class="btn btn-ghost btn-sm" type="button" data-copy="79KsqtJJdhKFJ9woxnYgtf3nq7HxQveafWBCtC3mxWi8">Adresse kopieren</button>
-        </article>
-        <article class="coin">
-          <h3>Bitcoin (BTC)</h3>
-          <p><small>Native SegWit (bech32). Bestätigung nach 1–3 Blöcken.</small></p>
-          <div class="qr"><img src="assets/img/qr-btc.svg" alt="QR-Code der Bitcoin-Adresse" width="150" height="150"></div>
-          <code>bc1qeqzrlfg3edrydk4s0hecakc82gp26n5p7hkc7f</code>
-          <button class="btn btn-ghost btn-sm" type="button" data-copy="bc1qeqzrlfg3edrydk4s0hecakc82gp26n5p7hkc7f">Adresse kopieren</button>
-        </article>
-        <article class="coin">
-          <h3>Ethereum (ETH)</h3>
-          <p><small>Gasgebühren schwanken; Zuordnung über Betrag bzw. Transfer-Log.</small></p>
-          <div class="qr"><img src="assets/img/qr-eth.svg" alt="QR-Code der Ethereum-Adresse" width="150" height="150"></div>
-          <code>0xBC3fab34f69bc9f6661608C3FB36dDdC313C42F7</code>
-          <button class="btn btn-ghost btn-sm" type="button" data-copy="0xBC3fab34f69bc9f6661608C3FB36dDdC313C42F7">Adresse kopieren</button>
-        </article>
-      </div>
-      <p class="note">
-        Der Kauf läuft ausschließlich <strong>in der App</strong>: sie zeigt dir den exakten Betrag, einen
-        QR-Code und einen Direkt-Link zu deinem Wallet. Die Blockchain-Transaktion ist deine Quittung – damit
-        kannst du deinen Kauf jederzeit auf ein neues Handy mitnehmen.
-        <br><br>
-        <strong>Sicherheitshinweis:</strong> Prüfe vor dem Senden die ersten und letzten Zeichen der Adresse in
-        deinem Wallet. Wir kontaktieren dich niemals wegen „neuer" Adressen.
-      </p>
-    </div>
-  </section>
+  <section id="krypto"><div class="wrap"><h2>Zahlungen noch nicht verfügbar</h2><p>Bitte keine Kryptowährung senden. Es gibt noch keinen Kauf- oder Freischaltablauf.</p></div></section>
 
   <!-- EINSTEIGER -->
   <section id="einsteiger">
@@ -432,9 +386,9 @@
   <section class="final">
     <div class="wrap">
       <h2>Dein Gesicht in 3D.<br>In einer Minute.</h2>
-      <p class="section-lead" style="margin-inline:auto">Kostenlos starten, offline bleiben, in alle Profi-Formate exportieren.</p>
+      <p class="section-lead" style="margin-inline:auto">Projekt ansehen, offline bleiben, in alle Profi-Formate exportieren.</p>
       <div class="cta-row">
-        <a class="btn btn-gold" href="https://play.google.com/store/apps/details?id=com.andrexthedev.facescan">Kostenlos scannen</a>
+        <a class="btn btn-gold" href="https://github.com/AndrexTheDev/FaceScan">Projekt ansehen</a>
         <a class="btn btn-ghost" href="#preise">Preise ansehen</a>
       </div>
     </div>
@@ -472,11 +426,7 @@
         </ul>
       </div>
     </div>
-    <p class="legal-note">
-      Zahlungen in Solana (SOL), Bitcoin (BTC) und Ethereum (ETH) sind Einmalzahlungen. Alle Preise sind
-      EUR-Gegenwerte; maßgeblich ist der Kurs zum Zeitpunkt des Zahlungseingangs. Es werden keine
-      Kryptowerte verwahrt – die Annahme erfolgt auf eigene Wallets.
-    </p>
+    <p class="legal-note">Entwurf: keine Zahlungen oder Produktlizenzen verfügbar.</p>
   </div>
 </footer>
 

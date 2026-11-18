@@ -136,4 +136,3 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
         }
     }
 }
-EOF

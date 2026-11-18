@@ -57,6 +57,7 @@
     <string name="scan_export_error">Export failed. Try another destination.</string>
     <string name="scan_discard">Discard model and go back</string>
 
+    <string name="selftest_scan">Device self-test (synthetic scan mesh/GLB): %1$s</string>
     <!-- Home -->
     <string name="home_start_scan">START DEMO</string>
     <string name="home_open_project">Open project</string>

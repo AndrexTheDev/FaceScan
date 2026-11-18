@@ -73,7 +73,7 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
         return buffer.snapshot(SystemClock.elapsedRealtime())
     }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        AndroidView(Modifier.fillMaxSize(), factory = { ctx ->
+        AndroidView(modifier = Modifier.fillMaxSize(), factory = { ctx ->
             PreviewView(ctx).also { preview ->
                 controller.bind(owner, preview.surfaceProvider, onError = { error ->
                     cameraError = error != null
@@ -114,4 +114,3 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
         }
     }
 }
-EOF

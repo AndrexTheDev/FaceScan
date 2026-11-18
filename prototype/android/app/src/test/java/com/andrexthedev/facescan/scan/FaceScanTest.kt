@@ -20,6 +20,8 @@ class FaceScanTest {
         this[263 * 3] = 0.7f + offset; this[263 * 3 + 1] = 0.4f
     }
 
+    @Test fun onDeviceScanSmokeTestPasses() { assertTrue(ScanSelfTest.run()) }
+
     @Test fun bufferRequiresRecentFramesAndResetsOnFaceLoss() {
         val buffer = FaceFrameBuffer()
         buffer.add(FaceFrame(points(), 640, 480, 1000))

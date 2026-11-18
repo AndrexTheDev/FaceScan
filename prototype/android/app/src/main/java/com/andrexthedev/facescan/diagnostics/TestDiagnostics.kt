@@ -72,6 +72,7 @@ Modell-SHA256 (Soll): ${FaceModel.SHA256}
 Modell-Fehlerklasse: $modelError
 Geräte-Selbsttest (Pinhole-Projektion): ${selfTests?.geometry ?: "nicht ausgeführt"}
 Synthetischer M0-Geometrietest: $geometryFixture
+Geräte-Selbsttest (synthetisches Scan-Mesh und GLB): ${selfTests?.scanExport ?: "nicht ausgeführt"}
 Geräte-Selbsttest (MediaPipe auf Schwarzbild): ${selfTests?.landmarker ?: "nicht ausgeführt"}
 Frontkamera laut System: ${selfTests?.frontCamera ?: "nicht geprüft"}
 Geführter Test: Gesicht im Bild: ${challenge(ChallengeKind.FACE_PRESENT)}

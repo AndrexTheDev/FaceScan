@@ -3,6 +3,7 @@ package com.andrexthedev.facescan.scan
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.Canvas
 import kotlin.math.abs
 
 /** Testbild mit künstlichem Farbverlauf – keine Kamera oder Gesichter beteiligt. */
@@ -32,6 +33,20 @@ object TextureSelfTest {
                     abs(Color.green(color) - (points[3*i+1] * 80).toInt() * 3) > 15) return false
                 val snapshot = FaceSnapshot(points, 80, 80, 0.0, 3, texture)
                 val surface = FaceSurfaceBuilder.build(snapshot, snapshot).copy(texture = texture)
+                // Beiden Vorschaupfaden nur synthetische Daten übergeben.
+                val target = Bitmap.createBitmap(160, 160, Bitmap.Config.ARGB_8888)
+                try {
+                    for (withTexture in listOf(false, true)) {
+                        target.eraseColor(Color.BLACK)
+                        FaceMeshRenderer.draw(Canvas(target), 160f, 160f, surface.neutral, 0f,
+                            if (withTexture) texture else null, if (withTexture) decoded else null)
+                        var colored = 0
+                        for (py in 0 until 160) for (px in 0 until 160) {
+                            if (target.getPixel(px, py) != Color.BLACK) colored++
+                        }
+                        if (colored < 50) return false
+                    }
+                } finally { target.recycle() }
                 val glb = GlbWriter.write(surface)
                 if (!String(glb, Charsets.ISO_8859_1).contains("image/jpeg")) return false
                 val obj = String(ObjWriter.write(surface), Charsets.UTF_8)

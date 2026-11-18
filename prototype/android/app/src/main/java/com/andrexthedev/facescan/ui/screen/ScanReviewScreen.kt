@@ -32,16 +32,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.andrexthedev.facescan.R
 import com.andrexthedev.facescan.scan.FaceSurface
-import com.andrexthedev.facescan.scan.FaceTopology
+import com.andrexthedev.facescan.scan.FaceMeshRenderer
 import com.andrexthedev.facescan.scan.FaceSequencePlayback
 import com.andrexthedev.facescan.scan.GlbWriter
 import com.andrexthedev.facescan.scan.ObjWriter
@@ -49,8 +50,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.cos
-import kotlin.math.sin
 
 @Composable
 fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
@@ -93,7 +92,7 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/gltf-binary")) { uri: Uri? -> export(uri, false) }
     val saveObj = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/obj")) { uri: Uri? -> export(uri, true) }
     val textureBitmap = remember(surface.texture) {
-        surface.texture?.jpeg?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
+        surface.texture?.jpeg?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
     }
     BackHandler { if (!writing) onClose() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -107,29 +106,14 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
                 .pointerInput(Unit) { detectDragGestures { change, drag -> change.consume(); yaw += drag.x * 0.01f } }
         ) {
             val points = FaceSequencePlayback.sample(surface, weight * surface.keyframes().last().seconds)
-            val n = points.size / 3
-            val xy = Array(n) { Offset.Zero }
-            val angleCos = cos(yaw)
-            val angleSin = sin(yaw)
-            val scale = minOf(size.width, size.height) * 0.27f
-            for (i in 0 until n) {
-                val x = points[3 * i]
-                val y = points[3 * i + 1]
-                val z = points[3 * i + 2]
-                xy[i] = Offset(size.width * 0.5f + (x * angleCos + z * angleSin) * scale, size.height * 0.36f - y * scale)
-            }
-            val triangles = FaceTopology.triangles
-            for (i in triangles.indices step 3) {
-                val a = xy[triangles[i]]; val b = xy[triangles[i + 1]]; val c = xy[triangles[i + 2]]
-                drawLine(Color(0xff89d0c1), a, b, 1.dp.toPx())
-                drawLine(Color(0xff89d0c1), b, c, 1.dp.toPx())
-                drawLine(Color(0xff89d0c1), c, a, 1.dp.toPx())
+            drawIntoCanvas { canvas ->
+                FaceMeshRenderer.draw(canvas.nativeCanvas, size.width, size.height, points, yaw, surface.texture, textureBitmap)
             }
         }
         Text(stringResource(R.string.scan_preview_hint))
         if (textureBitmap != null) {
             Text(stringResource(R.string.scan_texture_preview))
-            Image(bitmap = textureBitmap, contentDescription = stringResource(R.string.scan_texture_description),
+            Image(bitmap = textureBitmap.asImageBitmap(), contentDescription = stringResource(R.string.scan_texture_description),
                 modifier = Modifier.fillMaxWidth().height(180.dp))
         }
         Slider(value = weight, onValueChange = { playing = false; weight = it })

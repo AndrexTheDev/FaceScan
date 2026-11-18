@@ -84,10 +84,12 @@ class PartialFaceMeshTest {
         assertEquals(0x4e4f534a, input.int)
         assertEquals(0, jsonLength % 4)
         val json = String(ByteArray(jsonLength), Charsets.UTF_8)
-        assertTrue(json.contains("\"mode\":4"))
-        assertTrue(json.contains("open partial surface"))
+        // Fehlermeldung enthält den Anfang des JSON, damit ein Fehlschlag die
+        // Ursache nennt statt nur eine Zeilennummer.
+        assertTrue(json.take(300), json.contains("\"mode\":4"))
+        assertTrue(json.take(300), json.contains("open partial surface"))
         // Der Indexpuffer muss auf die vorhandenen Vertices zeigen.
-        assertTrue(json.contains("\"count\":${mesh.vertices.size}"))
+        assertTrue(json.take(300), json.contains("\"count\":${mesh.vertices.size}"))
         assertEquals(mesh.triangles.size, json.substringAfter("\"componentType\":5123,\"count\":")
             .substringBefore(',').toInt())
         val binaryLength = input.int

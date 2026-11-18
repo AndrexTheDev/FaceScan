@@ -485,7 +485,8 @@ class MultiViewCaptureTest {
         assertEquals(1, report.usedHistogram.getOrElse(2) { 0 })
         assertEquals(1, report.usedHistogram.getOrElse(3) { 0 })
         assertEquals(1, report.usedHistogram.getOrElse(4) { 0 })
-        assertEquals(2, report.supportedByTwoViews)
+        // Genau ein Punkt hat nur zwei Stützen; der abgelehnte zählt nicht mit.
+        assertEquals(1, report.supportedByTwoViews)
         // Median über 2,3,4 ist 3; mindestens drei Stützen: 2 von 3.
         assertEquals(3.0, report.medianUsedViews!!, 0.0)
         assertEquals(2.0 / 3.0, report.fractionWithThreeOrMore!!, 1e-12)

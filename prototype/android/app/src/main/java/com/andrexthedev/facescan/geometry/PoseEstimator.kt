@@ -5,7 +5,7 @@ import kotlin.math.sqrt
 
 /**
  * Starre Kameratransformation: Rotation + Translation (Welt -> Kamera).
- * Einheiten: Millimeter (weil das Modell metrisch ist).
+ * Translation in der Einheit der vom Aufrufer bereitgestellten 3D-Anker.
  */
 data class RigidTransform(val rotation: Mat3, val translation: DoubleArray) {
     fun translationErrorMm(other: RigidTransform): Double {
@@ -35,8 +35,10 @@ data class PoseEstimate(
  *   2. Gauss-Newton-Verfeinerung unter voller Perspektive
  *   3. IRLS mit Huber-Gewichten gegen Ausreisser (verdeckte/verkannte Punkte)
  *
- * Eingang: 3D-Punkte des Modells (N*3,_mm) plus 2D-Landmarks (N*2, px).
- * Ausgang: metrische Pose.
+ * Eingang: 3D-Anker (N*3, gemeinsame Einheit) und entzerrte 2D-Pixel (N*2).
+ * Ausgang: Pose in der Einheit der Eingabeanker. Eine metrische Pose ergibt sich
+ * nur bei korrekten metrischen Ankern und kalibrierter Kamera; synthetische
+ * Tests belegen keine reale Genauigkeit. Nicht im Scanablauf angeschlossen.
  *
  * Referenz: DeMenthon & Davis, "Model-Based Object Pose in 25 Lines of Code".
  */

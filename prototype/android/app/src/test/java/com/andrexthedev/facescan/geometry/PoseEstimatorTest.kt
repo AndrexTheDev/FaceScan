@@ -8,9 +8,8 @@ import kotlin.math.sqrt
 /**
  * Posenschaetzung gegen synthetische Ground Truth.
  *
- * Das hier ist der eigentliche Machbarkeitsnachweis: Wenn diese Tests gruen
- * sind, ist belegt, dass FaceScan ohne ARCore, ohne SLAM und ohne
- * Tiefensensor eine metrische Kamerapose bekommt.
+ * Diese Tests prüfen nur künstliche metrische Anker und bekannte Kameras.
+ * Sie belegen keine reale Kalibrierung oder metrische Gerätegenauigkeit.
  */
 class PoseEstimatorTest {
 

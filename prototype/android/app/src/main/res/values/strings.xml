@@ -165,6 +165,7 @@
     <string name="multiview_failed">Rekonstruktion fehlgeschlagen. Weitere Ansichten mit größerer Kopfdrehung aufnehmen.</string>
     <string name="multiview_result_title">Mehransichten-Teilnetz (experimentell)</string>
     <string name="multiview_result_detail">%1$d Ansichten; %2$d von 468 Punkten trianguliert, %3$d Dreiecke verworfen. Größter Ankerrest %4$.2f px; angenommene Brennweite %5$.0f px.</string>
+    <string name="multiview_result_preview">Vorschau des rekonstruierten Teilnetzes. Zum Drehen wischen. Offene Ränder und Löcher sind erwartet und werden nicht aufgefüllt.</string>
     <string name="multiview_result_limits">Einheit und Skala folgen den kanonischen Durchschnittsankern, nicht deiner Person. Der Reprojektionsrest sagt nichts über die reale 3D-Genauigkeit. Löcher, Ausreißer und falsche Tiefe sind möglich; es gibt keine Animation, keine Fototextur und keine Vollständigkeitsgarantie.</string>
     <string name="multiview_result_weak_pose">Mindestens eine Ansicht hatte einen großen Ankerrest. Behandle die Form mit besonderer Vorsicht.</string>
     <string name="multiview_export_obj">Teilnetz als OBJ exportieren</string>

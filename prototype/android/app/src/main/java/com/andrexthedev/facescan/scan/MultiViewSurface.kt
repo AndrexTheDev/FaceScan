@@ -28,6 +28,13 @@ object MultiViewSurface {
         return out
     }
 
+    /**
+     * Vorschau-Punkte für die bestehende Canvas-Oberfläche. Nicht belegte
+     * Slots bleiben NaN; die Vorschau lehnt solche Daten bewusst ab, statt
+     * Löcher mit Nachbarpunkten zu füllen.
+     */
+    fun previewPoints(result: MultiViewCapture.Result): FloatArray = densePoints(result.cloud)
+
     /** Diagnose: Anteil belegter Slots (keine Genauigkeitsaussage). */
     fun coverage(points: FloatArray): Double {
         require(points.size == CanonicalAnchors.LANDMARK_COUNT * 3)

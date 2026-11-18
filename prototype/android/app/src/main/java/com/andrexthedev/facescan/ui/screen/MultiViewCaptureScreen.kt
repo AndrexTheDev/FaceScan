@@ -1,10 +1,11 @@
 package com.andrexthedev.facescan.ui.screen
 
-import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +33,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -46,6 +51,7 @@ import com.andrexthedev.facescan.diagnostics.ScanEvent
 import com.andrexthedev.facescan.diagnostics.TestDiagnostics
 import com.andrexthedev.facescan.perception.FaceFrameAnalyzer
 import com.andrexthedev.facescan.perception.FaceStatus
+import com.andrexthedev.facescan.scan.FaceMeshRenderer
 import com.andrexthedev.facescan.scan.FaceViewRequest
 import com.andrexthedev.facescan.scan.MultiViewCapture
 import com.andrexthedev.facescan.scan.MultiViewSession
@@ -232,7 +238,7 @@ fun MultiViewCaptureScreen(
                         style = MaterialTheme.typography.bodySmall)
                 }
                 if (!cameraError && status == FaceStatus.FACE && !sessionReady) {
-                    OutlinedButton(onClick = {
+                    OutlinedButton(enabled = status == FaceStatus.FACE, onClick = {
                         // Bildgröße aus dem letzten Frame des Analyzers übernehmen.
                         val geometry = FaceViewGeometry.remembered()
                         if (geometry == null) feedback = context.getString(R.string.multiview_face_missing)
@@ -273,6 +279,28 @@ fun MultiViewCaptureScreen(
                     Text(stringResource(R.string.multiview_result_detail,
                         ready.acceptedViews.size, ready.surface.acceptedPoints, ready.surface.skippedTriangles,
                         ready.maxAnchorRmsPixels, ready.intrinsics.fx))
+                    val mesh = ready.surface.mesh
+                    if (mesh != null) {
+                        var previewYaw by remember(mesh) { mutableFloatStateOf(0f) }
+                        Canvas(
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 220.dp, max = 320.dp)
+                                .pointerInput(mesh) {
+                                    detectDragGestures { _, drag ->
+                                        previewYaw += drag.x * 0.01f
+                                    }
+                                }
+                        ) {
+                            drawIntoCanvas { canvas ->
+                                // Die Vorschau zeichnet im Canvas-Koordinatensystem.
+                                FaceMeshRenderer.drawPartial(
+                                    canvas.nativeCanvas, size.width, size.height, mesh, previewYaw)
+                            }
+                        }
+                        Text(stringResource(R.string.multiview_result_preview),
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                     Text(stringResource(R.string.multiview_result_limits), style = MaterialTheme.typography.bodyMedium)
                     if (ready.acceptedViews.count { it.rmsPixels > 2.0 } > 0)
                         Text(stringResource(R.string.multiview_result_weak_pose), style = MaterialTheme.typography.bodyMedium,

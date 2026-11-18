@@ -164,6 +164,7 @@
     <string name="multiview_failed">Reconstruction failed. Capture more views with a larger head turn.</string>
     <string name="multiview_result_title">Multi-view partial mesh (experimental)</string>
     <string name="multiview_result_detail">%1$d views; %2$d of 468 points triangulated, %3$d triangles discarded. Largest anchor residual %4$.2f px; assumed focal length %5$.0f px.</string>
+    <string name="multiview_result_preview">Preview of the reconstructed partial mesh. Drag to rotate. Open edges and holes are expected and are not filled in.</string>
     <string name="multiview_result_limits">Units and scale follow the canonical average anchors, not your face. The reprojection residual says nothing about real 3D accuracy. Holes, outliers and wrong depth are possible; there is no animation, no photo texture and no completeness guarantee.</string>
     <string name="multiview_result_weak_pose">At least one view had a large anchor residual. Treat the shape with extra caution.</string>
     <string name="multiview_export_obj">Export partial mesh as OBJ</string>

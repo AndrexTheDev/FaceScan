@@ -36,6 +36,24 @@ def synthetic_scene(yaws=(0.0, -22.0, 24.0), seed=4):
     return truth, views
 
 
+KOTLIN_ANCHOR_FILE = (Path(__file__).resolve().parents[2] / "android/app/src/main/java/"
+                      "com/andrexthedev/facescan/scan/CanonicalAnchorData.kt")
+
+
+def read_kotlin_anchors(path=KOTLIN_ANCHOR_FILE):
+    """Liest Indizes und Punkte aus der Kotlin-Datei, ohne sie zu kompilieren."""
+    import re
+    text = path.read_text(encoding="utf-8")
+    indices_block = re.search(r"val indices = intArrayOf\(([^)]*)\)", text)
+    points_block = re.search(r"val points: DoubleArray = doubleArrayOf\(([^)]*)\)", text)
+    if not indices_block or not points_block:
+        raise AssertionError("Ankerblöcke nicht gefunden")
+    indices = [int(v) for v in re.findall(r"\d+", indices_block.group(1))]
+    cleaned = re.sub(r"//[^\n]*", "", points_block.group(1))
+    values = [float(v) for v in re.findall(r"-?\d+\.\d+", cleaned)]
+    return indices, np.asarray(values).reshape(-1, 3)
+
+
 class MultiviewProbeTest(unittest.TestCase):
     def test_anchors_match_canonical_model(self):
         self.assertEqual(len(ANCHOR_INDICES), len(ANCHOR_POINTS))
@@ -45,6 +63,14 @@ class MultiviewProbeTest(unittest.TestCase):
         self.assertAlmostEqual(ANCHOR_POINTS[ANCHOR_INDICES.index(152)][1], -9.403378, places=6)
         # Dreidimensionale Verteilung: alle drei Achsen müssen streuen.
         self.assertTrue(np.all(np.ptp(ANCHOR_POINTS, axis=0) > 5.0))
+
+    def test_kotlin_anchor_data_matches_python_reference_exactly(self):
+        indices, points = read_kotlin_anchors()
+        self.assertEqual(indices, ANCHOR_INDICES)
+        self.assertEqual(points.shape, ANCHOR_POINTS.shape)
+        # Beide Werte stammen aus derselben Modellversion und müssen exakt
+        # übereinstimmen; sonst rechnen App und Referenz unterschiedlich.
+        np.testing.assert_allclose(points, ANCHOR_POINTS, rtol=0, atol=1e-6)
 
     def test_pose_and_triangulation_recover_synthetic_truth(self):
         truth, views = synthetic_scene()

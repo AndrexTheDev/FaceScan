@@ -117,9 +117,10 @@ class FirstRunDeviceTest {
         compose.waitUntil(timeoutMillis = 120_000) {
             compose.onAllNodesWithText(text(R.string.multiview_title)).fetchSemanticsNodes().isNotEmpty()
         }
-        // Der Emulator zeigt kein echtes Gesicht: Ohne Gesicht darf weder
-        // vorbereitet noch rekonstruiert werden.
-        compose.onNodeWithText(text(R.string.multiview_prepare)).assertIsEnabled()
+        // Der Emulator zeigt kein echtes Gesicht: Rekonstruieren ist gesperrt,
+        // solange keine zwei echten Ansichten vorliegen.
+        // Ohne Gesicht bleibt die Vorbereitung gesperrt.
+        compose.onNodeWithText(text(R.string.multiview_prepare)).assertIsNotEnabled()
         compose.onNodeWithText(text(R.string.multiview_reconstruct)).assertIsNotEnabled()
         compose.onNodeWithText(text(R.string.common_cancel)).performScrollTo().performClick()
         awaitText(R.string.model_ready)

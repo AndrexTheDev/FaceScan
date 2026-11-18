@@ -51,6 +51,22 @@ object PartialFaceMesh {
         return Result(mesh, accepted, skipped)
     }
 
+    /**
+     * Kompakte Float-Punkte (3N) für die bestehende Vorschau. Nicht belegte
+     * Slots werden mit NaN markiert; der Renderer prüft auf endliche Werte und
+     * zeichnet solche Daten nicht.
+     */
+    fun densePoints(mesh: Mesh): FloatArray {
+        val out = FloatArray(FaceTopology.VERTEX_COUNT * 3) { Float.NaN }
+        for (i in mesh.sourceIndices.indices) {
+            val target = mesh.sourceIndices[i]
+            out[3 * target] = mesh.vertices[i][0].toFloat()
+            out[3 * target + 1] = mesh.vertices[i][1].toFloat()
+            out[3 * target + 2] = mesh.vertices[i][2].toFloat()
+        }
+        return out
+    }
+
     /** Offenes, untexturiertes OBJ; Koordinateneinheit stammt aus den Ankern. */
     fun writeObj(mesh: Mesh): ByteArray {
         require(mesh.vertices.isNotEmpty() && mesh.vertices.all { it.size == 3 && it.all(Double::isFinite) })

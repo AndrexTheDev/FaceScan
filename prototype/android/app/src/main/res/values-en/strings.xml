@@ -139,4 +139,33 @@
     <string name="scan_loop_note">Adds an artificial 0.5-second transition back to the neutral shape. This portion was not recorded; turning it off restores the original recording.</string>
     <string name="scan_frontal_hint">Hint: Your face may be turned. For the neutral capture, try looking straight at the camera. This is a rough, unvalidated estimate.</string>
     <string name="scan_continuity_retry">Tracking was interrupted or the face moved abruptly. Please capture neutral again and hold still. This check does not reliably identify people.</string>
+
+    <string name="scan_multiview_start">Start experimental multi-view scan</string>
+    <string name="multiview_title">Multi-view capture (experimental)</string>
+    <string name="multiview_instruction">Between captures, turn your head clearly to the left and right, about 15 to 30 degrees each time. Each capture stores the current head pose as its own view. Capture frontal first, add the side views, then reconstruct.</string>
+    <string name="multiview_limitations">This reconstruction uses a canonical average face as reference. It is not a measurement of your face: shape and scale differ per person and are not validated. It produces an open partial mesh with possible holes, no hair, back of head, photo or animation. No identity check: use one person in one calm session only.</string>
+    <string name="multiview_status">Views: %1$d of at most %2$d; estimated head-turn spread %3$.0f degrees.</string>
+    <string name="multiview_assumed_intrinsics">Assumed focal length: %1$.0f px (from a 60 degree vertical field of view; not a calibration).</string>
+    <string name="multiview_prepare">Prepare views</string>
+    <string name="multiview_intrinsics_ready">Ready. Capture frontal first, then turn your head.</string>
+    <string name="multiview_capture_view">Capture current head pose</string>
+    <string name="multiview_cancel_view">Cancel capture</string>
+    <string name="multiview_cancelled">Capture cancelled.</string>
+    <string name="multiview_capture_wait">Hold your head still, capturing …</string>
+    <string name="multiview_capture_timeout">No usable view. Keep the whole face in frame and hold still.</string>
+    <string name="multiview_view_saved">View %1$d saved.</string>
+    <string name="multiview_turn_more">Head pose is too similar to a saved view. Please turn clearly further left or right.</string>
+    <string name="multiview_full">Maximum number of views reached.</string>
+    <string name="multiview_pose_rejected">View rejected: anchor fit too poor or face turned too far.</string>
+    <string name="multiview_face_missing">No usable face in view.</string>
+    <string name="multiview_need_views">Capture at least two distinct views.</string>
+    <string name="multiview_reconstructing">Reconstructing …</string>
+    <string name="multiview_reconstruct">Reconstruct partial mesh</string>
+    <string name="multiview_failed">Reconstruction failed. Capture more views with a larger head turn.</string>
+    <string name="multiview_result_title">Multi-view partial mesh (experimental)</string>
+    <string name="multiview_result_detail">%1$d views; %2$d of 468 points triangulated, %3$d triangles discarded. Largest anchor residual %4$.2f px; assumed focal length %5$.0f px.</string>
+    <string name="multiview_result_limits">Units and scale follow the canonical average anchors, not your face. The reprojection residual says nothing about real 3D accuracy. Holes, outliers and wrong depth are possible; there is no animation, no photo texture and no completeness guarantee.</string>
+    <string name="multiview_result_weak_pose">At least one view had a large anchor residual. Treat the shape with extra caution.</string>
+    <string name="multiview_export_obj">Export partial mesh as OBJ</string>
+    <string name="multiview_close">Back to start</string>
 </resources>

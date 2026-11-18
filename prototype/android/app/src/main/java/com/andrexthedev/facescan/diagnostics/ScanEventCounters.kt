@@ -5,7 +5,8 @@ enum class ScanEvent {
     NEUTRAL_ATTEMPT, NEUTRAL_ACCEPTED, NEUTRAL_REJECTED,
     PHOTO_STARTED, PHOTO_ACCEPTED, PHOTO_FAILED, PHOTO_CANCELLED,
     SEQUENCE_STARTED, SEQUENCE_ACCEPTED, SEQUENCE_FAILED, SEQUENCE_CANCELLED,
-    GLB_SAVED, OBJ_SAVED, EXPORT_FAILED, EXPORT_CANCELLED
+    GLB_SAVED, OBJ_SAVED, EXPORT_FAILED, EXPORT_CANCELLED,
+    MULTIVIEW_ACCEPTED, MULTIVIEW_FAILED
 }
 
 class ScanEventCounters {
@@ -20,6 +21,7 @@ class ScanEventCounters {
 Fotoanforderungen/übernommen/fehlgeschlagen/abgebrochen: ${n(ScanEvent.PHOTO_STARTED)}/${n(ScanEvent.PHOTO_ACCEPTED)}/${n(ScanEvent.PHOTO_FAILED)}/${n(ScanEvent.PHOTO_CANCELLED)}
 Mimikaufnahmen gestartet/übernommen/fehlgeschlagen/abgebrochen: ${n(ScanEvent.SEQUENCE_STARTED)}/${n(ScanEvent.SEQUENCE_ACCEPTED)}/${n(ScanEvent.SEQUENCE_FAILED)}/${n(ScanEvent.SEQUENCE_CANCELLED)}
 Export gespeichert GLB/OBJ, fehlgeschlagen/abgebrochen: ${n(ScanEvent.GLB_SAVED)}/${n(ScanEvent.OBJ_SAVED)}, ${n(ScanEvent.EXPORT_FAILED)}/${n(ScanEvent.EXPORT_CANCELLED)}
+Mehransichten-Rekonstruktionen rekonstruiert/fehlgeschlagen: ${n(ScanEvent.MULTIVIEW_ACCEPTED)}/${n(ScanEvent.MULTIVIEW_FAILED)}
 Zähler seit App-Start; laufende oder durch App-Ende unterbrochene Aktionen müssen nicht in den Ergebnissummen erscheinen. Speichern bestätigt keine Lesbarkeit in Fremdprogrammen."""
     }
 }

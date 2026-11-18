@@ -22,7 +22,7 @@ import com.andrexthedev.facescan.geometry.GeometryRunState
 import com.andrexthedev.facescan.diagnostics.DeviceSelfTest
 
 @Composable
-fun HomeScreen(state: ModelState, selfTests: DeviceSelfTest.Results?, geometryState: GeometryRunState, onGeometryTest: () -> Unit, onRetry: () -> Unit, onStart: () -> Unit, onScan: () -> Unit, onReport: () -> Unit) {
+fun HomeScreen(state: ModelState, selfTests: DeviceSelfTest.Results?, geometryState: GeometryRunState, onGeometryTest: () -> Unit, onRetry: () -> Unit, onStart: () -> Unit, onScan: () -> Unit, onMultiView: () -> Unit, onReport: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -63,6 +63,8 @@ fun HomeScreen(state: ModelState, selfTests: DeviceSelfTest.Results?, geometrySt
         }
         Button(onClick = onScan, enabled = state is ModelState.Ready && geometryState != GeometryRunState.RUNNING,
             modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_start)) }
+        OutlinedButton(onClick = onMultiView, enabled = state is ModelState.Ready && geometryState != GeometryRunState.RUNNING,
+            modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_multiview_start)) }
         OutlinedButton(onClick = onReport, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.report_open))
         }

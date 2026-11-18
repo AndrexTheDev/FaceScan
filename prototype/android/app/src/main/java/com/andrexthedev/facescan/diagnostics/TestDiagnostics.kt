@@ -82,6 +82,7 @@ Synthetischer M0-Geometrietest: $geometryFixture
 Geräte-Selbsttest (synthetisches Scan-Mesh und GLB): ${selfTests?.scanExport ?: "nicht ausgeführt"}
 Geräte-Selbsttest (synthetische Bildhinweise): ${selfTests?.imageQuality ?: "nicht ausgeführt"}
 Geräte-Selbsttest (synthetisches Foto/UV und OBJ): ${selfTests?.textureExport ?: "nicht ausgeführt"}
+Geräte-Selbsttest (synthetische Mehransichten aus kanonischen Ankern): ${selfTests?.multiView ?: "nicht ausgeführt"}
 Geräte-Selbsttest (MediaPipe auf Schwarzbild): ${selfTests?.landmarker ?: "nicht ausgeführt"}
 Frontkamera laut System: ${selfTests?.frontCamera ?: "nicht geprüft"}
 Metadaten der zuletzt gebundenen Kamera: Intrinsics ${calibration.intrinsics.label}; Verzeichnung ${calibration.distortion.label}; Sensorbereich ${calibration.activeArray.label}. Nur statische Angaben, keine validierte Kalibrierung oder Frame-Zuordnung.

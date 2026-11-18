@@ -19,6 +19,11 @@ class ScanEventCountersTest {
         assertTrue(counters.summary().contains("Neutral-Versuche/übernommen/abgelehnt: 1/1/0"))
         assertTrue(counters.summary().contains("Fotoanforderungen/übernommen/fehlgeschlagen/abgebrochen: 1/0/0/1"))
         assertTrue(counters.summary().contains("Export gespeichert GLB/OBJ, fehlgeschlagen/abgebrochen: 1/0, 0/0"))
+        assertTrue(counters.summary().contains("Mehransichten-Rekonstruktionen rekonstruiert/fehlgeschlagen: 0/0"))
+        counters.record(ScanEvent.MULTIVIEW_ACCEPTED)
+        counters.record(ScanEvent.MULTIVIEW_FAILED)
+        counters.record(ScanEvent.MULTIVIEW_FAILED)
+        assertTrue(counters.summary().contains("Mehransichten-Rekonstruktionen rekonstruiert/fehlgeschlagen: 1/2"))
     }
     @Test fun countingIsThreadSafe() {
         val counters = ScanEventCounters()

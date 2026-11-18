@@ -7,6 +7,7 @@ Diese Übersicht unterscheidet App-Funktionen von Entwürfen und synthetischen R
 | Installation und Offline-Betrieb | Modell wird beim ersten Start von Google geladen und anhand SHA-256 geprüft; danach lokal verwendet. | Download, Cache und Emulatorfälle vorhanden. Echte Netzwerkmessung pro Gerät offen. Modelllizenzprüfung weiterhin offen: `09`. |
 | Kamera und Erkennung | Frontkamera; MediaPipe-Landmarks, Bildrotation, Lebenszyklus und Berechtigungen. Bericht klassifiziert statische Metadaten der gebundenen Kamera ohne Ersatzwerte. | Kamera-Pfad mit künstlicher Emulator-Kamera getestet. Grobe Sprungerkennung verwirft den alten Verlauf, ist aber nicht validiert und keine Identitätsprüfung. Qualität und Abdeckung echter Gesichter, Geräte und Umgebungen offen. |
 | Geometrie | Offene Gesichtsfläche mit 468 Punkten und 898 Dreiecken aus einer Ansicht; neutral aus mehreren zeitlich nahen Frames derselben Ansicht starr ausgerichtet und robust per Median kombiniert. MediaPipe-Tiefe ist geschätzt, Augenabstand normiert. | Synthetische Pipeline-/Topologie-/Ausreißer-Tests vorhanden; der neue Neutral-Fusionspfad ist noch nicht auf einem echten Gerät geprüft. **Keine kalibrierte oder metrisch überprüfte 3D-Rekonstruktion, keine Multi-View-Fusion.** |
+| Mehransichten-Aufnahme | Eigener Bildschirm: Der Nutzer nimmt 2–8 Kopfhaltungen mit mindestens 12 Grad Unterschied auf; alle Ansichten werden über kanonische Durchschnittsanker verortet und die 468 Landmarks trianguliert. Ergebnis ist ein offenes Teilnetz mit OBJ-Export und ehrlichen Grenzhinweisen. | Nur synthetisch geprüft (JVM, Geräteselbsttest, unabhängiges Python-Referenzskript). Reale Kamera, echte Personen, Beleuchtung, Verdeckung und Genauigkeit sind ungetestet. Die Anker sind ein Populationsmittel, nicht die Person; Skala ist nicht metrisch validiert. |
 | Mehransichten-Kern | Separater experimenteller Kotlin-Kern kann Posen aus vorgegebenen räumlichen 3D-Ankern schätzen, korrespondierende entzerrte Pixel triangulieren, unvollständige Punktwolken und ein offenes Teilnetz samt statischem OBJ rekonstruieren; optionaler Mehrheitskonsens gegen Ausreißer und explizite Crop-/Rotations-/Skew-Umrechnung und opt-in Brown-Conrady-Entzerrung; keine Verbindung zum Scanablauf. | Nur künstliche Testdaten. Kalibrierung, Kamera-/Kopfposen, robuste reale Korrespondenzen, Verdeckungen und Oberflächenfusion fehlen; kein realer Mehransichten-Scan. |
 | Abdeckung | Nur sichtbare Gesichtsoberfläche. | Haar, Ohren, Hinterkopf und ein vollständiger, geschlossener Kopf fehlen. |
 | Aufnahmequalität | Heuristische Prüfungen auf Bildrand, Gesichtsgröße und Stabilität; experimentelle Licht-/Kontrast- und 2D-Ausrichtungshinweise, ohne Aufnahme zu blockieren. Fehlerhafte Sequenz wird verworfen. | Schwellen nicht an echten Geräten, Hauttönen oder Lichtbedingungen validiert; kein verlässlicher Schärfe-, Belichtungs- oder Verdeckungsnachweis. |
@@ -35,12 +36,12 @@ Die folgenden Werte sind eine **subjektive Planungsschätzung**, keine gemessene
 |---|---:|---:|---|
 | Installation, lokaler Betrieb | 10 | 6 | Modell-Lizenz, breite Gerätetests und Netzwerkmessung |
 | Geführte Aufnahme und Qualitätskontrolle | 15 | 3 | echte Mehransichten, Beleuchtung/Verdeckung validieren |
-| 3D-Rekonstruktion und Genauigkeit | 25 | 2 | kalibrierte Mehransichten, reale Ground Truth |
+| 3D-Rekonstruktion und Genauigkeit | 25 | 3 | kalibrierte Mehransichten, reale Ground Truth |
 | Vollständiger Kopf und Haar | 15 | 0 | nicht in der Android-App umgesetzt |
 | Animation und Rig | 10 | 2 | standardisierte Ausdrucksformen, Rig, reale Validierung |
 | Export und Bedienung | 10 | 3 | weitere Formate, Interoperabilität und Echtgerätetests |
 | Datenschutz und Recht | 5 | 2 | vollständige Datenschutz- und Lizenzprüfung |
 | Qualitätssicherung und Freigabe | 10 | 2 | reale Geräte, Teilnehmer und Abnahmekriterien |
-| **Summe** | **100** | **ca. 20** | **Grobe Gesamtschätzung: etwa 20 %** |
+| **Summe** | **100** | **ca. 21** | **Grobe Gesamtschätzung: etwa 21 %** |
 
-Ein bestandenes synthetisches oder Emulator-Testpaket erhöht diese Zahl nicht automatisch: der ungelöste Kern ist die echte, validierte Rekonstruktion, nicht die Zahl der Tests oder Dateien.
+Ein bestandenes synthetisches oder Emulator-Testpaket erhöht diese Zahl nicht automatisch: der ungelöste Kern ist die echte, validierte Rekonstruktion, nicht die Zahl der Tests oder Dateien. Die Mehransichten-Aufnahme erhöht den Anteil nur geringfügig, weil sie zwar echte Kamerabilder nutzt, aber auf einem Durchschnittsgesicht als Bezug beruht und noch nie an einer Person geprüft wurde.

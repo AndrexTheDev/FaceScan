@@ -24,6 +24,7 @@ import com.andrexthedev.facescan.ui.screen.CameraPermissionGate
 import com.andrexthedev.facescan.ui.screen.CaptureScreen
 import com.andrexthedev.facescan.ui.screen.DiagnosticScreen
 import com.andrexthedev.facescan.ui.screen.HomeScreen
+import com.andrexthedev.facescan.ui.screen.MultiViewCaptureScreen
 import com.andrexthedev.facescan.ui.screen.ScanCaptureScreen
 import com.andrexthedev.facescan.ui.screen.ScanReviewScreen
 import com.andrexthedev.facescan.scan.FaceSurface
@@ -95,6 +96,7 @@ fun FaceScanApp() {
                     onRetry = { attempt++ },
                     onStart = { navController.navigate("capture") },
                     onScan = { faceSurface = null; navController.navigate("scan") },
+                    onMultiView = { navController.navigate("multiview") },
                     onReport = { navController.navigate("report") }
                 )
             }
@@ -126,6 +128,16 @@ fun FaceScanApp() {
                 if (surface != null) {
                     DisposableEffect(surface) { onDispose { faceSurface = null } }
                     ScanReviewScreen(surface, diagnostics) { navController.popBackStack("home", false) }
+                }
+            }
+            composable("multiview") {
+                val ready = state as? ModelState.Ready
+                if (ready != null) {
+                    CameraPermissionGate(onCancel = { navController.popBackStack() }) {
+                        MultiViewCaptureScreen(ready.file, diagnostics,
+                            onCancel = { navController.popBackStack() },
+                            onComplete = { navController.popBackStack("home", false) })
+                    }
                 }
             }
             composable("report") {

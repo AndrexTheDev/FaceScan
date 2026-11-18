@@ -140,4 +140,33 @@
     <string name="scan_loop_note">Fügt am Ende einen künstlichen Übergang von 0,5 Sekunden zur Neutralform hinzu. Dieser Teil wurde nicht aufgenommen; beim Ausschalten bleibt die Originalaufnahme erhalten.</string>
     <string name="scan_frontal_hint">Hinweis: Das Gesicht wirkt möglicherweise gedreht. Für die Neutralaufnahme möglichst gerade in die Kamera schauen. Grobe, nicht validierte Schätzung.</string>
     <string name="scan_continuity_retry">Verlauf unterbrochen oder Gesicht stark verschoben. Bitte neutral erneut aufnehmen und ruhig halten. Diese Prüfung erkennt Personen nicht zuverlässig.</string>
+
+    <string name="scan_multiview_start">Experimentellen Mehransichten-Scan starten</string>
+    <string name="multiview_title">Mehransichten-Aufnahme (experimentell)</string>
+    <string name="multiview_instruction">Drehe den Kopf zwischen den Aufnahmen deutlich nach links und rechts, jeweils etwa 15 bis 30 Grad. Jede Aufnahme speichert die aktuelle Kopfhaltung als eigene Ansicht. Frontal aufnehmen, dann die seitlichen Ansichten ergänzen und anschließend rekonstruieren.</string>
+    <string name="multiview_limitations">Diese Rekonstruktion nutzt ein kanonisches Durchschnittsgesicht als Bezug. Sie ist keine Vermessung deines Gesichts: Form und Skala weichen bei jeder Person ab und sind nicht validiert. Es entsteht ein offenes Teilnetz mit möglichen Löchern, ohne Haare, Hinterkopf, Foto oder Animation. Keine Identitätsprüfung: Nutze nur eine Person in einer ruhigen Sitzung.</string>
+    <string name="multiview_status">Ansichten: %1$d von maximal %2$d; geschätzte Kopfdrehungsspanne %3$.0f Grad.</string>
+    <string name="multiview_assumed_intrinsics">Angenommene Brennweite: %1$.0f px (aus 60 Grad vertikalem Sichtfeld; keine Kalibrierung).</string>
+    <string name="multiview_prepare">Ansichten vorbereiten</string>
+    <string name="multiview_intrinsics_ready">Bereit. Frontal aufnehmen und danach den Kopf drehen.</string>
+    <string name="multiview_capture_view">Aktuelle Kopfhaltung aufnehmen</string>
+    <string name="multiview_cancel_view">Aufnahme abbrechen</string>
+    <string name="multiview_cancelled">Aufnahme abgebrochen.</string>
+    <string name="multiview_capture_wait">Kopf ruhig halten, Aufnahme läuft …</string>
+    <string name="multiview_capture_timeout">Keine auswertbare Ansicht. Gesicht vollständig ins Bild nehmen und ruhig halten.</string>
+    <string name="multiview_view_saved">Ansicht %1$d gespeichert.</string>
+    <string name="multiview_turn_more">Kopfhaltung ähnelt einer gespeicherten Ansicht. Bitte deutlich weiter nach links oder rechts drehen.</string>
+    <string name="multiview_full">Maximale Anzahl an Ansichten erreicht.</string>
+    <string name="multiview_pose_rejected">Ansicht verworfen: Ankerpassung zu schlecht oder Gesicht zu stark gedreht.</string>
+    <string name="multiview_face_missing">Kein verwertbares Gesicht im Bild.</string>
+    <string name="multiview_need_views">Mindestens zwei unterschiedliche Ansichten aufnehmen.</string>
+    <string name="multiview_reconstructing">Rekonstruktion läuft …</string>
+    <string name="multiview_reconstruct">Teilnetz rekonstruieren</string>
+    <string name="multiview_failed">Rekonstruktion fehlgeschlagen. Weitere Ansichten mit größerer Kopfdrehung aufnehmen.</string>
+    <string name="multiview_result_title">Mehransichten-Teilnetz (experimentell)</string>
+    <string name="multiview_result_detail">%1$d Ansichten; %2$d von 468 Punkten trianguliert, %3$d Dreiecke verworfen. Größter Ankerrest %4$.2f px; angenommene Brennweite %5$.0f px.</string>
+    <string name="multiview_result_limits">Einheit und Skala folgen den kanonischen Durchschnittsankern, nicht deiner Person. Der Reprojektionsrest sagt nichts über die reale 3D-Genauigkeit. Löcher, Ausreißer und falsche Tiefe sind möglich; es gibt keine Animation, keine Fototextur und keine Vollständigkeitsgarantie.</string>
+    <string name="multiview_result_weak_pose">Mindestens eine Ansicht hatte einen großen Ankerrest. Behandle die Form mit besonderer Vorsicht.</string>
+    <string name="multiview_export_obj">Teilnetz als OBJ exportieren</string>
+    <string name="multiview_close">Zurück zur Startseite</string>
 </resources>

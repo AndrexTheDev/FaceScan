@@ -1,0 +1,166 @@
+package com.andrexthedev.facescan.scan
+
+import com.andrexthedev.facescan.geometry.CameraModel
+import com.andrexthedev.facescan.geometry.LandmarkProjection
+import com.andrexthedev.facescan.geometry.Mat3
+import com.andrexthedev.facescan.geometry.MultiViewTriangulation
+import org.junit.Assert.*
+import org.junit.Test
+import kotlin.math.abs
+
+class MultiViewCaptureTest {
+    private val w = 640
+    private val h = 480
+    private val f = 760.0
+    private val intrinsics = MultiViewCapture.Intrinsics(f, f, w / 2.0, h / 2.0)
+
+    /** Künstliche Aufnahme: kanonische Anker plus drei frei gewählte Zusatzpunkte. */
+    private fun view(yawDegrees: Double, translation: DoubleArray = doubleArrayOf(0.0, 0.0, 60.0),
+                     hole: Int? = null, shiftIndex: Int? = null, shiftPixels: Double = 0.0): MultiViewCapture.View {
+        val camera = CameraModel(f, f, w / 2.0, h / 2.0)
+        val rotation = Mat3.fromRodrigues(doubleArrayOf(0.0, Math.toRadians(yawDegrees), 0.0))
+        val points = FloatArray(CanonicalAnchors.LANDMARK_COUNT * 3) { i -> if (i % 3 == 2) 0f else 0.5f }
+        fun project(p: DoubleArray, index: Int, offsetPixels: Double = 0.0) {
+            val q = DoubleArray(2)
+            camera.project(rotation, translation, p, q)
+            points[3 * index] = ((q[0] + offsetPixels) / w).toFloat()
+            points[3 * index + 1] = (q[1] / h).toFloat()
+        }
+        for (a in 0 until CanonicalAnchorData.COUNT) {
+            val index = CanonicalAnchorData.indices[a]
+            if (index == hole) continue
+            project(doubleArrayOf(CanonicalAnchorData.points[3 * a], CanonicalAnchorData.points[3 * a + 1],
+                CanonicalAnchorData.points[3 * a + 2]), index, if (index == shiftIndex) shiftPixels else 0.0)
+        }
+        // Zwei zusätzliche Punkte, die in allen Ansichten dieselbe 3D-Lage haben.
+        project(doubleArrayOf(1.0, -2.0, 6.0), 0)
+        project(doubleArrayOf(-3.0, 1.5, 4.5), 100)
+        return MultiViewCapture.View(points, w, h)
+    }
+
+    @Test fun syntheticDeviceSelfTestPasses() { assertTrue(MultiViewSessionSelfTest.run()) }
+
+    @Test fun anchorsMatchIndependentlyExtractedCanonicalModel() {
+        // Referenzwerte aus canonical_face_model.obj v0.10.14, unabhängig per Python
+        // extrahiert: Nasenspitze (4), Kinn (152), rechtes Augeninnen (33), linke Wange (454).
+        val expected = mapOf(
+            4 to doubleArrayOf(0.0, -0.463170, 7.586580),
+            152 to doubleArrayOf(0.0, -9.403378, 4.264492),
+            33 to doubleArrayOf(-4.445859, 2.663991, 3.173422),
+            454 to doubleArrayOf(7.664182, 0.673132, -2.435867)
+        )
+        for ((landmark, point) in expected) {
+            val slot = CanonicalAnchorData.indices.indexOf(landmark)
+            assertTrue("Anker $landmark fehlt", slot >= 0)
+            for (axis in 0..2) assertEquals(point[axis], CanonicalAnchorData.points[3 * slot + axis], 1e-6)
+        }
+        assertEquals(30, CanonicalAnchorData.COUNT)
+        assertEquals(30, CanonicalAnchorData.indices.distinct().size)
+        // Die Anker müssen dreidimensional verteilt sein, sonst ist die Pose nicht bestimmt.
+        val zs = (0 until CanonicalAnchorData.COUNT).map { CanonicalAnchorData.points[3 * it + 2] }
+        assertTrue(zs.max() - zs.min() > 5.0)
+    }
+
+    @Test fun assumesSymmetricIntrinsicsFromVerticalFieldOfView() {
+        val assumed = MultiViewCapture.assumedIntrinsics(1080, 1920, 60.0)
+        assertEquals(1080 / 2.0 / Math.tan(Math.toRadians(30.0)), assumed.fy, 1e-9)
+        assertEquals(assumed.fy, assumed.fx, 0.0)
+        assertEquals(540.0, assumed.cx, 0.0)
+        try { MultiViewCapture.assumedIntrinsics(0, 10, 60.0); fail() } catch (_: IllegalArgumentException) { }
+        try { MultiViewCapture.assumedIntrinsics(100, 10, 200.0); fail() } catch (_: IllegalArgumentException) { }
+    }
+
+    @Test fun reconstructsLiveStyleViewsFromDifferentHeadTurns() {
+        val views = listOf(view(0.0), view(-22.0), view(24.0))
+        when (val outcome = MultiViewCapture.reconstruct(views, intrinsics)) {
+            is MultiViewCapture.Outcome.Rejected -> fail("Abgelehnt: ${outcome.reason}")
+            is MultiViewCapture.Outcome.Reconstructed -> {
+                val result = outcome.result
+                assertEquals(3, result.acceptedViews.size)
+                val a = result.cloud.points[0] as MultiViewTriangulation.Result.Point
+                assertArrayEquals(doubleArrayOf(1.0, -2.0, 6.0), a.xyz, 0.05)
+                val b = result.cloud.points[100] as MultiViewTriangulation.Result.Point
+                assertArrayEquals(doubleArrayOf(-3.0, 1.5, 4.5), b.xyz, 0.05)
+                // Ankerpunkte sind ebenfalls triangulierbar (dort liegen Korrespondenzen vor).
+                assertTrue(result.cloud.acceptedCount >= 2)
+                assertTrue(result.maxAnchorRmsPixels < 1.0)
+                val mesh = result.surface.mesh!!
+                assertTrue(mesh.vertices.isNotEmpty())
+                val text = String(MultiViewCapture.writeObj(result)!!, Charsets.UTF_8)
+                assertTrue(text.startsWith("# FaceScan partial multiview surface"))
+                assertTrue(text.contains("not validated"))
+            }
+        }
+    }
+
+    @Test fun rejectsCorruptedInconsistentAndOutOfFrameInputs() {
+        // Ein einzelner verschobener Ankerpunkt erzeugt einen großen Rest.
+        val shifted = view(0.0, shiftIndex = CanonicalAnchorData.indices[3], shiftPixels = 200.0)
+        val outcome = MultiViewCapture.reconstruct(listOf(view(0.0), shifted), intrinsics)
+        assertTrue(outcome is MultiViewCapture.Outcome.Rejected)
+
+        assertEquals(MultiViewCapture.Failure.TOO_MANY_VIEWS,
+            (MultiViewCapture.reconstruct(List(9) { view(it * 15.0) }, intrinsics) as MultiViewCapture.Outcome.Rejected).reason)
+        assertEquals(MultiViewCapture.Failure.INCONSISTENT_DIMENSIONS,
+            (MultiViewCapture.reconstruct(listOf(view(0.0), view(20.0).copy(width = 320)), intrinsics)
+                as MultiViewCapture.Outcome.Rejected).reason)
+        assertEquals(MultiViewCapture.Failure.ANCHORS_OUT_OF_FRAME,
+            (MultiViewCapture.reconstruct(listOf(view(0.0, hole = CanonicalAnchorData.indices[0]), view(20.0)), intrinsics)
+                as MultiViewCapture.Outcome.Rejected).reason)
+        val wide = view(-70.0)
+        val invalid = wide.copy(points = wide.points.copyOf().also { it[0] = Float.NaN })
+        assertEquals(MultiViewCapture.Failure.INVALID_VIEW,
+            (MultiViewCapture.reconstruct(listOf(view(0.0), invalid), intrinsics) as MultiViewCapture.Outcome.Rejected).reason)
+        assertEquals(MultiViewCapture.Failure.INVALID_VIEW,
+            (MultiViewCapture.reconstruct(listOf(view(0.0), view(20.0)), intrinsics, -1.0)
+                as MultiViewCapture.Outcome.Rejected).reason)
+    }
+
+    @Test fun rejectedAnchorsNeverProduceInventedPixels() {
+        val projection = LandmarkProjection.pixel(FloatArray(3) { 0.5f }, 0, w, h)
+        assertNotNull(projection)
+        assertNull(LandmarkProjection.pixel(floatArrayOf(1.2f, 0.5f, 0f), 0, w, h))
+        assertNull(LandmarkProjection.pixel(floatArrayOf(0.5f, 0.5f, 0f), 0, 0, h))
+        assertNull(LandmarkProjection.pixel(floatArrayOf(Float.NaN, 0.5f, 0f), 0, w, h))
+        assertNull(LandmarkProjection.pixels(FloatArray(3) { 0.5f }, intArrayOf(0, 5), w, h))
+        assertEquals((0.4 * w) - 0.5, projection!!.u, 1e-9)
+    }
+
+    @Test fun sessionRequiresDistinctHeadTurnsAndKeepsSessionState() {
+        val session = MultiViewSession(intrinsics)
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, session.add(view(0.0).points, w, h))
+        assertEquals(MultiViewSession.AddResult.INSUFFICIENT_YAW_DIFFERENCE, session.add(view(4.0).points, w, h))
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, session.add(view(-25.0).points, w, h))
+        assertEquals(MultiViewSession.AddResult.INCONSISTENT_DIMENSIONS, session.add(view(25.0).points, w / 2, h / 2))
+        assertEquals(2, session.size())
+        assertTrue(session.yawSpreadDegrees() > 20.0)
+        val outcome = session.reconstruct()
+        assertTrue(outcome is MultiViewCapture.Outcome.Reconstructed)
+        session.clear()
+        assertEquals(0, session.size())
+        assertTrue(session.reconstruct() is MultiViewCapture.Outcome.Rejected)
+    }
+
+    @Test fun localFocalSearchRecoversApproximateFocalLengthFromAnchors() {
+        // Ansicht mit einer anderen als der angenommenen Brennweite.
+        val trueFocal = 1050.0
+        val camera = CameraModel(trueFocal, trueFocal, w / 2.0, h / 2.0)
+        val anchors = CanonicalAnchorData.indices.indices.map { a ->
+            val p = doubleArrayOf(CanonicalAnchorData.points[3 * a], CanonicalAnchorData.points[3 * a + 1],
+                CanonicalAnchorData.points[3 * a + 2]).let { doubleArrayOf(it[0] + 2.0, it[1], it[2]) }
+            val q = DoubleArray(2)
+            camera.project(Mat3.fromRodrigues(doubleArrayOf(0.05, 0.35, -0.02)), doubleArrayOf(-5.0, 2.0, 55.0), p, q)
+            com.andrexthedev.facescan.geometry.ValidatedAnchorPose.Anchor(p, q[0], q[1])
+        }
+        val search = FocalSearch.estimate(anchors, CameraModel(760.0, 760.0, w / 2.0, h / 2.0))
+        assertNotNull(search)
+        // Die Suche ist grob und nicht eindeutig; sie muss aber deutlich besser
+        // passen als die falsche Ausgangsannahme und im zulässigen Bereich liegen.
+        val baseline = com.andrexthedev.facescan.geometry.ValidatedAnchorPose
+            .estimate(CameraModel(760.0, 760.0, w / 2.0, h / 2.0), anchors, 6.0, 0.0)
+        assertTrue(search!!.pose.rmsPixels < 1.0)
+        assertTrue(baseline is com.andrexthedev.facescan.geometry.ValidatedAnchorPose.Result.Pose)
+        assertTrue(search.intrinsics.fx > 0.0 && search.intrinsics.fx.isFinite())
+        assertTrue(abs(search.intrinsics.fx - trueFocal) / trueFocal < 0.5)
+    }
+}

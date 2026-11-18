@@ -14,6 +14,14 @@ Die angepasste Ähnlichkeitstransformation (Rotation ohne Spiegelung, Translatio
 
 **Interpretation:** Weil Skala und Lage anhand der Referenz angepasst werden, ist der Holdout-Fehler ein Formvergleich *nach* Referenzkalibrierung. Er belegt weder eine unabhängig metrisch kalibrierte App noch die Messgüte von Referenzgerät oder Markierung. Registrierungs- und Zuordnungsfehler, Gesichtsausdruck, verdeckte Punkte, Gesichtsbewegungen, Geräteeigenschaften und demografische Bandbreite müssen separat untersucht und dokumentiert werden. Ohne Ground Truth oder ohne unabhängige Holdout-Punkte keine Millimeter-Genauigkeit behaupten.
 
+## Mehransichten-Referenz (`multiview_probe.py`)
+
+Unabhängige Python-Umsetzung derselben Rechnung: Pose aus 30 kanonischen Ankern (anderer Startwert, numerische Ableitungen), Triangulation der übrigen Landmarks, optionaler Vergleich mit einer synthetischen Wahrheit. Eingabe ist eine JSON-Datei mit Kamera (`fx`, `fy`, `cx`, `cy`), Ansichten (`width`, `height`, normalisierte Landmarks) und optional `truth`. Die Fehlerausgabe bezieht sich ausschließlich auf die synthetische Wahrheit und ist **keine** reale Genauigkeit.
+
+```sh
+python prototype/reference/validation/multiview_probe.py szene.json
+```
+
 Tests (ohne reale Daten):
 
 ```sh

@@ -15,7 +15,11 @@ object PartialFaceMeshSelfTest {
         val mesh = result.mesh ?: return false
         if (result.acceptedPoints != 467 || result.skippedTriangles == 0 || mesh.sourceIndices.any { it == 0 }) return false
         val obj = String(PartialFaceMesh.writeObj(mesh), Charsets.UTF_8)
-        return obj.lineSequence().count { it.startsWith("v ") } == mesh.vertices.size &&
-            obj.lineSequence().count { it.startsWith("f ") } == mesh.triangles.size / 3 && obj.contains("not validated")
+        if (obj.lineSequence().count { it.startsWith("v ") } != mesh.vertices.size ||
+            obj.lineSequence().count { it.startsWith("f ") } != mesh.triangles.size / 3 ||
+            !obj.contains("not validated")) return false
+        val dense = MultiViewSurface.densePoints(MultiViewPointCloud.Result(data, data.size - 1))
+        if (dense[0].isFinite() || !dense[3].isFinite() || kotlin.math.abs(MultiViewSurface.coverage(dense) - 467.0 / 468.0) > 1e-9) return false
+        return MultiViewSessionSelfTest.run()
     }
 }

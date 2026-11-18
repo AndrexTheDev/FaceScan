@@ -32,6 +32,9 @@ class FaceFrameAnalyzer(
     private val onTexture: ((Long, FaceTexture?, FaceFrame) -> Unit)? = null,
     private val onQualityHint: ((ImageQuality.Hint?) -> Unit)? = null,
     private val onFrontalHint: ((Boolean?) -> Unit)? = null,
+    // Experimentelle Mehransichten-Aufnahme: nur nach ausdrücklicher Anforderung.
+    private val viewCapture: ((FaceFrame) -> Unit)? = null,
+    private val viewRequest: FaceViewRequest? = null,
     private val onStatus: (FaceStatus) -> Unit
 ) : AutoCloseable {
     private val clock = FrameClock()
@@ -81,6 +84,10 @@ class FaceFrameAnalyzer(
                             catch (_: Exception) { null }
                         onFrontalHint.invoke(hint)
                     }
+                }
+                if (viewRequest != null && viewRequest.take() && viewCapture != null) {
+                    // Aufrechte Bitmap und normierte Landmarks derselben Erkennung.
+                    viewCapture.invoke(FaceFrame(landmarks.copyOf(), upright.width, upright.height, frameStartedAt))
                 }
                 val id = textureRequest?.take() ?: 0L
                 if (id != 0L) {

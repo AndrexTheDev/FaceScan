@@ -64,6 +64,7 @@ class FirstRunDeviceTest {
         compose.onNodeWithText("Geräte-Selbsttest (synthetisches Scan-Mesh und GLB): bestanden", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (synthetisches Foto/UV und OBJ): bestanden", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (synthetische Bildhinweise): bestanden", substring = true).assertExists()
+        compose.onNodeWithText("Geräte-Selbsttest (synthetische Mehransichten aus kanonischen Ankern): bestanden", substring = true).assertExists()
         compose.onNodeWithText(text(R.string.report_copy)).performScrollTo().performClick()
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val report = clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
@@ -108,6 +109,22 @@ class FirstRunDeviceTest {
         awaitText(R.string.model_ready)
         compose.onNodeWithText(text(R.string.report_open)).performScrollTo().performClick()
         compose.onNodeWithText("Neutral-Versuche/übernommen/abgelehnt: 1/0/1", substring = true).assertExists()
+    }
+
+    @Test fun multiViewScreenPreparesViewsWithoutInventingResults() {
+        awaitText(R.string.model_ready)
+        compose.onNodeWithText(text(R.string.scan_multiview_start)).performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 120_000) {
+            compose.onAllNodesWithText(text(R.string.multiview_title)).fetchSemanticsNodes().isNotEmpty()
+        }
+        // Der Emulator zeigt kein echtes Gesicht: Ohne Gesicht darf weder
+        // vorbereitet noch rekonstruiert werden.
+        compose.onNodeWithText(text(R.string.multiview_prepare)).assertIsEnabled()
+        compose.onNodeWithText(text(R.string.multiview_reconstruct)).assertIsNotEnabled()
+        compose.onNodeWithText(text(R.string.common_cancel)).performScrollTo().performClick()
+        awaitText(R.string.model_ready)
+        compose.onNodeWithText(text(R.string.report_open)).performScrollTo().performClick()
+        compose.onNodeWithText("Mehransichten-Rekonstruktionen rekonstruiert/fehlgeschlagen: 0/0", substring = true).assertExists()
     }
 
     @Test fun syntheticGeometryTestRunsAndAppearsInReport() {

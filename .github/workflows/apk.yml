@@ -134,6 +134,8 @@ jobs:
           python3 -m pip install --user numpy trimesh==4.7.4
           python3 -m unittest discover -s prototype/reference/validation -v
           python3 prototype/android/ci/validate-obj.py
+      - name: Mehransichten-Referenz synthetisch prüfen
+        run: python3 -m unittest -v prototype/reference/validation/test_multiview_probe.py
 
       - name: Testergebnis hochladen
         if: always()

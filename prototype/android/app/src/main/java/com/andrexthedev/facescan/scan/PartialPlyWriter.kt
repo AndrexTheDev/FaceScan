@@ -93,13 +93,21 @@ object PartialPlyWriter {
         val topology = PartialMeshTopology.inspect(mesh.vertices.size, indices)
         val shaded = colors != null && colors.vertexCount == mesh.vertices.size
         val body = ByteArrayOutputStream()
-        fun floats(values: FloatArray) {
-            val buffer = ByteBuffer.allocate(values.size * 4).order(ByteOrder.LITTLE_ENDIAN)
-            values.forEach { buffer.putFloat(it) }
-            body.write(buffer.array())
+        // PLY schreibt je Vertex ALLE Eigenschaften hintereinander (x,y,z,red,
+        // green,blue). Ein Blocklayout wäre keine gültige Datei.
+        val vertexRecord = ByteBuffer.allocate(positions.size / 3 * (12 + if (shaded) 3 else 0))
+            .order(ByteOrder.LITTLE_ENDIAN)
+        for (v in 0 until positions.size / 3) {
+            vertexRecord.putFloat(positions[3 * v])
+            vertexRecord.putFloat(positions[3 * v + 1])
+            vertexRecord.putFloat(positions[3 * v + 2])
+            if (shaded) {
+                vertexRecord.put(colors!!.colors[3 * v])
+                vertexRecord.put(colors!!.colors[3 * v + 1])
+                vertexRecord.put(colors!!.colors[3 * v + 2])
+            }
         }
-        floats(positions)
-        if (shaded) body.write(colors!!.colors)
+        body.write(vertexRecord.array())
         // Binäres PLY schreibt Flächen als list: 1 Byte Anzahl + n Indizes.
         val faceHeader = "property list uchar int vertex_indices"
         for (t in indices.indices step 3) {

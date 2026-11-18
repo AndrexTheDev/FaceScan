@@ -272,6 +272,64 @@ class MultiViewCaptureTest {
         }
     }
 
+
+    @Test fun topologyReportsBoundaryNonManifoldAndComponents() {
+        // Ein einzelnes Dreieck hat drei Randkanten und eine Komponente.
+        val single = PartialMeshTopology.inspect(3, intArrayOf(0, 1, 2))
+        assertEquals(1, single.triangleCount)
+        assertEquals(3, single.boundaryEdges)
+        assertEquals(0, single.nonManifoldEdges)
+        assertEquals(1, single.components)
+        assertEquals(1, single.largestComponentTriangles)
+        // Geschlossener Tetraeder: keine Randkante, eine Komponente.
+        val tetra = PartialMeshTopology.inspect(4, intArrayOf(0, 1, 2, 0, 2, 3, 0, 3, 1, 1, 3, 2))
+        assertEquals(0, tetra.boundaryEdges)
+        assertEquals(0, tetra.nonManifoldEdges)
+        assertEquals(1, tetra.components)
+        assertEquals(4, tetra.largestComponentTriangles)
+        // Zwei getrennte Dreiecke: zwei Komponenten, sechs Randkanten.
+        val split = PartialMeshTopology.inspect(6, intArrayOf(0, 1, 2, 3, 4, 5))
+        assertEquals(2, split.components)
+        assertEquals(6, split.boundaryEdges)
+        assertEquals(1, split.largestComponentTriangles)
+        // Drei Dreiecke an einer gemeinsamen Kante sind keine Mannigfaltigkeit.
+        val fan = PartialMeshTopology.inspect(5, intArrayOf(0, 1, 2, 0, 1, 3, 0, 1, 4))
+        assertEquals(1, fan.nonManifoldEdges)
+        assertEquals(1, fan.components)
+        // Leeres Netz: keine erfundenen Zahlen.
+        val empty = PartialMeshTopology.inspect(7, intArrayOf())
+        assertEquals(0, empty.components)
+        assertEquals(0, empty.triangleCount)
+        assertEquals(7, empty.vertexCount)
+    }
+
+    @Test fun partialExportDeclaresTopologyConsistently() {
+        val outcome = MultiViewCapture.reconstruct(listOf(view(0.0), view(-22.0)), intrinsics)
+            as MultiViewCapture.Outcome.Reconstructed
+        val result = outcome.result
+        val mesh = result.surface.mesh!!
+        val expected = PartialMeshTopology.inspect(mesh)
+        assertEquals(expected.triangleCount, result.topology.triangleCount)
+        assertEquals(expected.boundaryEdges, result.topology.boundaryEdges)
+        assertEquals(expected.components, result.topology.components)
+        // Ein offenes Teilnetz muss Randkanten haben, sonst wäre es geschlossen.
+        assertTrue(result.topology.boundaryEdges > 0)
+        assertEquals(0, result.topology.nonManifoldEdges)
+        val obj = String(MultiViewCapture.writeObjWithHeader(result)!!, Charsets.UTF_8)
+        assertTrue(obj.contains("# topology ${PartialMeshTopology.describe(expected)}"))
+        // Das GLB deklariert die Struktur der tatsächlich geschriebenen Flächen;
+        // in Float32 können zusätzliche Dreiecke flächenlos werden.
+        val flat = FloatArray(mesh.vertices.size * 3) { i -> mesh.vertices[i / 3][i % 3].toFloat() }
+        val written = PartialGlbWriter.floatSafeTriangles(flat, mesh.triangles)
+        val writtenTopology = PartialMeshTopology.inspect(mesh.vertices.size, written)
+        assertTrue(writtenTopology.triangleCount <= expected.triangleCount)
+        val glb = String(PartialGlbWriter.write(mesh), Charsets.ISO_8859_1)
+        assertTrue(glb.contains("\"triangles\":${writtenTopology.triangleCount}"))
+        assertTrue(glb.contains("\"boundaryEdges\":${writtenTopology.boundaryEdges}"))
+        assertTrue(glb.contains("\"components\":${writtenTopology.components}"))
+        assertTrue(glb.contains("structure only, not a quality or accuracy measure"))
+    }
+
     @Test fun localFocalSearchRecoversApproximateFocalLengthFromAnchors() {
         // Ansicht mit einer anderen als der angenommenen Brennweite.
         val trueFocal = 1050.0

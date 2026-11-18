@@ -65,11 +65,65 @@ def validate_partial(obj_path: Path, reference_path: Path) -> None:
         raise ValueError("Partial mesh must be incomplete but non-empty")
     if faces.max(initial=-1) >= vertices.shape[0]:
         raise ValueError("Out-of-range face index")
+    check_partial_topology(reference, faces, "partial OBJ")
     # Degenerierte Dreiecke dürfen im Export nicht vorkommen.
     triangles = vertices[faces]
     doubled_area = np.linalg.norm(np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]), axis=1)
     if not np.all(doubled_area > 0):
         raise ValueError("Degenerate triangle exported")
+
+
+def topology_counts(faces: np.ndarray) -> dict:
+    """Unabhängige Strukturzählung: Kanten über sortierte Endpunkte."""
+    edges = {}
+    for a, b, c in faces:
+        for p, q in ((a, b), (b, c), (c, a)):
+            key = (int(min(p, q)), int(max(p, q)))
+            edges[key] = edges.get(key, 0) + 1
+    boundary = sum(1 for n in edges.values() if n == 1)
+    non_manifold = sum(1 for n in edges.values() if n > 2)
+    # Zusammenhangskomponenten über Dreieckskanten (Union-Find).
+    parent = {}
+
+    def find(x):
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(x, y):
+        rx, ry = find(x), find(y)
+        if rx != ry:
+            parent[ry] = rx
+
+    for a, b, c in faces:
+        union(int(a), int(b))
+        union(int(b), int(c))
+    roots = {}
+    for a, _, _ in faces:
+        roots[find(int(a))] = roots.get(find(int(a)), 0) + 1
+    return {
+        "boundary_edges": boundary,
+        "non_manifold_edges": non_manifold,
+        "components": len(roots),
+        "largest_component_triangles": max(roots.values()) if roots else 0,
+    }
+
+
+def check_partial_topology(reference: dict, faces: np.ndarray, label: str) -> None:
+    """Die im Export deklarierten Topologiezahlen müssen stimmen."""
+    expected = reference.get("topology")
+    if expected is None:
+        raise ValueError(f"{label}: topology block missing from reference")
+    actual = topology_counts(faces)
+    for key, value in actual.items():
+        if int(expected[key]) != int(value):
+            raise ValueError(f"{label}: {key} declared {expected[key]} but measured {value}")
+    if actual["non_manifold_edges"] != 0:
+        raise ValueError(f"{label}: exported partial mesh has non-manifold edges")
+    if actual["boundary_edges"] == 0:
+        raise ValueError(f"{label}: an open partial mesh must have boundary edges")
 
 
 def validate_partial_glb(glb_path: Path, reference_path: Path) -> None:
@@ -96,6 +150,7 @@ def validate_partial_glb(glb_path: Path, reference_path: Path) -> None:
         raise ValueError("GLB triangles do not match the Kotlin mesh")
     if len(vertices) >= 468:
         raise ValueError("Partial GLB must be incomplete")
+    check_partial_topology(reference, faces, "partial GLB")
     triangles = vertices[faces]
     doubled_area = np.linalg.norm(np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]), axis=1)
     if not np.all(doubled_area > 0):

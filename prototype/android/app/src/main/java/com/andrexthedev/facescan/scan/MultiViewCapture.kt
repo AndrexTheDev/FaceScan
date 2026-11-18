@@ -60,7 +60,9 @@ object MultiViewCapture {
         val acceptedViews: List<AcceptedView>,
         val cloud: com.andrexthedev.facescan.geometry.MultiViewPointCloud.Result,
         val intrinsics: Intrinsics,
-        val maxAnchorRmsPixels: Double
+        val maxAnchorRmsPixels: Double,
+        /** Struktur des Teilnetzes; keine Qualitäts- oder Genauigkeitsaussage. */
+        val topology: PartialMeshTopology.Report = PartialMeshTopology.Report(0, 0, 0, 0, 0, 0)
     )
     sealed class Outcome {
         data class Reconstructed(val result: Result) : Outcome()
@@ -138,7 +140,10 @@ object MultiViewCapture {
         // Alle Ansichten stammen von derselben Kamera; die übergebenen
         // Intrinsics gelten daher für die Triangulation. Die Brennweitensuche
         // dient nur der Plausibilitätsprüfung je Ansicht.
-        return Outcome.Reconstructed(Result(surface, accepted, cloud, intrinsics, worst))
+        val topology = surface.mesh.let { mesh ->
+            if (mesh == null) PartialMeshTopology.Report(0, 0, 0, 0, 0, 0) else PartialMeshTopology.inspect(mesh)
+        }
+        return Outcome.Reconstructed(Result(surface, accepted, cloud, intrinsics, worst, topology))
     }
 
     /**

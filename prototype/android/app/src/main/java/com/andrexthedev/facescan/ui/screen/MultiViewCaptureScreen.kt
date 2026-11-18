@@ -337,6 +337,17 @@ fun MultiViewCaptureScreen(
                         }
                         Text(stringResource(R.string.multiview_result_preview),
                             style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.multiview_topology,
+                            ready.topology.triangleCount, ready.topology.boundaryEdges,
+                            ready.topology.nonManifoldEdges, ready.topology.components,
+                            ready.topology.largestComponentTriangles),
+                            style = MaterialTheme.typography.bodySmall)
+                        // Viele kleine Fragmente sind ein Warnsignal für Ausreißer,
+                        // aber kein Beweis für eine falsche Form.
+                        if (ready.topology.components > 3)
+                            Text(stringResource(R.string.multiview_topology_fragmented),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error)
                     }
                     Text(stringResource(R.string.multiview_result_limits), style = MaterialTheme.typography.bodyMedium)
                     if (ready.acceptedViews.count { it.rmsPixels > 2.0 } > 0)

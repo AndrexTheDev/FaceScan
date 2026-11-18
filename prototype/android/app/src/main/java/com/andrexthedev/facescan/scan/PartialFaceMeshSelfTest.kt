@@ -18,6 +18,12 @@ object PartialFaceMeshSelfTest {
         if (obj.lineSequence().count { it.startsWith("v ") } != mesh.vertices.size ||
             obj.lineSequence().count { it.startsWith("f ") } != mesh.triangles.size / 3 ||
             !obj.contains("not validated")) return false
+        // Strukturzählung: das künstliche Gitter ist offen, aber zusammenhängend.
+        val topology = PartialMeshTopology.inspect(mesh)
+        if (topology.triangleCount != mesh.triangles.size / 3 || topology.components != 1 ||
+            topology.boundaryEdges <= 0 || topology.nonManifoldEdges != 0) return false
+        if (!obj.contains("# topology ${PartialMeshTopology.describe(topology)}")) return false
+        if (topology.largestComponentTriangles != topology.triangleCount) return false
         // Statischer GLB-Export: Kopf, Binärteil und dieselben Dreiecke wie im Mesh.
         val glb = PartialGlbWriter.write(mesh)
         if (glb.size < 20 || glb[0] != 'g'.code.toByte() || glb[1] != 'l'.code.toByte() ||

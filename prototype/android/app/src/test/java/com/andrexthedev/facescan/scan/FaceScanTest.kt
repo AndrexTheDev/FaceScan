@@ -274,8 +274,12 @@ class FaceScanTest {
             File(dir, "facescan-synthetic-partial.obj").writeBytes(bytes)
             val vertices = mesh.vertices.joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
             val faces = mesh.triangles.toList().chunked(3).joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
+            val topology = PartialMeshTopology.inspect(mesh)
             File(dir, "facescan-synthetic-partial-reference.json").writeText(
-                "{\"vertices\":$vertices,\"faces\":$faces,\"sourceIndices\":${mesh.sourceIndices.toList()}}")
+                "{\"vertices\":$vertices,\"faces\":$faces,\"sourceIndices\":${mesh.sourceIndices.toList()}," +
+                    "\"topology\":{\"boundary_edges\":${topology.boundaryEdges}," +
+                    "\"non_manifold_edges\":${topology.nonManifoldEdges},\"components\":${topology.components}," +
+                    "\"largest_component_triangles\":${topology.largestComponentTriangles}}}")
         }
         val obj = String(bytes, Charsets.UTF_8).lines()
         assertEquals(mesh.vertices.size, obj.count { it.startsWith("v ") })
@@ -326,8 +330,12 @@ class FaceScanTest {
             val positions = FloatArray(mesh.vertices.size * 3) { i -> mesh.vertices[i / 3][i % 3].toFloat() }
             val written = PartialGlbWriter.floatSafeTriangles(positions, mesh.triangles)
             val faces = written.toList().chunked(3).joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
+            val topology = PartialMeshTopology.inspect(mesh.vertices.size, written)
             File(dir, "facescan-synthetic-partial-glb-reference.json").writeText(
-                "{\"vertices\":$vertices,\"faces\":$faces}")
+                "{\"vertices\":$vertices,\"faces\":$faces," +
+                    "\"topology\":{\"boundary_edges\":${topology.boundaryEdges}," +
+                    "\"non_manifold_edges\":${topology.nonManifoldEdges},\"components\":${topology.components}," +
+                    "\"largest_component_triangles\":${topology.largestComponentTriangles}}}")
         }
     }
 

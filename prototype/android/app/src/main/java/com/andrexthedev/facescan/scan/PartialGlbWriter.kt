@@ -65,9 +65,11 @@ object PartialGlbWriter {
         align()
         val bytes = binary.toByteArray()
         val (min, max) = bounds(positions)
+        // Struktur der tatsächlich geschriebenen Flächen, nicht der Double-Quelle.
+        val topology = PartialMeshTopology.inspect(count, indices)
 
         val json = """{
-"asset":{"version":"2.0","generator":"FaceScan prototype","extras":{"units":"centimetres derived from canonical average anchors; not a measurement of the subject","limitations":"open partial surface, no completion, no texture, no animation, no real-device accuracy validation","droppedDegenerateTriangles":$dropped}},
+"asset":{"version":"2.0","generator":"FaceScan prototype","extras":{"units":"centimetres derived from canonical average anchors; not a measurement of the subject","limitations":"open partial surface, no completion, no texture, no animation, no real-device accuracy validation","droppedDegenerateTriangles":$dropped,"topology":{"vertices":${topology.vertexCount},"triangles":${topology.triangleCount},"boundaryEdges":${topology.boundaryEdges},"nonManifoldEdges":${topology.nonManifoldEdges},"components":${topology.components},"largestComponentTriangles":${topology.largestComponentTriangles},"note":"structure only, not a quality or accuracy measure"}}},
 "scene":0,"scenes":[{"nodes":[0]}],"nodes":[{"mesh":0,"name":"PartialFaceMesh"}],
 "meshes":[{"name":"PartialFaceMesh","primitives":[{"attributes":{"POSITION":0,"NORMAL":1},"indices":2,"material":0,"mode":4}]}],
 "materials":[{"name":"Partial","doubleSided":true,"pbrMetallicRoughness":{"baseColorFactor":[0.75,0.62,0.55,1],"metallicFactor":0,"roughnessFactor":1}}],

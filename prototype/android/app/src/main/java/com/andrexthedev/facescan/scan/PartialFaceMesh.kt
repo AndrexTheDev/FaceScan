@@ -78,9 +78,11 @@ object PartialFaceMesh {
             mesh.triangles.size % 3 == 0 && mesh.triangles.all { it in mesh.vertices.indices })
         val flat = FloatArray(mesh.vertices.size * 3) { i -> mesh.vertices[i / 3][i % 3].toFloat() }
         val normals = MeshNormals.calculate(flat, mesh.triangles)
+        val topology = PartialMeshTopology.inspect(mesh)
         val out = StringBuilder("# FaceScan partial multiview surface\n" +
             "# Scale and units derive from supplied anchors; not validated.\n" +
-            "# Missing points and faces are omitted; no completion, texture or animation.\n")
+            "# Missing points and faces are omitted; no completion, texture or animation.\n" +
+            "# topology ${PartialMeshTopology.describe(topology)} (structure only, not quality)\n")
         for (vertex in mesh.vertices) out.append("v ").append(vertex[0]).append(' ')
             .append(vertex[1]).append(' ').append(vertex[2]).append('\n')
         for (i in mesh.vertices.indices) out.append("vn ").append(normals[3 * i]).append(' ')
@@ -101,7 +103,11 @@ object PartialFaceMesh {
         require(mesh.vertices.isNotEmpty() && mesh.vertices.all { it.size == 3 && it.all(Double::isFinite) })
         require(mesh.sourceIndices.size == mesh.vertices.size && mesh.triangles.isNotEmpty() && mesh.triangles.size % 3 == 0 &&
             mesh.triangles.all { it in mesh.vertices.indices })
-        val out = StringBuilder("# FaceScan partial multiview surface\n# Scale and units derive from supplied anchors; not validated.\n# Missing points and faces are omitted; no completion, texture or animation.\n")
+        val topology = PartialMeshTopology.inspect(mesh)
+        val out = StringBuilder("# FaceScan partial multiview surface\n" +
+            "# Scale and units derive from supplied anchors; not validated.\n" +
+            "# Missing points and faces are omitted; no completion, texture or animation.\n" +
+            "# topology ${PartialMeshTopology.describe(topology)} (structure only, not quality)\n")
         for (vertex in mesh.vertices) out.append("v ").append(vertex[0]).append(' ').append(vertex[1]).append(' ').append(vertex[2]).append('\n')
         for (i in mesh.triangles.indices step 3) out.append("f ").append(mesh.triangles[i]+1).append(' ')
             .append(mesh.triangles[i+1]+1).append(' ').append(mesh.triangles[i+2]+1).append('\n')

@@ -131,8 +131,8 @@ class MultiViewCaptureTest {
     }
 
     @Test fun robustConsensusDropsAWrongCorrespondenceWithoutGuessing() {
-        // In der dritten Ansicht ist ein einzelner Nicht-Ankerpunkt um 120 px
-        // verschoben. Mit drei Ansichten ist der Ausreißer nicht sicher
+        // In einer der drei Ansichten ist ein einzelner Nicht-Ankerpunkt um
+        // 120 px verschoben. Mit drei Ansichten ist der Ausreißer nicht sicher
         // erkennbar; der Punkt darf deshalb fehlen, aber nie falsch sein.
         val corrupted = view(24.0, shiftIndex = 0, shiftPixels = 120.0)
         val views = listOf(view(0.0), view(-22.0), corrupted)
@@ -150,8 +150,8 @@ class MultiViewCaptureTest {
     }
 
     @Test fun robustConsensusWithFourViewsRejectsOutlierAndKeepsOthers() {
-        val corrupted = view(24.0, shiftIndex = 0, shiftPixels = 120.0)
-        val views = listOf(view(0.0), view(-22.0), view(-40.0), corrupted)
+        val corrupted = view(-40.0, shiftIndex = 0, shiftPixels = 120.0)
+        val views = listOf(view(0.0), view(-22.0), view(24.0), corrupted)
         val robust = MultiViewCapture.reconstruct(views, intrinsics) as MultiViewCapture.Outcome.Reconstructed
         assertTrue(robust.result.cloud.points[0] is MultiViewTriangulation.Result.Rejected)
         val truth = MultiViewSessionSelfTest.syntheticWorldPoints()

@@ -46,15 +46,28 @@ object RobustMultiViewTriangulation {
             if (seed !is MultiViewTriangulation.Result.Point) continue
             var indices = members(seed.xyz)
             var fit: MultiViewTriangulation.Result.Point? = null
-            // Die finalen Inlier müssen auch nach dem Refit dieselben bleiben.
-            repeat(5) {
-                if (fit == null && indices.size >= minInliers) {
-                    val refined = MultiViewTriangulation.triangulate(indices.map { observations[it] }, minParallaxDegrees, maxReprojectionPixels)
-                    if (refined is MultiViewTriangulation.Result.Point) {
-                        val updated = members(refined.xyz)
-                        if (updated == indices) fit = refined else indices = updated
-                    } else indices = emptyList()
+            // Refit und Mitgliedermenge dürfen nicht auseinanderlaufen: wird
+            // eine zuvor passende Ansicht nach dem Refit verworfen, wird nur
+            // auf der neuen Menge weiter verfeinert. Ein Ausreißer, der schon
+            // am Seed scheitert, bleibt damit dauerhaft draußen.
+            while (fit == null && indices.size >= minInliers) {
+                val refined = MultiViewTriangulation.triangulate(
+                    indices.map { observations[it] }, minParallaxDegrees, maxReprojectionPixels)
+                if (refined !is MultiViewTriangulation.Result.Point) {
+                    indices = emptyList()
+                    break
                 }
+                val updated = members(refined.xyz)
+                if (updated == indices) {
+                    fit = refined
+                    break
+                }
+                if (updated.size >= indices.size || updated.isEmpty()) {
+                    // Kein Fortschritt oder keine Mitglieder mehr: verwerfen.
+                    indices = emptyList()
+                    break
+                }
+                indices = updated
             }
             val accepted = fit ?: continue
             val candidate = Result.Point(accepted, indices)

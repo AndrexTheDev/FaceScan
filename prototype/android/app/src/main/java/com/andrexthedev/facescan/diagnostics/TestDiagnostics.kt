@@ -49,7 +49,7 @@ Modell: $modelState
 Modell-SHA256 (Soll): ${FaceModel.SHA256}
 Modell-Fehlerklasse: $modelError
 Kamera-Fehlerklasse: $cameraError
-Erkennungs-Fehlerklasse: $inferenceError
+Erkennungs-Fehler (Phase/Klasse/Code): $inferenceError
 Letzter gespeicherter Java-Absturz: ${CrashRecorder.lastCrash(context)}
 Kamera-Frames insgesamt: $frames
 Letztes Frameformat: $frameDescription

@@ -136,6 +136,7 @@ jobs:
           gh issue comment 1 --body-file /tmp/meldung.md
 
   apk:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

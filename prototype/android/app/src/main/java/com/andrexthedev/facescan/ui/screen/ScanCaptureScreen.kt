@@ -84,7 +84,30 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
     var pendingNeutral by remember { mutableStateOf<FaceSnapshot?>(null) }
     val analyzer = remember {
         FaceFrameAnalyzer(context.applicationContext, modelFile, diagnostics, active,
-            onFaceFrame = { frame -> buffer.add(frame); recorder.add(frame) },
+            onFaceFrame = { frame ->
+                val discontinuity = buffer.add(frame)
+                recorder.add(if (discontinuity) null else frame)
+                if (discontinuity && frame != null) {
+                    val epoch = buffer.sessionEpoch()
+                    mainExecutor.execute {
+                        if (active.get() && buffer.sessionEpoch() == epoch) {
+                            val now = SystemClock.elapsedRealtime()
+                            val invalidNeutral = neutral?.let { !buffer.isCurrent(it, now) } == true
+                            if (invalidNeutral) neutral = null
+                            if (recording && (invalidNeutral || neutral == null)) {
+                                recorder.cancel(); recording = false; recordingEpoch++
+                                diagnostics.scanEvent(ScanEvent.SEQUENCE_FAILED)
+                            }
+                            val invalidPhoto = pendingNeutral?.let { !buffer.isCurrent(it, now) } == true
+                            if (invalidPhoto) {
+                                textureRequest.cancel(); pendingTextureId = 0L; pendingNeutral = null
+                                diagnostics.scanEvent(ScanEvent.PHOTO_FAILED)
+                            }
+                            if (invalidNeutral || invalidPhoto) feedback = context.getString(R.string.scan_continuity_retry)
+                        }
+                    }
+                }
+            },
             textureRequest = textureRequest,
             onQualityHint = { hint ->
                 val epoch = hintEpoch.get()

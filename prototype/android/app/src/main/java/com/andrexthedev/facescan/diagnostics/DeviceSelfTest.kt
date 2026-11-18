@@ -8,6 +8,7 @@ import com.andrexthedev.facescan.capture.CalibrationAvailability
 import com.andrexthedev.facescan.geometry.CameraModel
 import com.andrexthedev.facescan.geometry.Mat3
 import com.andrexthedev.facescan.geometry.TriangulationSelfTest
+import com.andrexthedev.facescan.geometry.AnchoredMultiViewSelfTest
 import com.andrexthedev.facescan.perception.FaceLandmarkerRunner
 import com.andrexthedev.facescan.scan.ScanSelfTest
 import com.andrexthedev.facescan.scan.TextureSelfTest
@@ -47,7 +48,7 @@ object DeviceSelfTest {
         catch (e: Exception) { "fehlgeschlagen:${e.javaClass.simpleName}" }
         val imageQuality = try { if (ImageQualitySelfTest.run()) "bestanden" else "fehlgeschlagen" }
         catch (e: Exception) { "fehlgeschlagen:${e.javaClass.simpleName}" }
-        val triangulation = try { if (TriangulationSelfTest.run()) "bestanden" else "fehlgeschlagen" }
+        val triangulation = try { if (TriangulationSelfTest.run() && AnchoredMultiViewSelfTest.run()) "bestanden" else "fehlgeschlagen" }
         catch (e: Exception) { "fehlgeschlagen:${e.javaClass.simpleName}" }
         val reportCounters = try { if (ScanEventCountersSelfTest.run()) "bestanden" else "fehlgeschlagen" }
         catch (e: Exception) { "fehlgeschlagen:${e.javaClass.simpleName}" }

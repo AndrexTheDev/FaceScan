@@ -139,4 +139,5 @@
     <string name="scan_loop_transition">Rückweg für Endlosschleife hinzufügen (auch im GLB)</string>
     <string name="scan_loop_note">Fügt am Ende einen künstlichen Übergang von 0,5 Sekunden zur Neutralform hinzu. Dieser Teil wurde nicht aufgenommen; beim Ausschalten bleibt die Originalaufnahme erhalten.</string>
     <string name="scan_frontal_hint">Hinweis: Das Gesicht wirkt möglicherweise gedreht. Für die Neutralaufnahme möglichst gerade in die Kamera schauen. Grobe, nicht validierte Schätzung.</string>
+    <string name="scan_continuity_retry">Verlauf unterbrochen oder Gesicht stark verschoben. Bitte neutral erneut aufnehmen und ruhig halten. Diese Prüfung erkennt Personen nicht zuverlässig.</string>
 </resources>

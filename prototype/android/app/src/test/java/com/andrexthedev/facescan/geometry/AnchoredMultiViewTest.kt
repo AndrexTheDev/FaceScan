@@ -19,6 +19,7 @@ class AnchoredMultiViewTest {
             val q = project(p); ValidatedAnchorPose.Anchor(p, q.u, q.v)
         }, target.map(::project))
     }
+    @Test fun syntheticOnDevicePipelineTest() { assertTrue(AnchoredMultiViewSelfTest.run()) }
     @Test fun estimatesPoseAndTriangulatesSeparateSyntheticHoldoutPoints() {
         val views = listOf(
             view(Mat3.identity(), doubleArrayOf(0.0, 0.0, 600.0)),

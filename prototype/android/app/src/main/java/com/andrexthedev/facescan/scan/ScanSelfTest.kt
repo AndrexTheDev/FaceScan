@@ -19,6 +19,14 @@ object ScanSelfTest {
         if (FaceFrontalGuidance.possiblyTurned(frontal, 640, 480) != false) return false
         frontal[3] = 0.6f
         if (FaceFrontalGuidance.possiblyTurned(frontal, 640, 480) != true) return false
+        val small = points.copyOf().apply {
+            for (i in 0 until FaceTopology.VERTEX_COUNT) {
+                this[3*i] = .5f + (this[3*i] - .5f) * .5f
+                this[3*i+1] = .5f + (this[3*i+1] - .5f) * .5f
+            }
+        }
+        val shifted = small.copyOf().apply { for (i in 0 until FaceTopology.VERTEX_COUNT) this[3*i] += .3f }
+        if (FaceFrameContinuity.isContinuous(FaceFrame(small, 640, 480, 100), FaceFrame(shifted, 640, 480, 200))) return false
         val buffer = FaceFrameBuffer()
         for (t in 1L..3L) buffer.add(FaceFrame(points, 640, 480, t * 100))
         val neutral = buffer.snapshot(300) ?: return false

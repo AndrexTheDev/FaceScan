@@ -39,17 +39,20 @@ class FaceFrameBuffer {
     // kein Ergebnis aus der alten Aufnahmesitzung zurückgeben.
     private var epoch = 0L
 
-    @Synchronized fun add(frame: FaceFrame?) {
-        if (frame == null) { frames.clear(); epoch++; return }
-        if (frame.points.size < FaceTopology.VERTEX_COUNT * 3 || frame.width <= 0 || frame.height <= 0 ||
-            frame.points.take(FaceTopology.VERTEX_COUNT * 3).any { !it.isFinite() }) {
-            frames.clear(); epoch++; return
+    /** true: ein zuvor gültiger Verlauf wurde ungültig; keine Identitätsprüfung. */
+    @Synchronized fun add(frame: FaceFrame?): Boolean {
+        val hadFrames = frames.isNotEmpty()
+        if (frame == null || !NeutralCaptureQuality.inFrame(frame.points, frame.width, frame.height)) {
+            frames.clear(); epoch++; return hadFrames
         }
-        if (frames.isNotEmpty() && (frames.last().width != frame.width || frames.last().height != frame.height ||
-                frame.atMs <= frames.last().atMs)) { frames.clear(); epoch++ }
+        val discontinuity = hadFrames && !FaceFrameContinuity.isContinuous(frames.last(), frame)
+        if (discontinuity) { frames.clear(); epoch++ }
         frames.addLast(frame.copy(points = frame.points.copyOf(FaceTopology.VERTEX_COUNT * 3)))
         while (frames.size > 5) frames.removeFirst()
+        return discontinuity
     }
+
+    @Synchronized fun sessionEpoch(): Long = epoch
 
     @Synchronized fun hasRecentFace(nowMs: Long): Boolean {
         val recent = frames.filter { nowMs >= it.atMs && nowMs - it.atMs <= 5000 }

@@ -132,4 +132,7 @@
     <string name="review_done">Done</string>
     <string name="scan_smoothing">Lightly smooth expression (also in GLB)</string>
     <string name="scan_smoothing_warning">Experimental: reduces short-term fluctuations but delays movement and may weaken brief expressions. Turning it off restores the original recording; OBJ remains unchanged.</string>
+    <string name="scan_mesh_integrity">Mesh check (heuristic): neutral %1$d/%2$d nearly zero-area triangles; %3$d/%2$d triangles with edges over 0.75 eye distances. Maximum in an animation shape: %4$d and %5$d respectively.</string>
+    <string name="scan_mesh_integrity_note">Thresholds have not been validated on real faces. Mouth, eyes or occlusion may trigger warnings; an unremarkable result does not guarantee correct shape or 3D accuracy.</string>
+    <string name="scan_mesh_integrity_unavailable">Mesh check unavailable.</string>
 </resources>

@@ -53,6 +53,8 @@ object ScanSelfTest {
         if (GlbWriter.write(smooth).size < 20) return false
         val normals = MeshNormals.calculate(floatArrayOf(0f,0f,0f, 1f,0f,0f, 0f,1f,0f), intArrayOf(0,1,2))
         if (normals[2] != 1f || normals[5] != 1f || normals[8] != 1f) return false
+        val integrity = MeshIntegrity.inspect(floatArrayOf(0f,0f,0f, 0.1f,0f,0f, 0f,0.1f,0f), intArrayOf(0,1,2, 0,0,1))
+        if (integrity.totalTriangles != 2 || integrity.tinyTriangles != 1 || integrity.longEdgeTriangles != 0) return false
         val bytes = GlbWriter.write(surface)
         val glb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         if (glb.int != 0x46546c67 || glb.int != 2 || glb.int != bytes.size) return false

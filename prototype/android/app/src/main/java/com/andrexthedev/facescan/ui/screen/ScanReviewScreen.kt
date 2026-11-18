@@ -47,6 +47,7 @@ import com.andrexthedev.facescan.diagnostics.TestDiagnostics
 import com.andrexthedev.facescan.diagnostics.ScanEvent
 import com.andrexthedev.facescan.scan.FaceSurface
 import com.andrexthedev.facescan.scan.FaceMeshRenderer
+import com.andrexthedev.facescan.scan.MeshIntegrity
 import com.andrexthedev.facescan.scan.FaceSequencePlayback
 import com.andrexthedev.facescan.scan.FaceSequenceSmoothing
 import com.andrexthedev.facescan.scan.GlbWriter
@@ -66,6 +67,14 @@ fun ScanReviewScreen(surface: FaceSurface, diagnostics: TestDiagnostics, onClose
     var smoothing by remember { mutableStateOf(false) }
     val selectedSurface = remember(surface, smoothing) {
         if (smoothing) FaceSequenceSmoothing.smooth(surface) else surface
+    }
+    var integrity by remember { mutableStateOf<MeshIntegrity.Summary?>(null) }
+    var integrityError by remember { mutableStateOf(false) }
+    LaunchedEffect(selectedSurface) {
+        integrity = null; integrityError = false
+        try { integrity = withContext(Dispatchers.Default) { MeshIntegrity.inspect(selectedSurface) } }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { integrityError = true }
     }
     var writing by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf("") }
@@ -117,6 +126,12 @@ fun ScanReviewScreen(surface: FaceSurface, diagnostics: TestDiagnostics, onClose
         surface.neutralFusionAnchorRms?.let { Text(stringResource(R.string.scan_neutral_fusion, surface.neutralSamples, it)) }
         surface.maxAnchorRms?.let { Text(stringResource(R.string.scan_alignment_residual, it)) }
         Text(stringResource(R.string.scan_sequence_info, surface.keyframes().size - 1, surface.keyframes().last().seconds))
+        integrity?.let { check ->
+            Text(stringResource(R.string.scan_mesh_integrity, check.neutral.tinyTriangles, check.neutral.totalTriangles,
+                check.neutral.longEdgeTriangles, check.maxTinyTriangles, check.maxLongEdgeTriangles))
+            Text(stringResource(R.string.scan_mesh_integrity_note), style = MaterialTheme.typography.bodySmall)
+        }
+        if (integrityError) Text(stringResource(R.string.scan_mesh_integrity_unavailable))
         Canvas(
             Modifier.fillMaxWidth().height(280.dp).background(Color(0xff10141b))
                 .pointerInput(Unit) { detectDragGestures { change, drag -> change.consume(); yaw += drag.x * 0.01f } }

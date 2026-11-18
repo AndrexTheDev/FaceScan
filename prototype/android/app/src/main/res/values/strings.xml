@@ -133,4 +133,7 @@
     <string name="review_done">Fertig</string>
     <string name="scan_smoothing">Mimik leicht glätten (auch im GLB)</string>
     <string name="scan_smoothing_warning">Experimentell: reduziert kurzfristige Schwankungen, verzögert Bewegungen und kann kurze Ausdrücke abschwächen. Originalaufnahme bleibt beim Ausschalten erhalten; OBJ bleibt unverändert.</string>
+    <string name="scan_mesh_integrity">Netzprüfung (heuristisch): neutral %1$d/%2$d fast flächenlose Dreiecke; %3$d/%2$d Dreiecke mit Kanten über 0,75 Augenabstände. Maximal in einer Animationsform: %4$d bzw. %5$d.</string>
+    <string name="scan_mesh_integrity_note">Schwellen sind nicht an echten Gesichtern validiert. Mund, Augen oder Verdeckungen können Auffälligkeiten erzeugen; ein unauffälliges Ergebnis garantiert weder richtige Form noch 3D-Genauigkeit.</string>
+    <string name="scan_mesh_integrity_unavailable">Netzprüfung nicht verfügbar.</string>
 </resources>

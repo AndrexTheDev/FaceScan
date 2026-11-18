@@ -73,6 +73,7 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
     val mainExecutor = remember { ContextCompat.getMainExecutor(context) }
     var status by remember { mutableStateOf(FaceStatus.WAITING) }
     var imageHint by remember { mutableStateOf<ImageQuality.Hint?>(null) }
+    var frontalHint by remember { mutableStateOf<Boolean?>(null) }
     var cameraError by remember { mutableStateOf(false) }
     var neutral by remember { mutableStateOf<FaceSnapshot?>(null) }
     var feedback by remember { mutableStateOf("") }
@@ -89,6 +90,12 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
                 val epoch = hintEpoch.get()
                 mainExecutor.execute {
                     if (active.get() && hintEpoch.get() == epoch && owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) imageHint = hint
+                }
+            },
+            onFrontalHint = { hint ->
+                val epoch = hintEpoch.get()
+                mainExecutor.execute {
+                    if (active.get() && hintEpoch.get() == epoch && owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) frontalHint = hint
                 }
             },
             onTexture = { id, texture, photo -> mainExecutor.execute {
@@ -147,7 +154,7 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
             if (event == Lifecycle.Event.ON_STOP) {
                 buffer.add(null)
                 recordingEpoch++
-                imageHint = null
+                imageHint = null; frontalHint = null
                 if (pendingTextureId != 0L) diagnostics.scanEvent(ScanEvent.PHOTO_FAILED)
                 textureRequest.cancel(); pendingTextureId = 0L; pendingNeutral = null
                 neutral = null
@@ -233,7 +240,7 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
                     cameraError = error != null
                     if (error != null) {
                         diagnostics.cameraError(error)
-                        buffer.add(null); neutral = null; imageHint = null; recordingEpoch++
+                        buffer.add(null); neutral = null; imageHint = null; frontalHint = null; recordingEpoch++
                         if (pendingTextureId != 0L) diagnostics.scanEvent(ScanEvent.PHOTO_FAILED)
                         textureRequest.cancel(); pendingTextureId = 0L; pendingNeutral = null
                         if (recording) { recorder.cancel(); recording = false; diagnostics.scanEvent(ScanEvent.SEQUENCE_FAILED); feedback = context.getString(R.string.scan_record_interrupted) }
@@ -260,6 +267,8 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
                         ImageQuality.Hint.NO_WARNING -> R.string.scan_image_no_warning
                     }), style = MaterialTheme.typography.bodyMedium)
                 }
+                if (!cameraError && status == FaceStatus.FACE && frontalHint == true)
+                    Text(stringResource(R.string.scan_frontal_hint), style = MaterialTheme.typography.bodyMedium)
                 if (feedback.isNotEmpty()) Text(feedback, style = MaterialTheme.typography.bodyMedium)
                 Button(onClick = { captureNeutral(false) },
                     enabled = !recording && !processingNeutral && pendingTextureId == 0L,

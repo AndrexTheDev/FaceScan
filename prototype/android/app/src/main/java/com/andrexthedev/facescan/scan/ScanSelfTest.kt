@@ -15,6 +15,10 @@ object ScanSelfTest {
         }
         points[33 * 3] = 0.3f; points[33 * 3 + 1] = 0.4f
         points[263 * 3] = 0.7f; points[263 * 3 + 1] = 0.4f
+        val frontal = points.copyOf().apply { this[3] = 0.5f; this[4] = 0.4f }
+        if (FaceFrontalGuidance.possiblyTurned(frontal, 640, 480) != false) return false
+        frontal[3] = 0.6f
+        if (FaceFrontalGuidance.possiblyTurned(frontal, 640, 480) != true) return false
         val buffer = FaceFrameBuffer()
         for (t in 1L..3L) buffer.add(FaceFrame(points, 640, 480, t * 100))
         val neutral = buffer.snapshot(300) ?: return false

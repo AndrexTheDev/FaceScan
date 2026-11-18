@@ -137,4 +137,5 @@
     <string name="scan_mesh_integrity_unavailable">Mesh check unavailable.</string>
     <string name="scan_loop_transition">Add a return transition for looping (also in GLB)</string>
     <string name="scan_loop_note">Adds an artificial 0.5-second transition back to the neutral shape. This portion was not recorded; turning it off restores the original recording.</string>
+    <string name="scan_frontal_hint">Hint: Your face may be turned. For the neutral capture, try looking straight at the camera. This is a rough, unvalidated estimate.</string>
 </resources>

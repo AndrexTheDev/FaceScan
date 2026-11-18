@@ -11,6 +11,7 @@ import java.io.File
 import com.andrexthedev.facescan.diagnostics.TestDiagnostics
 import com.andrexthedev.facescan.scan.FaceFrame
 import com.andrexthedev.facescan.scan.FaceImageQualitySampler
+import com.andrexthedev.facescan.scan.FaceFrontalGuidance
 import com.andrexthedev.facescan.scan.ImageQuality
 import com.andrexthedev.facescan.scan.FaceTexture
 import com.andrexthedev.facescan.scan.FaceTextureCapture
@@ -30,6 +31,7 @@ class FaceFrameAnalyzer(
     private val textureRequest: FaceTextureRequest? = null,
     private val onTexture: ((Long, FaceTexture?, FaceFrame) -> Unit)? = null,
     private val onQualityHint: ((ImageQuality.Hint?) -> Unit)? = null,
+    private val onFrontalHint: ((Boolean?) -> Unit)? = null,
     private val onStatus: (FaceStatus) -> Unit
 ) : AutoCloseable {
     private val clock = FrameClock()
@@ -64,14 +66,21 @@ class FaceFrameAnalyzer(
             val height = bitmap.height
             phase = "inference"
             val points = runner!!.detect(bitmap, if (onFaceFrame == null) proxy.imageInfo.rotationDegrees else 0, timestamp) { upright, landmarks ->
-                if (onQualityHint != null && active.get() &&
+                if ((onQualityHint != null || onFrontalHint != null) && active.get() &&
                     (lastQualityAt == Long.MIN_VALUE || frameStartedAt - lastQualityAt >= 500L)) {
                     lastQualityAt = frameStartedAt
-                    val hint = try {
-                        val sampler = qualitySampler ?: FaceImageQualitySampler().also { qualitySampler = it }
-                        sampler.sample(upright, landmarks)?.hint
-                    } catch (_: Exception) { null }
-                    onQualityHint.invoke(hint)
+                    if (onQualityHint != null) {
+                        val hint = try {
+                            val sampler = qualitySampler ?: FaceImageQualitySampler().also { qualitySampler = it }
+                            sampler.sample(upright, landmarks)?.hint
+                        } catch (_: Exception) { null }
+                        onQualityHint.invoke(hint)
+                    }
+                    if (onFrontalHint != null) {
+                        val hint = try { FaceFrontalGuidance.possiblyTurned(landmarks, upright.width, upright.height) }
+                            catch (_: Exception) { null }
+                        onFrontalHint.invoke(hint)
+                    }
                 }
                 val id = textureRequest?.take() ?: 0L
                 if (id != 0L) {
@@ -83,6 +92,7 @@ class FaceFrameAnalyzer(
             if (!found && active.get()) {
                 lastQualityAt = Long.MIN_VALUE
                 onQualityHint?.invoke(null)
+                onFrontalHint?.invoke(null)
             }
             diagnostics.result(found, SystemClock.elapsedRealtime() - startedAt, frameStartedAt)
             if (active.get()) {
@@ -121,6 +131,7 @@ class FaceFrameAnalyzer(
         if (active.get()) {
             onFaceFrame?.invoke(null)
             onQualityHint?.invoke(null)
+            onFrontalHint?.invoke(null)
             onStatus(FaceStatus.ERROR)
         }
     }

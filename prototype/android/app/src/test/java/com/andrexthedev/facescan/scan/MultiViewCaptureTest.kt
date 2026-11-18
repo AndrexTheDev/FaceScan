@@ -415,15 +415,16 @@ class MultiViewCaptureTest {
         assertEquals(mesh.vertices.size * 15 + mesh.triangles.size / 3 * 13, bytes.size - headerLength)
         // Layout prüfen: x,y,z,r,g,b liegen bei JEDEM Vertex hintereinander,
         // nicht als getrennte Blöcke. Sonst ist die Datei formal gültig, aber falsch.
-        val body = java.nio.ByteBuffer.wrap(bytes, headerLength, bytes.size - headerLength)
-            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        // Absolute Indizes zählen ab Dateianfang; deshalb den Offset addieren.
+        val body = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         for (v in 0 until 3) {
-            assertEquals(mesh.vertices[v][0].toFloat(), body.getFloat(v * 15), 0f)
-            assertEquals(mesh.vertices[v][1].toFloat(), body.getFloat(v * 15 + 4), 0f)
-            assertEquals(mesh.vertices[v][2].toFloat(), body.getFloat(v * 15 + 8), 0f)
-            assertEquals(colors.colors[3 * v], body.get(v * 15 + 12))
-            assertEquals(colors.colors[3 * v + 1], body.get(v * 15 + 13))
-            assertEquals(colors.colors[3 * v + 2], body.get(v * 15 + 14))
+            val at = headerLength + v * 15
+            assertEquals(mesh.vertices[v][0].toFloat(), body.getFloat(at), 0f)
+            assertEquals(mesh.vertices[v][1].toFloat(), body.getFloat(at + 4), 0f)
+            assertEquals(mesh.vertices[v][2].toFloat(), body.getFloat(at + 8), 0f)
+            assertEquals(colors.colors[3 * v], body.get(at + 12))
+            assertEquals(colors.colors[3 * v + 1], body.get(at + 13))
+            assertEquals(colors.colors[3 * v + 2], body.get(at + 14))
         }
         assertEquals("application/octet-stream", MeshExportFormat.PLY.mimeType)
         assertNotNull(result.encodeExport(MeshExportFormat.PLY))

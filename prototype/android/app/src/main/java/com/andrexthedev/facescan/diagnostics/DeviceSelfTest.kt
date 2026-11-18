@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
+import com.andrexthedev.facescan.capture.CalibrationAvailability
 import com.andrexthedev.facescan.geometry.CameraModel
 import com.andrexthedev.facescan.geometry.Mat3
 import com.andrexthedev.facescan.geometry.TriangulationSelfTest
@@ -24,7 +25,10 @@ object DeviceSelfTest {
             CameraModel(1000.0, 1000.0, 320.0, 240.0).project(
                 Mat3.identity(), doubleArrayOf(0.0, 0.0, 0.0), doubleArrayOf(10.0, 20.0, 1000.0), output
             )
-            if (abs(output[0] - 330.0) < 1e-6 && abs(output[1] - 260.0) < 1e-6) "bestanden" else "fehlgeschlagen"
+            val calibration = CalibrationAvailability.classify(floatArrayOf(1000f, 1000f, 320f, 240f, 0f), null, 640, 480)
+            if (abs(output[0] - 330.0) < 1e-6 && abs(output[1] - 260.0) < 1e-6 &&
+                calibration.intrinsics == CalibrationAvailability.State.PRESENT && calibration.distortion == CalibrationAvailability.State.MISSING &&
+                calibration.activeArray == CalibrationAvailability.State.PRESENT) "bestanden" else "fehlgeschlagen"
         } catch (e: Exception) { "fehlgeschlagen:${e.javaClass.simpleName}" }
         val front = try {
             if (context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT)) "vorhanden" else "nicht gemeldet"

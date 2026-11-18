@@ -27,7 +27,9 @@ object NeutralCaptureQuality {
 }
 
 /** Beschränkte Aufnahme: nur nach Nutzerstart, monotone Echtzeitstempel, keine Bilder. */
-class FaceSequenceRecorder {
+class FaceSequenceRecorder internal constructor(
+    private val aligner: (FloatArray, FloatArray) -> FaceAlignment.Result = FaceAlignment::align
+) {
     companion object {
         const val DURATION_MS = 4000L
         const val SAMPLE_INTERVAL_MS = 250L
@@ -36,6 +38,7 @@ class FaceSequenceRecorder {
         // Experimentelle Schwelle in Augenabständen, nicht physisch validiert.
         const val MAX_ANCHOR_RMS = 0.12
     }
+    private var generation = 0L
     private var startMs = 0L
     private var running = false
     private var failed = false
@@ -44,6 +47,7 @@ class FaceSequenceRecorder {
     private val frames = mutableListOf<FaceFrame>()
 
     @Synchronized fun start(nowMs: Long) {
+        generation++
         frames.clear(); dimensions = null; failed = false; alignmentFailed = false; running = true; startMs = nowMs
     }
 
@@ -67,36 +71,43 @@ class FaceSequenceRecorder {
         frames.add(frame.copy(points = frame.points.copyOf(FaceTopology.VERTEX_COUNT * 3)))
     }
 
-    @Synchronized fun cancel() { running = false; failed = false; alignmentFailed = false; frames.clear(); dimensions = null }
+    @Synchronized fun cancel() { generation++; running = false; failed = false; alignmentFailed = false; frames.clear(); dimensions = null }
     @Synchronized fun wasAlignmentFailure() = alignmentFailed
 
-    /** Nur eine vollständige Folge ausgeben; kein Interpolieren über Gesichtsausfall. */
-    @Synchronized fun finish(nowMs: Long, neutral: FaceSnapshot): FaceSurface? {
-        if (!running || nowMs < startMs + DURATION_MS) return null
-        running = false
+    /** Nur vollständige Folgen ausgeben. Teure Ausrichtung läuft ohne Recorder-Sperre. */
+    fun finish(nowMs: Long, neutral: FaceSnapshot): FaceSurface? {
+        val captured = synchronized(this) {
+            if (!running || nowMs < startMs + DURATION_MS) return null
+            running = false
+            val usable = !failed && dimensions == (neutral.width to neutral.height) && frames.size >= 4 &&
+                frames.first().atMs - startMs <= MAX_GAP_MS && startMs + DURATION_MS - frames.last().atMs <= MAX_GAP_MS
+            val result = if (usable) Triple(generation, startMs, frames.toList()) else null
+            frames.clear(); dimensions = null
+            result
+        } ?: return null
+        val (capturedGeneration, started, recordedFrames) = captured
+        var badAlignment = false
         val result = try {
-            if (failed || dimensions != (neutral.width to neutral.height) || frames.size < 4 || frames.first().atMs - startMs > MAX_GAP_MS ||
-                startMs + DURATION_MS - frames.last().atMs > MAX_GAP_MS) null
-            else {
-                val neutralPoints = FaceSurfaceBuilder.neutralPoints(neutral)
-                val keys = mutableListOf(FaceKeyframe(0f, neutralPoints))
-                var maxResidual = 0.0
-                for (frame in frames) {
-                    val snap = FaceSnapshot(frame.points, frame.width, frame.height, 0.0, 1)
-                    val aligned = FaceAlignment.align(neutralPoints, FaceSurfaceBuilder.convert(snap))
-                    if (aligned.anchorRms > MAX_ANCHOR_RMS) {
-                        alignmentFailed = true
-                        break
-                    }
-                    maxResidual = maxOf(maxResidual, aligned.anchorRms)
-                    keys.add(FaceKeyframe((frame.atMs - startMs) / 1000f, aligned.points))
+            val neutralPoints = FaceSurfaceBuilder.neutralPoints(neutral)
+            val keys = mutableListOf(FaceKeyframe(0f, neutralPoints))
+            var maxResidual = 0.0
+            for (frame in recordedFrames) {
+                val snap = FaceSnapshot(frame.points, frame.width, frame.height, 0.0, 1)
+                val aligned = aligner(neutralPoints, FaceSurfaceBuilder.convert(snap))
+                if (aligned.anchorRms > MAX_ANCHOR_RMS || !aligned.anchorRms.isFinite()) {
+                    badAlignment = true
+                    break
                 }
-                if (alignmentFailed) null else FaceSurface(neutralPoints, keys.last().points, neutral.jitterPx, 0.0, keys, maxResidual, neutral.texture,
-                    neutral.samples, neutral.fusionAnchorRms)
+                maxResidual = maxOf(maxResidual, aligned.anchorRms)
+                keys.add(FaceKeyframe((frame.atMs - started) / 1000f, aligned.points))
             }
-        } catch (_: IllegalArgumentException) { alignmentFailed = true; null }
-        frames.clear(); dimensions = null
-        return result
+            if (badAlignment) null else FaceSurface(neutralPoints, keys.last().points, neutral.jitterPx, 0.0, keys, maxResidual, neutral.texture,
+                neutral.samples, neutral.fusionAnchorRms)
+        } catch (_: IllegalArgumentException) { badAlignment = true; null }
+        return synchronized(this) {
+            if (generation != capturedGeneration) null
+            else { alignmentFailed = badAlignment; result }
+        }
     }
 }
 

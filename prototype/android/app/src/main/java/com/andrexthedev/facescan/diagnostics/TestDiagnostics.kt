@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import com.andrexthedev.facescan.model.FaceModel
+import com.andrexthedev.facescan.capture.CalibrationAvailability
 
 /** Nur aggregierte technische Werte; keine Bilddaten, Landmarks, Namen oder Geräte-IDs. */
 class TestDiagnostics {
@@ -23,6 +24,7 @@ class TestDiagnostics {
     private var frameDescription = "-"
     private val challenges = ChallengeTracker()
     private var selfTests: DeviceSelfTest.Results? = null
+    private var calibration = CalibrationAvailability.UNKNOWN
 
     @Synchronized fun model(state: String, error: String = "-") { modelState = state; modelError = error }
     @Synchronized fun frame(width: Int, height: Int, rotation: Int) {
@@ -42,6 +44,7 @@ class TestDiagnostics {
         totalMs += durationMs
         maxMs = maxOf(maxMs, durationMs)
     }
+    @Synchronized fun calibrationInfo(value: CalibrationAvailability) { calibration = value }
     @Synchronized fun cameraError(error: String) { cameraError = error }
     @Synchronized fun inferenceError(error: String) { inferenceError = error }
 
@@ -78,6 +81,7 @@ Geräte-Selbsttest (synthetische Bildhinweise): ${selfTests?.imageQuality ?: "ni
 Geräte-Selbsttest (synthetisches Foto/UV und OBJ): ${selfTests?.textureExport ?: "nicht ausgeführt"}
 Geräte-Selbsttest (MediaPipe auf Schwarzbild): ${selfTests?.landmarker ?: "nicht ausgeführt"}
 Frontkamera laut System: ${selfTests?.frontCamera ?: "nicht geprüft"}
+Metadaten der zuletzt gebundenen Kamera: Intrinsics ${calibration.intrinsics.label}; Verzeichnung ${calibration.distortion.label}; Sensorbereich ${calibration.activeArray.label}. Nur statische Angaben, keine validierte Kalibrierung oder Frame-Zuordnung.
 Geführter Test: Gesicht im Bild: ${challenge(ChallengeKind.FACE_PRESENT)}
 Geführter Test: Gesicht außerhalb: ${challenge(ChallengeKind.FACE_ABSENT)}
 Geführter Offline-Test: ${challenge(ChallengeKind.OFFLINE)}

@@ -146,7 +146,7 @@ fun CaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: () ->
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 PreviewView(ctx).also { previewView ->
-                    controller.bind(lifecycleOwner, previewView.surfaceProvider, onError = { error -> if (error != null) diagnostics.cameraError(error); cameraError = error != null }) { proxy ->
+                    controller.bind(lifecycleOwner, previewView.surfaceProvider, onError = { error -> if (error != null) diagnostics.cameraError(error); cameraError = error != null }, onCalibrationInfo = { diagnostics.calibrationInfo(it) }) { proxy ->
                         analyzer.analyse(proxy)
                     }
                 }

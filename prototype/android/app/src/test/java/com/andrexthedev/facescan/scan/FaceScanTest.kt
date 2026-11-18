@@ -5,6 +5,9 @@ import org.junit.Test
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.Executors
 import kotlin.math.abs
 
 class FaceScanTest {
@@ -34,6 +37,23 @@ class FaceScanTest {
         assertNull(buffer.snapshot(4100))
         buffer.add(null)
         assertNull(buffer.snapshot(1500))
+    }
+
+    @Test fun neutralSessionCannotBeReusedAfterTrackingLossOrDimensionsChange() {
+        val buffer = FaceFrameBuffer()
+        for (t in listOf(1000L, 1200L, 1400L)) buffer.add(FaceFrame(points(), 640, 480, t))
+        val first = buffer.snapshot(1400)!!
+        assertTrue(buffer.isCurrent(first, 1400))
+        assertFalse(buffer.isCurrent(first, 3901))
+        buffer.add(null)
+        for (t in listOf(1500L, 1700L, 1900L)) buffer.add(FaceFrame(points(), 640, 480, t))
+        assertTrue(buffer.hasRecentFace(1900))
+        assertFalse(buffer.isCurrent(first, 1900))
+        val second = buffer.snapshot(1900)!!
+        assertTrue(buffer.isCurrent(second, 1900))
+        for (t in listOf(2100L, 2300L, 2500L)) buffer.add(FaceFrame(points(), 480, 640, t))
+        assertFalse(buffer.isCurrent(second, 2500))
+        assertFalse(buffer.isCurrent(second.copy(sessionEpoch = null), 2500))
     }
 
     @Test fun imageTranslationDoesNotChangeEyeRelativeShape() {
@@ -105,6 +125,30 @@ class FaceScanTest {
         r.add(FaceFrame(points(), 640, 480, 1200))
         r.add(FaceFrame(points(), 480, 640, 1450))
         assertNull(r.finish(5000, neutral))
+    }
+
+    @Test fun cancellationDuringAlignmentIsNonBlockingAndDiscardsOldResult() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val recorder = FaceSequenceRecorder { a, b ->
+            entered.countDown()
+            check(release.await(5, TimeUnit.SECONDS))
+            FaceAlignment.align(a, b)
+        }
+        val neutral = FaceSnapshot(points(), 640, 480, 0.0, 3)
+        recorder.start(1000)
+        for (i in 0 until 16) recorder.add(FaceFrame(points(), 640, 480, 1200L + 250 * i))
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val old = pool.submit<FaceSurface?> { recorder.finish(5000, neutral) }
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            val cancel = pool.submit { recorder.cancel(); recorder.start(6000) }
+            cancel.get(2, TimeUnit.SECONDS) // alignment cannot hold the recorder monitor
+            release.countDown()
+            assertNull(old.get(5, TimeUnit.SECONDS))
+            for (i in 0 until 16) recorder.add(FaceFrame(points(), 640, 480, 6200L + 250 * i))
+            assertNotNull(recorder.finish(10000, neutral))
+        } finally { release.countDown(); pool.shutdownNow() }
     }
 
     @Test fun recordingRejectsClippedFramesAndNonRigidAnchors() {

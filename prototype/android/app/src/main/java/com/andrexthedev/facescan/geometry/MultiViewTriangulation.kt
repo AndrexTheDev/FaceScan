@@ -18,7 +18,7 @@ object MultiViewTriangulation {
         val v: Double
     )
 
-    enum class Failure { INVALID_INPUT, INSUFFICIENT_VIEWS, INSUFFICIENT_PARALLAX, DEGENERATE_GEOMETRY, BEHIND_CAMERA, REPROJECTION_ERROR }
+    enum class Failure { INVALID_INPUT, INSUFFICIENT_VIEWS, INSUFFICIENT_PARALLAX, DEGENERATE_GEOMETRY, BEHIND_CAMERA, REPROJECTION_ERROR, NO_CONSENSUS }
     sealed class Result {
         data class Point(val xyz: DoubleArray, val maxParallaxDegrees: Double, val rmsPixels: Double, val maxPixels: Double) : Result()
         data class Rejected(val reason: Failure) : Result()

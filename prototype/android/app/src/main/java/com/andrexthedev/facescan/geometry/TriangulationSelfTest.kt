@@ -17,6 +17,14 @@ object TriangulationSelfTest {
         val result = MultiViewTriangulation.triangulate(observations) as? MultiViewTriangulation.Result.Point ?: return false
         if ((0..2).any { abs(result.xyz[it] - truth[it]) > 1e-6 } || result.maxPixels > 1e-7) return false
         val noBaseline = MultiViewTriangulation.triangulate(listOf(observations[0], observations[0]))
-        return noBaseline == MultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.INSUFFICIENT_PARALLAX)
+        if (noBaseline != MultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.INSUFFICIENT_PARALLAX)) return false
+        val extra = listOf(doubleArrayOf(80.0, 0.0, 0.0), doubleArrayOf(-150.0, 0.0, 0.0), doubleArrayOf(150.0, 0.0, 0.0))
+            .map { t ->
+                val pixel = DoubleArray(2); camera.project(Mat3.identity(), t, truth, pixel)
+                MultiViewTriangulation.Observation(camera, Mat3.identity(), t, pixel[0], pixel[1])
+            }.toMutableList()
+        extra[1] = extra[1].copy(v = extra[1].v + 45.0)
+        val consensus = RobustMultiViewTriangulation.triangulate(observations + extra) as? RobustMultiViewTriangulation.Result.Point ?: return false
+        return consensus.inliers == listOf(0, 1, 2, 4) && (0..2).all { abs(consensus.fit.xyz[it] - truth[it]) < 1e-6 }
     }
 }

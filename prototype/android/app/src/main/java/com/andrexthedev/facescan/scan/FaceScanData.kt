@@ -9,7 +9,9 @@ data class FaceSnapshot(
     val points: FloatArray, val width: Int, val height: Int, val jitterPx: Double, val samples: Int,
     val texture: FaceTexture? = null,
     val fusedPoints: FloatArray? = null,
-    val fusionAnchorRms: Double? = null
+    val fusionAnchorRms: Double? = null,
+    // Nur für laufende Kameraaufnahme; nicht als Personenkennung verwenden.
+    val sessionEpoch: Long? = null
 )
 data class FaceKeyframe(val seconds: Float, val points: FloatArray)
 data class FaceSurface(
@@ -55,6 +57,12 @@ class FaceFrameBuffer {
             NeutralCaptureQuality.inFrame(recent.last().points, recent.last().width, recent.last().height)
     }
 
+    /** Prüft auch nach asynchroner Verarbeitung, ob die Aufnahme zur aktuellen Sitzung gehört. */
+    @Synchronized fun isCurrent(snapshot: FaceSnapshot, nowMs: Long): Boolean =
+        snapshot.sessionEpoch != null && snapshot.sessionEpoch == epoch &&
+            frames.lastOrNull()?.let { it.width == snapshot.width && it.height == snapshot.height } == true &&
+            hasRecentFace(nowMs)
+
     fun snapshot(nowMs: Long): FaceSnapshot? {
         val (recent, capturedEpoch) = synchronized(this) {
             frames.filter { nowMs >= it.atMs && nowMs - it.atMs <= 5000 } to epoch
@@ -82,7 +90,7 @@ class FaceFrameBuffer {
             sq += dx * dx + dy * dy
         }
         val snapshot = FaceSnapshot(mean, width, height, sqrt(sq / (accepted.size * FaceTopology.VERTEX_COUNT)),
-            accepted.size, fusedPoints = fusion.points, fusionAnchorRms = fusion.maxAnchorRms)
+            accepted.size, fusedPoints = fusion.points, fusionAnchorRms = fusion.maxAnchorRms, sessionEpoch = capturedEpoch)
         return synchronized(this) { if (epoch == capturedEpoch) snapshot else null }
     }
 }

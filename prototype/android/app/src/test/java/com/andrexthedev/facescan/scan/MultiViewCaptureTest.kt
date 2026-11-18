@@ -50,12 +50,13 @@ class MultiViewCaptureTest {
     @Test fun anchorsMatchIndependentlyExtractedCanonicalModel() {
         // Referenzwerte aus canonical_face_model.obj v0.10.14, unabhängig per
         // Python extrahiert: Nasenspitze (4), Kinn (152), rechtes Augeninnen (33),
-        // linke Wange (454).
+        // linke Augeninnen (263), rechte Wange (234).
         val expected = mapOf(
             4 to doubleArrayOf(0.0, -0.463170, 7.586580),
             152 to doubleArrayOf(0.0, -9.403378, 4.264492),
             33 to doubleArrayOf(-4.445859, 2.663991, 3.173422),
-            454 to doubleArrayOf(7.664182, 0.673132, -2.435867)
+            234 to doubleArrayOf(-7.664182, 0.673132, -2.435867),
+            263 to doubleArrayOf(4.445859, 2.663991, 3.173422)
         )
         for ((landmark, point) in expected) {
             val slot = CanonicalAnchorData.indices.indexOf(landmark)
@@ -70,8 +71,9 @@ class MultiViewCaptureTest {
     }
 
     @Test fun assumesSymmetricIntrinsicsFromVerticalFieldOfView() {
+        // Hochformat: die Brennweite folgt der Höhe, nicht der Breite.
         val assumed = MultiViewCapture.assumedIntrinsics(1080, 1920, 60.0)
-        assertEquals(1080 / 2.0 / Math.tan(Math.toRadians(30.0)), assumed.fy, 1e-9)
+        assertEquals(1920 / 2.0 / Math.tan(Math.toRadians(30.0)), assumed.fy, 1e-9)
         assertEquals(assumed.fy, assumed.fx, 0.0)
         assertEquals(540.0, assumed.cx, 0.0)
         try { MultiViewCapture.assumedIntrinsics(0, 10, 60.0); fail() } catch (_: IllegalArgumentException) { }

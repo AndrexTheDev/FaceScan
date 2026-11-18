@@ -157,6 +157,9 @@
     <string name="multiview_capture_wait">Hold your head still, capturing …</string>
     <string name="multiview_capture_timeout">No usable view. Keep the whole face in frame and hold still.</string>
     <string name="multiview_view_saved">View %1$d saved.</string>
+    <string name="multiview_reject_dark">View not saved: the image is too dark. Add light and capture again.</string>
+    <string name="multiview_reject_bright">View not saved: the image is overexposed. Avoid backlight or a direct lamp and capture again.</string>
+    <string name="multiview_view_saved_blurry">View %1$d saved, but it looks blurred. Hold still briefly for the next view.</string>
     <string name="multiview_turn_more">Head pose is too similar to a saved view. Please turn clearly further left or right.</string>
     <string name="multiview_full">Maximum number of views reached.</string>
     <string name="multiview_pose_rejected">View rejected: anchor fit too poor or face turned too far.</string>

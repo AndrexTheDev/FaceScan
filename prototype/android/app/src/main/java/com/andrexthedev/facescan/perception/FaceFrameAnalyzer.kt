@@ -34,7 +34,9 @@ class FaceFrameAnalyzer(
     private val onQualityHint: ((ImageQuality.Hint?) -> Unit)? = null,
     private val onFrontalHint: ((Boolean?) -> Unit)? = null,
     // Experimentelle Mehransichten-Aufnahme: nur nach ausdrücklicher Anforderung.
-    private val viewCapture: ((FaceFrame) -> Unit)? = null,
+    // Der Bildhinweis gehört zur selben Erkennung wie die Landmarks; er wird
+    // nur für diese eine angeforderte Ansicht berechnet.
+    private val viewCapture: ((FaceFrame, ImageQuality.Hint?) -> Unit)? = null,
     private val viewRequest: FaceViewRequest? = null,
     private val onStatus: (FaceStatus) -> Unit
 ) : AutoCloseable {
@@ -88,7 +90,14 @@ class FaceFrameAnalyzer(
                 }
                 if (viewRequest != null && viewRequest.take() && viewCapture != null) {
                     // Aufrechte Bitmap und normierte Landmarks derselben Erkennung.
-                    viewCapture.invoke(FaceFrame(landmarks.copyOf(), upright.width, upright.height, frameStartedAt))
+                    // Der Bildhinweis wird hier einmalig frisch berechnet, damit
+                    // keine veraltete 500-ms-Probe eine Ansicht freigibt.
+                    val captureHint = try {
+                        val sampler = qualitySampler ?: FaceImageQualitySampler().also { qualitySampler = it }
+                        sampler.sample(upright, landmarks)?.hint
+                    } catch (_: Exception) { null }
+                    viewCapture.invoke(
+                        FaceFrame(landmarks.copyOf(), upright.width, upright.height, frameStartedAt), captureHint)
                 }
                 val id = textureRequest?.take() ?: 0L
                 if (id != 0L) {

@@ -273,6 +273,16 @@ class MultiViewCaptureTest {
     }
 
 
+
+    @Test fun qualityGateRejectsUnusableLightButOnlyWarnsOnBlur() {
+        assertEquals(MultiViewQualityGate.Decision.REJECT, MultiViewQualityGate.decide(ImageQuality.Hint.TOO_DARK))
+        assertEquals(MultiViewQualityGate.Decision.REJECT, MultiViewQualityGate.decide(ImageQuality.Hint.TOO_BRIGHT))
+        assertEquals(MultiViewQualityGate.Decision.WARN, MultiViewQualityGate.decide(ImageQuality.Hint.POSSIBLY_BLURRY))
+        assertEquals(MultiViewQualityGate.Decision.ACCEPT, MultiViewQualityGate.decide(ImageQuality.Hint.NO_WARNING))
+        // Ohne auswertbaren Bildausschnitt entscheidet nur die Ankerpose.
+        assertEquals(MultiViewQualityGate.Decision.ACCEPT, MultiViewQualityGate.decide(null))
+    }
+
     @Test fun topologyReportsBoundaryNonManifoldAndComponents() {
         // Ein einzelnes Dreieck hat drei Randkanten und eine Komponente.
         val single = PartialMeshTopology.inspect(3, intArrayOf(0, 1, 2))

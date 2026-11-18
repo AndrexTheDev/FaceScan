@@ -158,6 +158,9 @@
     <string name="multiview_capture_wait">Kopf ruhig halten, Aufnahme läuft …</string>
     <string name="multiview_capture_timeout">Keine auswertbare Ansicht. Gesicht vollständig ins Bild nehmen und ruhig halten.</string>
     <string name="multiview_view_saved">Ansicht %1$d gespeichert.</string>
+    <string name="multiview_reject_dark">Ansicht nicht gespeichert: Das Bild ist zu dunkel. Für mehr Licht sorgen und erneut aufnehmen.</string>
+    <string name="multiview_reject_bright">Ansicht nicht gespeichert: Das Bild ist überstrahlt. Gegenlicht oder direkte Lampe vermeiden und erneut aufnehmen.</string>
+    <string name="multiview_view_saved_blurry">Ansicht %1$d gespeichert, wirkt aber verwischt. Für die nächste Ansicht kurz stillhalten.</string>
     <string name="multiview_turn_more">Kopfhaltung ähnelt einer gespeicherten Ansicht. Bitte deutlich weiter nach links oder rechts drehen.</string>
     <string name="multiview_full">Maximale Anzahl an Ansichten erreicht.</string>
     <string name="multiview_pose_rejected">Ansicht verworfen: Ankerpassung zu schlecht oder Gesicht zu stark gedreht.</string>

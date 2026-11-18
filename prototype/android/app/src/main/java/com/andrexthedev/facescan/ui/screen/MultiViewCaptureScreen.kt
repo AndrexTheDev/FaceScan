@@ -54,8 +54,10 @@ import com.andrexthedev.facescan.perception.FaceFrameAnalyzer
 import com.andrexthedev.facescan.perception.FaceStatus
 import com.andrexthedev.facescan.scan.FaceMeshRenderer
 import com.andrexthedev.facescan.scan.FaceViewRequest
+import com.andrexthedev.facescan.scan.ImageQuality
 import com.andrexthedev.facescan.scan.MeshExportFormat
 import com.andrexthedev.facescan.scan.MultiViewCapture
+import com.andrexthedev.facescan.scan.MultiViewQualityGate
 import com.andrexthedev.facescan.scan.MultiViewSession
 import com.andrexthedev.facescan.scan.encodeExport
 import kotlinx.coroutines.CancellationException
@@ -112,7 +114,7 @@ fun MultiViewCaptureScreen(
     val analyzer = remember {
         FaceFrameAnalyzer(context.applicationContext, modelFile, diagnostics, active,
             viewRequest = viewRequest,
-            viewCapture = { frame ->
+            viewCapture = { frame, hint ->
                 FaceViewGeometry.remember(frame.width, frame.height)
                 val current = sessionRef.get()
                 if (current != null && !capturingRef.get()) {
@@ -131,7 +133,19 @@ fun MultiViewCaptureScreen(
                         }
                     }
                 }
-                if (current != null) {
+                // Zu dunkle oder überstrahlte Aufnahmen werden nicht gespeichert:
+                // Sie liefern keine belastbaren Landmarks und würden die
+                // Triangulation nur verschlechtern. Unscharfe Aufnahmen werden
+                // gespeichert, aber gemeldet.
+                val decision = MultiViewQualityGate.decide(hint)
+                if (current != null && decision == MultiViewQualityGate.Decision.REJECT) {
+                    diagnostics.scanEvent(ScanEvent.MULTIVIEW_VIEW_REJECTED)
+                    mainExecutor.execute {
+                        if (active.get()) feedback = context.getString(
+                            if (hint == ImageQuality.Hint.TOO_BRIGHT) R.string.multiview_reject_bright
+                            else R.string.multiview_reject_dark)
+                    }
+                } else if (current != null) {
                     val outcome = current.add(frame.points, frame.width, frame.height, frame.atMs)
                     val count = current.size()
                     val spread = current.yawSpreadDegrees()
@@ -140,7 +154,10 @@ fun MultiViewCaptureScreen(
                             viewCount = count
                             yawSpread = spread
                             feedback = when (outcome) {
-                                MultiViewSession.AddResult.ACCEPTED -> context.getString(R.string.multiview_view_saved, count)
+                                MultiViewSession.AddResult.ACCEPTED ->
+                                    if (decision == MultiViewQualityGate.Decision.WARN)
+                                        context.getString(R.string.multiview_view_saved_blurry, count)
+                                    else context.getString(R.string.multiview_view_saved, count)
                                 MultiViewSession.AddResult.INSUFFICIENT_YAW_DIFFERENCE -> context.getString(R.string.multiview_turn_more)
                                 MultiViewSession.AddResult.FULL -> context.getString(R.string.multiview_full)
                                 MultiViewSession.AddResult.INCONSISTENT_DIMENSIONS -> context.getString(R.string.multiview_failed)
@@ -148,6 +165,15 @@ fun MultiViewCaptureScreen(
                                 MultiViewSession.AddResult.OUT_OF_FRAME_OR_POSE_REJECTED -> context.getString(R.string.multiview_pose_rejected)
                             }
                         }
+                    }
+                }
+                // Sobald ein Frame ausgewertet wurde (angenommen oder
+                // verworfen), ist die Aufnahme fertig; der Nutzer muss nicht
+                // auf den Timeout warten.
+                mainExecutor.execute {
+                    if (active.get()) {
+                        capturing = false
+                        capturingRef.set(false)
                     }
                 }
             }

@@ -26,6 +26,9 @@ class ScanEventCountersTest {
         counters.record(ScanEvent.MULTIVIEW_FAILED)
         counters.record(ScanEvent.MULTIVIEW_FAILED)
         assertTrue(counters.summary().contains("Mehransichten-Rekonstruktionen rekonstruiert/fehlgeschlagen: 1/2"))
+        assertTrue(counters.summary().contains("Mehransichten-Ansichten wegen Licht/Helligkeit verworfen: 0"))
+        counters.record(ScanEvent.MULTIVIEW_VIEW_REJECTED)
+        assertTrue(counters.summary().contains("Mehransichten-Ansichten wegen Licht/Helligkeit verworfen: 1"))
     }
     @Test fun countingIsThreadSafe() {
         val counters = ScanEventCounters()

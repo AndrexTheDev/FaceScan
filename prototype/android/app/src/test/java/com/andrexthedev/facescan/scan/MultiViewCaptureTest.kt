@@ -135,7 +135,8 @@ class MultiViewCaptureTest {
         assertNull(LandmarkProjection.pixel(floatArrayOf(0.5f, 0.5f, 0f), 0, 0, h))
         assertNull(LandmarkProjection.pixel(floatArrayOf(Float.NaN, 0.5f, 0f), 0, w, h))
         assertNull(LandmarkProjection.pixels(floatArrayOf(0.5f, 0.5f, 0f), intArrayOf(0, 5), w, h))
-        assertEquals((0.4 * w) - 0.5, projection!!.u, 1e-9)
+        assertEquals((0.5 * w) - 0.5, projection!!.u, 1e-9)
+        assertEquals((0.5 * h) - 0.5, projection.v, 1e-9)
     }
 
     @Test fun sessionRequiresDistinctHeadTurnsAndKeepsSessionState() {

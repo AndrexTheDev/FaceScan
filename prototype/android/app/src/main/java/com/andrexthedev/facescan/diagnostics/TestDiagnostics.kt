@@ -71,6 +71,7 @@ Modell: $modelState
 Modell-SHA256 (Soll): ${FaceModel.SHA256}
 Modell-Fehlerklasse: $modelError
 Geräte-Selbsttest (Pinhole-Projektion): ${selfTests?.geometry ?: "nicht ausgeführt"}
+Geräte-Selbsttest (synthetische Triangulation): ${selfTests?.triangulation ?: "nicht ausgeführt"}
 Synthetischer M0-Geometrietest: $geometryFixture
 Geräte-Selbsttest (synthetisches Scan-Mesh und GLB): ${selfTests?.scanExport ?: "nicht ausgeführt"}
 Geräte-Selbsttest (synthetische Bildhinweise): ${selfTests?.imageQuality ?: "nicht ausgeführt"}

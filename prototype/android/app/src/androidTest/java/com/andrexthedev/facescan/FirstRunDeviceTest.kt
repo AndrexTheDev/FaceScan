@@ -58,6 +58,7 @@ class FirstRunDeviceTest {
         compose.onNodeWithText(text(R.string.report_open)).performScrollTo().performClick()
         compose.onNodeWithText("Modell: bereit", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (Pinhole-Projektion): bestanden", substring = true).assertExists()
+        compose.onNodeWithText("Geräte-Selbsttest (synthetische Triangulation): bestanden", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (MediaPipe auf Schwarzbild): bestanden", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (synthetisches Scan-Mesh und GLB): bestanden", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (synthetisches Foto/UV und OBJ): bestanden", substring = true).assertExists()

@@ -3,12 +3,11 @@ package com.andrexthedev.facescan.geometry
 /**
  * Kameramodell (Pinhole + Brennweite/Hauptpunkt in Pixel).
  *
- * Verzeichnung wird vor der Auswertung entfernt (Camera2 liefert die
- * Koeffizienten, wir entzerren die Bilder einmalig beim Einlesen) – dadurch
- * bleibt der gesamte Kern frei von Verzeichnungstermen.
- *
- * Einheiten: Pixel. Die metrische Skala kommt aus dem Modell (mm) plus der
- * Brennweite in Pixel – genau das macht ARCore ueberfluessig.
+ * Erwartet bereits entzerrte Pixel und zum Bild passende Intrinsics. Dieses
+ * Modell liest keine Camera2-Daten und entzerrt keine Bilder. Die aktuelle
+ * Scanaufnahme ist nicht kalibriert und verwendet dieses Modell nicht.
+ * Intrinsics sind in Pixeln; metrische Skala erfordert zusätzliche zuverlässige
+ * Informationen und folgt nicht automatisch aus der Brennweite.
  */
 data class CameraModel(
     val fx: Double,
@@ -55,7 +54,7 @@ data class CameraModel(
     }
 
     companion object {
-        /** Intrinsics aus CameraCharacteristics.LENS_INTRINSIC_CALIBRATION. */
+        /** Baut ein Modell aus bereits passend skalierten Intrinsics; liest Camera2 nicht aus. */
         fun fromAndroidIntrinsics(
             focalLength: FloatArray,
             principalPoint: FloatArray,

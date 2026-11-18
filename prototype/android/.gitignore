@@ -16,3 +16,5 @@ build/
 # Solange das offen ist, gehört die Datei nicht in die Versionsverwaltung
 # und nicht in ein veröffentlichtes Artefakt.
 app/src/main/assets/face_landmarker.task
+__pycache__/
+*.pyc

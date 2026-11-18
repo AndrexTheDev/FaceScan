@@ -158,8 +158,9 @@ object MultiViewCapture {
      * Variante mit zusätzlicher Kopfzeile zur Datenlage. Der Aufrufer muss die
      * Gegebenheiten selbst dokumentieren; die Zahlen stammen aus dem Fit.
      */
-    fun writeObjWithHeader(result: Result): ByteArray? {
-        val base = writeObj(result) ?: return null
+    fun writeObjWithHeader(result: Result, normals: Boolean = true): ByteArray? {
+        val mesh = result.surface.mesh ?: return null
+        val base = if (normals) PartialFaceMesh.writeObjWithNormals(mesh) else PartialFaceMesh.writeObj(mesh)
         val header = "# views=${result.acceptedViews.size} points=${result.surface.acceptedPoints} " +
             "maxAnchorRmsPx=${"%.3f".format(java.util.Locale.ROOT, result.maxAnchorRmsPixels)} " +
             "assumedFocalPx=${"%.1f".format(java.util.Locale.ROOT, result.intrinsics.fx)}\n" +

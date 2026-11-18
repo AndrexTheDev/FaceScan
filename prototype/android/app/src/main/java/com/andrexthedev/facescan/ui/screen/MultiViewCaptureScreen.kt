@@ -1,5 +1,6 @@
 package com.andrexthedev.facescan.ui.screen
 
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -83,6 +84,9 @@ fun MultiViewCaptureScreen(
     val active = remember { AtomicBoolean(true) }
     val hintEpoch = remember { AtomicLong(0) }
     val viewRequest = remember { FaceViewRequest() }
+    // Wird im Analyzer-Thread gelesen; deshalb als atomarer Wert.
+    val capturingRef = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    val lastGuidanceAt = remember { java.util.concurrent.atomic.AtomicLong(0L) }
     val mainExecutor = remember { ContextCompat.getMainExecutor(context) }
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf(FaceStatus.WAITING) }
@@ -97,6 +101,9 @@ fun MultiViewCaptureScreen(
     // Nur Anzeige der angenommenen Optik; nicht die Kamera-Kalibrierung.
     var pendingIntrinsics by remember { mutableStateOf<MultiViewCapture.Intrinsics?>(null) }
     var sessionReady by remember { mutableStateOf(false) }
+    var liveYaw by remember { mutableStateOf<Double?>(null) }
+    var nearestDifference by remember { mutableStateOf<Double?>(null) }
+    var canCapture by remember { mutableStateOf(false) }
 
     // Nur eine Sitzung je Bildschirm; Änderungen laufen threadsicher in der Klasse.
     val sessionRef = remember { java.util.concurrent.atomic.AtomicReference<MultiViewSession?>(null) }
@@ -106,6 +113,22 @@ fun MultiViewCaptureScreen(
             viewCapture = { frame ->
                 FaceViewGeometry.remember(frame.width, frame.height)
                 val current = sessionRef.get()
+                if (current != null && !capturingRef.get()) {
+                    // Grobe Live-Orientierung, gedrosselt; keine Messung.
+                    val now = SystemClock.elapsedRealtime()
+                    if (now - lastGuidanceAt >= 600L) {
+                        lastGuidanceAt = now
+                        val guidance = try { current.guidance(frame.points, frame.width, frame.height) }
+                            catch (_: Exception) { null }
+                        if (guidance != null) mainExecutor.execute {
+                            if (active.get()) {
+                                liveYaw = guidance.yawDegrees
+                                nearestDifference = guidance.nearestDegrees
+                                canCapture = guidance.sufficient && viewCount < MultiViewCapture.MAX_VIEWS
+                            }
+                        }
+                    }
+                }
                 if (current != null) {
                     val outcome = current.add(frame.points, frame.width, frame.height, frame.atMs)
                     val count = current.size()
@@ -166,6 +189,7 @@ fun MultiViewCaptureScreen(
             return
         }
         capturing = true
+        capturingRef.set(true)
         viewRequest.request()
         feedback = context.getString(R.string.multiview_capture_wait)
         scope.launch {
@@ -175,6 +199,7 @@ fun MultiViewCaptureScreen(
                 feedback = context.getString(R.string.multiview_capture_timeout)
             }
             capturing = false
+            capturingRef.set(false)
         }
     }
 
@@ -233,6 +258,16 @@ fun MultiViewCaptureScreen(
                 Text(stringResource(R.string.multiview_limitations), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(R.string.multiview_status,
                     viewCount, MultiViewCapture.MAX_VIEWS, yawSpread))
+                val currentYaw = liveYaw
+                if (sessionReady && currentYaw != null) {
+                    val difference = nearestDifference
+                    // Zwei getrennte Texte statt gemischter Formatargumente:
+                    // Zahlen und Handlungsanweisung bleiben so eindeutig.
+                    Text(if (canCapture) stringResource(R.string.multiview_live_far, currentYaw)
+                        else if (difference == null) stringResource(R.string.multiview_live_first, currentYaw)
+                        else stringResource(R.string.multiview_live_near, currentYaw, difference),
+                        style = MaterialTheme.typography.bodyMedium)
+                }
                 pendingIntrinsics?.let {
                     Text(stringResource(R.string.multiview_assumed_intrinsics, it.fx),
                         style = MaterialTheme.typography.bodySmall)
@@ -253,10 +288,10 @@ fun MultiViewCaptureScreen(
                 }
                 Button(onClick = { captureView() },
                     enabled = !cameraError && !capturing && status == FaceStatus.FACE && sessionReady &&
-                        viewCount < MultiViewCapture.MAX_VIEWS,
+                        viewCount < MultiViewCapture.MAX_VIEWS && canCapture,
                     modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.multiview_capture_view)) }
                 if (capturing) OutlinedButton(onClick = {
-                    viewRequest.cancel(); capturing = false
+                    viewRequest.cancel(); capturing = false; capturingRef.set(false)
                     feedback = context.getString(R.string.multiview_cancelled)
                 }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.multiview_cancel_view)) }
                 if (feedback.isNotEmpty()) Text(feedback, style = MaterialTheme.typography.bodyMedium)

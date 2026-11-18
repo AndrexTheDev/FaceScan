@@ -54,6 +54,12 @@ def validate_partial(obj_path: Path, reference_path: Path) -> None:
         raise ValueError("Vertex positions do not round-trip")
     if not np.array_equal(faces, expected_faces):
         raise ValueError("Triangle indices do not round-trip")
+    normals = np.asarray(mesh["vertex_normals"]) if mesh["vertex_normals"] is not None else None
+    if normals is not None:
+        if normals.shape != vertices.shape or not np.isfinite(normals).all():
+            raise ValueError("Invalid partial normals")
+        if not np.allclose(np.linalg.norm(normals, axis=1), 1, rtol=0, atol=1e-5):
+            raise ValueError("Partial normals are not unit length")
     if faces.shape[0] < 1 or vertices.shape[0] >= 468:
         raise ValueError("Partial mesh must be incomplete but non-empty")
     if faces.max(initial=-1) >= vertices.shape[0]:

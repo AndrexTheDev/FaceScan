@@ -192,6 +192,45 @@ class MultiViewCaptureTest {
         assertTrue(session.reconstruct() is MultiViewCapture.Outcome.Rejected)
     }
 
+    @Test fun guidanceTracksDistanceToNearestStoredView() {
+        val session = MultiViewSession(intrinsics)
+        val frontal = MultiViewSessionSelfTest.syntheticLandmarks(0.0)
+        val near = MultiViewSessionSelfTest.syntheticLandmarks(5.0)
+        val far = MultiViewSessionSelfTest.syntheticLandmarks(20.0)
+        // Ohne gespeicherte Ansicht ist jede erkannte Haltung zulässig.
+        assertTrue(session.guidance(frontal, w, h).sufficient)
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, session.add(frontal, w, h))
+        val nearGuidance = session.guidance(near, w, h)
+        assertNotNull(nearGuidance.yawDegrees)
+        assertTrue("5 Grad reichen nicht", !nearGuidance.sufficient)
+        assertTrue(nearGuidance.nearestDegrees!! < MultiViewSession.MIN_YAW_DIFFERENCE_DEGREES)
+        val farGuidance = session.guidance(far, w, h)
+        assertTrue(farGuidance.sufficient)
+        assertTrue(farGuidance.nearestDegrees!! >= MultiViewSession.MIN_YAW_DIFFERENCE_DEGREES)
+        // Ungültige Eingaben liefern keine erfundene Orientierung.
+        val invalid = frontal.copyOf().also { it[0] = Float.NaN }
+        assertNull(session.guidance(invalid, w, h).yawDegrees)
+        assertNull(session.guidance(frontal, 0, h).yawDegrees)
+        assertEquals(MultiViewSession.MIN_YAW_DIFFERENCE_DEGREES, session.minimumViewDifference(), 0.0)
+    }
+
+    @Test fun partialObjWithNormalsIsFiniteAndCommentOnlyWhereAllowed() {
+        val outcome = MultiViewCapture.reconstruct(listOf(view(0.0), view(-22.0)), intrinsics)
+            as MultiViewCapture.Outcome.Reconstructed
+        val mesh = outcome.result.surface.mesh!!
+        val bytes = PartialFaceMesh.writeObjWithNormals(mesh)
+        val lines = String(bytes, Charsets.UTF_8).lines()
+        assertEquals(mesh.vertices.size, lines.count { it.startsWith("v ") })
+        assertEquals(mesh.vertices.size, lines.count { it.startsWith("vn ") })
+        assertEquals(mesh.triangles.size / 3, lines.count { it.startsWith("f ") })
+        assertTrue(lines.filter { it.startsWith("f ") }.all { it.split(" ").drop(1).all { f -> f.matches(Regex("\\d+//\\d+")) } })
+        // Degenerierte Normalen sind im Export nicht erlaubt (Einheitsvektoren).
+        lines.filter { it.startsWith("vn ") }.forEach { line ->
+            val v = line.removePrefix("vn ").split(" ").map(String::toDouble)
+            assertEquals(1.0, kotlin.math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]), 1e-5)
+        }
+    }
+
     @Test fun localFocalSearchRecoversApproximateFocalLengthFromAnchors() {
         // Ansicht mit einer anderen als der angenommenen Brennweite.
         val trueFocal = 1050.0

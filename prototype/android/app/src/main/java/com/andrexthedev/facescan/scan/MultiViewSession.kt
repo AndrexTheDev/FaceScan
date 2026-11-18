@@ -117,6 +117,27 @@ class MultiViewSession(
         return MultiViewCapture.reconstruct(views.map { it.view }, camera, maxEdgeCm)
     }
 
+    /**
+     * Live-Hinweis für die Aufnahme: wie weit die aktuelle Kopfhaltung von der
+     * nächsten bereits gespeicherten Ansicht entfernt ist (Grad, gerundet auf
+     * die Schwellenlogik). Keine Messung, nur eine grobe Orientierung.
+     */
+    data class Guidance(val yawDegrees: Double?, val nearestDegrees: Double?, val sufficient: Boolean)
+
+    fun guidance(points: FloatArray, width: Int, height: Int): Guidance {
+        if (width <= 0 || height <= 0 || points.size < CanonicalAnchors.LANDMARK_COUNT * 3 ||
+            points.any { !it.isFinite() }) return Guidance(null, null, false)
+        val yaw = try { yawDegrees(points, width, height) } catch (_: IllegalArgumentException) { null }
+            ?: return Guidance(null, null, false)
+        val nearest = synchronized(this) {
+            views.minOfOrNull { angularDistance(it.yawDegrees, yaw) }
+        }
+        return Guidance(yaw, nearest, nearest == null || nearest >= minYawDifferenceDegrees)
+    }
+
+    /** Nur zum Testen: Schwellenwert öffentlich lesbar. */
+    fun minimumViewDifference(): Double = minYawDifferenceDegrees
+
     private fun angularDistance(a: Double, b: Double): Double {
         val diff = Math.abs(a - b) % 360.0
         return if (diff > 180.0) 360.0 - diff else diff

@@ -147,6 +147,8 @@
     <string name="multiview_limitations">Diese Rekonstruktion nutzt ein kanonisches Durchschnittsgesicht als Bezug. Sie ist keine Vermessung deines Gesichts: Form und Skala weichen bei jeder Person ab und sind nicht validiert. Es entsteht ein offenes Teilnetz mit möglichen Löchern, ohne Haare, Hinterkopf, Foto oder Animation. Keine Identitätsprüfung: Nutze nur eine Person in einer ruhigen Sitzung.</string>
     <string name="multiview_status">Ansichten: %1$d von maximal %2$d; geschätzte Kopfdrehungsspanne %3$.0f Grad.</string>
     <string name="multiview_assumed_intrinsics">Angenommene Brennweite: %1$.0f px (aus 60 Grad vertikalem Sichtfeld; keine Kalibrierung).</string>
+    <string name="multiview_live_far">Haltung ist ausreichend verschieden – Aufnahme möglich.</string>
+    <string name="multiview_live_near">Bitte den Kopf weiter drehen.</string>
     <string name="multiview_prepare">Ansichten vorbereiten</string>
     <string name="multiview_intrinsics_ready">Bereit. Frontal aufnehmen und danach den Kopf drehen.</string>
     <string name="multiview_capture_view">Aktuelle Kopfhaltung aufnehmen</string>

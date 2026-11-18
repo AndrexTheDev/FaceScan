@@ -269,7 +269,7 @@ class FaceScanTest {
         val cloud = MultiViewPointCloud.Result(clouds, clouds.count { it is MultiViewTriangulation.Result.Point })
         val mesh = PartialFaceMesh.build(cloud).mesh
         assertNotNull(mesh)
-        val bytes = PartialFaceMesh.writeObj(mesh!!)
+        val bytes = PartialFaceMesh.writeObjWithNormals(mesh!!)
         System.getenv("RUNNER_TEMP")?.let { dir ->
             File(dir, "facescan-synthetic-partial.obj").writeBytes(bytes)
             val vertices = mesh.vertices.joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }

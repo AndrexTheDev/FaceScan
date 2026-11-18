@@ -79,6 +79,13 @@ object MultiViewSessionSelfTest {
         }
         val text = String(MultiViewCapture.writeObjWithHeader(reconstructed.result) ?: return false, Charsets.UTF_8)
         if (!text.contains("f ") || !text.contains("not validated") || !text.contains("views=3")) return false
+        // Normalen müssen vorhanden und endlich sein; sie sind kein Messwert.
+        if (text.lineSequence().none { it.startsWith("vn ") }) return false
+        if (text.lineSequence().filter { it.startsWith("vn ") }.any { line ->
+                line.removePrefix("vn ").split(' ').any { it.toFloatOrNull()?.isFinite() != true } }) return false
+        // Live-Orientierung: frontal ohne Ansichten ist die Haltung zulässig.
+        val guidance = MultiViewSession(intrinsics).guidance(frontal, WIDTH, HEIGHT)
+        if (guidance.yawDegrees == null || !guidance.sufficient) return false
         // Falsche Bildgröße darf keine Sitzung mischen.
         session.clear()
         if (session.add(syntheticLandmarks(0.0), WIDTH, HEIGHT) != MultiViewSession.AddResult.ACCEPTED) return false

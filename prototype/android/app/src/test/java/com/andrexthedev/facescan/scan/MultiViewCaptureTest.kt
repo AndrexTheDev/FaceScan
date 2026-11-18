@@ -59,7 +59,8 @@ class MultiViewCaptureTest {
         )
         for ((landmark, point) in expected) {
             val slot = CanonicalAnchorData.indices.indexOf(landmark)
-            assertTrue("Anker $landmark fehlt", slot >= 0)
+            assertTrue("Anker $landmark fehlt; gefunden: ${CanonicalAnchorData.indices.joinToString()}",
+                slot >= 0)
             for (axis in 0..2) assertEquals(point[axis], CanonicalAnchorData.points[3 * slot + axis], 1e-6)
         }
         assertEquals(30, CanonicalAnchorData.COUNT)

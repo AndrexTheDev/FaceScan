@@ -260,7 +260,15 @@ class FaceScanTest {
             FaceTexture(byteArrayOf(-1, -40, -1, -39), FloatArray(936) { Float.NaN }))) {
             try { GlbWriter.write(surface.copy(texture = texture)); fail("invalid texture accepted") } catch (_: IllegalArgumentException) { }
         }
-        val obj = String(ObjWriter.write(surface), Charsets.UTF_8).lines()
+        val objBytes = ObjWriter.write(surface)
+        System.getenv("RUNNER_TEMP")?.let { dir ->
+            File(dir, "facescan-synthetic.obj").writeBytes(objBytes)
+            val normals = MeshNormals.calculate(surface.neutral, FaceTopology.triangles)
+            fun vectors(values: FloatArray) = values.toList().chunked(3).joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
+            val faces = FaceTopology.triangles.toList().chunked(3).joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
+            File(dir, "facescan-synthetic-obj-reference.json").writeText("{\"vertices\":${vectors(surface.neutral)},\"normals\":${vectors(normals)},\"faces\":$faces}")
+        }
+        val obj = String(objBytes, Charsets.UTF_8).lines()
         assertEquals(468, obj.count { it.startsWith("v ") })
         assertEquals(898, obj.count { it.startsWith("f ") })
         assertEquals(468, obj.count { it.startsWith("vn ") })

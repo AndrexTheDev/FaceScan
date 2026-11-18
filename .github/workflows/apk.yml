@@ -121,16 +121,19 @@ jobs:
         working-directory: prototype/android
         run: |
           set -euo pipefail
-          if [ ! -s "$RUNNER_TEMP/facescan-synthetic.glb" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-textured.glb" ]; then
+          if [ ! -s "$RUNNER_TEMP/facescan-synthetic.glb" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-textured.glb" ] ||
+             [ ! -s "$RUNNER_TEMP/facescan-synthetic.obj" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-obj-reference.json" ]; then
             gradle --no-daemon :app:testDebugUnitTest --tests 'com.andrexthedev.facescan.scan.FaceScanTest' --rerun-tasks
           fi
           npm install --prefix "$RUNNER_TEMP/facescan-validator" --no-save --no-audit --no-fund gltf-validator@2.0.0-dev.3.10
           node ci/validate-glb.js
 
-      - name: Referenz-Vergleich synthetisch prüfen
+      - name: Referenz-Vergleich und OBJ synthetisch prüfen
         run: |
-          python3 -m pip install --user numpy
+          set -euo pipefail
+          python3 -m pip install --user numpy trimesh==4.7.4
           python3 -m unittest discover -s prototype/reference/validation -v
+          python3 prototype/android/ci/validate-obj.py
 
       - name: Testergebnis hochladen
         if: always()

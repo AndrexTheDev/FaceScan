@@ -27,6 +27,11 @@ object GlbWriter {
         }
         val indices = FaceTopology.triangles
         require(indices.isNotEmpty() && indices.size % 3 == 0 && indices.all { it in 0 until n })
+        val baseNormals = MeshNormals.calculate(surface.neutral, indices)
+        val normalDeltas = keys.drop(1).map { key ->
+            val normals = MeshNormals.calculate(key.points, indices)
+            FloatArray(n * 3) { normals[it] - baseNormals[it] }
+        }
 
         val binary = ByteArrayOutputStream()
         fun floats(values: FloatArray) {
@@ -53,6 +58,9 @@ object GlbWriter {
         val weightsOffset = binary.size(); floats(weights); align()
         val uvOffset = if (texture != null) binary.size().also { floats(texture.uv); align() } else null
         val imageOffset = if (texture != null) binary.size().also { binary.write(texture.jpeg); align() } else null
+        // Am Ende angehängt: bestehende Positions-/UV-Puffer bleiben unverändert.
+        val normalOffset = binary.size(); floats(baseNormals); align()
+        val normalDeltaOffsets = normalDeltas.map { val offset = binary.size(); floats(it); align(); offset }
         val bytes = binary.toByteArray()
         val (min, max) = bounds(surface.neutral)
         val views = mutableListOf(
@@ -83,7 +91,18 @@ object GlbWriter {
             accessors.add("{\"bufferView\":$uvView,\"componentType\":5126,\"count\":$n,\"type\":\"VEC2\"}")
             accessor to imageView
         } else null
-        val targetJson = deltas.indices.joinToString(",") { "{\"POSITION\":${it + 2}}" }
+        val normalView = views.size
+        views.add("{\"buffer\":0,\"byteOffset\":$normalOffset,\"byteLength\":${n * 12},\"target\":34962}")
+        val normalAccessor = accessors.size
+        accessors.add("{\"bufferView\":$normalView,\"componentType\":5126,\"count\":$n,\"type\":\"VEC3\"}")
+        val normalTargetAccessors = normalDeltaOffsets.map { offset ->
+            val view = views.size
+            views.add("{\"buffer\":0,\"byteOffset\":$offset,\"byteLength\":${n * 12},\"target\":34962}")
+            val accessor = accessors.size
+            accessors.add("{\"bufferView\":$view,\"componentType\":5126,\"count\":$n,\"type\":\"VEC3\"}")
+            accessor
+        }
+        val targetJson = deltas.indices.joinToString(",") { "{\"POSITION\":${it + 2},\"NORMAL\":${normalTargetAccessors[it]}}" }
         val targetNames = deltas.indices.joinToString(",") { "\"frame_${it + 1}\"" }
         val zeros = deltas.indices.joinToString(",") { "0" }
         val texAttr = textureAccessor?.let { ",\"TEXCOORD_0\":${it.first}" } ?: ""
@@ -93,7 +112,7 @@ object GlbWriter {
         val json = """{
 "asset":{"version":"2.0","generator":"FaceScan prototype","extras":{"scale":"uncalibrated; one unit is eye distance","limitations":"single-view face surface; optional single-view photograph, no hair, back of head or validated metric accuracy"}},
 "scene":0,"scenes":[{"nodes":[0]}],"nodes":[{"mesh":0,"name":"Face"}],
-"meshes":[{"name":"FaceSurface","weights":[$zeros],"extras":{"targetNames":[$targetNames]},"primitives":[{"attributes":{"POSITION":0$texAttr},"indices":1,"material":0,"targets":[$targetJson]}]}],
+"meshes":[{"name":"FaceSurface","weights":[$zeros],"extras":{"targetNames":[$targetNames]},"primitives":[{"attributes":{"POSITION":0,"NORMAL":$normalAccessor$texAttr},"indices":1,"material":0,"targets":[$targetJson]}]}],
 "materials":[{"name":"Face","doubleSided":true,"pbrMetallicRoughness":{"baseColorFactor":$baseColor,"metallicFactor":0,"roughnessFactor":1$texMaterial}}],
 "animations":[{"name":"RecordedExpression","samplers":[{"input":$timesAccessor,"output":$weightsAccessor,"interpolation":"LINEAR"}],"channels":[{"sampler":0,"target":{"node":0,"path":"weights"}}]}],
 "buffers":[{"byteLength":${bytes.size}}],"bufferViews":[${views.joinToString(",")}],"accessors":[${accessors.joinToString(",")}]$texData}""".toByteArray(Charsets.UTF_8)

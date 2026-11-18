@@ -51,6 +51,8 @@ object ScanSelfTest {
             !smooth.keyframes().last().points[axis].isFinite()) return false
         // Der geglättete Exportpfad muss ebenfalls synthetisch funktionieren.
         if (GlbWriter.write(smooth).size < 20) return false
+        val normals = MeshNormals.calculate(floatArrayOf(0f,0f,0f, 1f,0f,0f, 0f,1f,0f), intArrayOf(0,1,2))
+        if (normals[2] != 1f || normals[5] != 1f || normals[8] != 1f) return false
         val bytes = GlbWriter.write(surface)
         val glb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         if (glb.int != 0x46546c67 || glb.int != 2 || glb.int != bytes.size) return false
@@ -58,7 +60,7 @@ object ScanSelfTest {
         if (jsonLength <= 0 || jsonLength % 4 != 0 || jsonLength > glb.remaining() - 12 || glb.int != 0x4e4f534a) return false
         val jsonBytes = ByteArray(jsonLength); glb.get(jsonBytes)
         val json = String(jsonBytes, Charsets.UTF_8)
-        if (!json.contains("\"animations\"") || !json.contains("\"targets\"")) return false
+        if (!json.contains("\"animations\"") || !json.contains("\"targets\"") || !json.contains("\"NORMAL\"")) return false
         val binaryLength = glb.int
         return glb.int == 0x004e4942 && binaryLength == glb.remaining()
     }

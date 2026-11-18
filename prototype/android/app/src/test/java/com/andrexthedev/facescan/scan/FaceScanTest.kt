@@ -190,6 +190,7 @@ class FaceScanTest {
         assertTrue(json.contains("\"targets\""))
         assertTrue(json.contains("\"animations\""))
         assertTrue(json.contains("\"path\":\"weights\""))
+        assertTrue(json.contains("\"NORMAL\""))
         assertTrue(json.contains("uncalibrated"))
         assertTrue(json.contains("\"frame_16\""))
         assertTrue(json.contains("\"count\":272"))
@@ -210,6 +211,19 @@ class FaceScanTest {
         for (k in 0 until 17) for (target in 0 until 16) {
             assertEquals(if (k == target + 1) 1f else 0f, input.getFloat(weightsStart + (k * 16 + target) * 4), 0f)
         }
+        // Normale und Morph-Normalen liegen hinter den Animationsgewichten.
+        val normalsStart = weightsStart + 272 * 4
+        val baseNormals = MeshNormals.calculate(surface.neutral, FaceTopology.triangles)
+        val targetNormals = MeshNormals.calculate(surface.keyframes()[7].points, FaceTopology.triangles)
+        var changedNormals = 0
+        for (i in baseNormals.indices) {
+            val base = input.getFloat(normalsStart + i * 4)
+            val delta = input.getFloat(normalsStart + 468 * 12 + 6 * 468 * 12 + i * 4)
+            assertEquals(baseNormals[i], base, 1e-6f)
+            assertEquals(targetNormals[i], base + delta, 1e-6f)
+            if (abs(delta) > 1e-5f) changedNormals++
+        }
+        assertTrue(changedNormals > 0)
         // CI lässt diesen ausschließlich synthetischen Export zusätzlich vom
         // unabhängigen Khronos glTF-Validator prüfen.
         System.getenv("RUNNER_TEMP")?.let { File(it, "facescan-synthetic.glb").writeBytes(glb) }
@@ -249,8 +263,9 @@ class FaceScanTest {
         val obj = String(ObjWriter.write(surface), Charsets.UTF_8).lines()
         assertEquals(468, obj.count { it.startsWith("v ") })
         assertEquals(898, obj.count { it.startsWith("f ") })
-        val first = obj.first { it.startsWith("f ") }.split(" ").drop(1).map(String::toInt)
-        assertEquals(FaceTopology.triangles.take(3).map { it + 1 }, first)
+        assertEquals(468, obj.count { it.startsWith("vn ") })
+        val first = obj.first { it.startsWith("f ") }.split(" ").drop(1).map { it.split("//").map(String::toInt) }
+        assertEquals(FaceTopology.triangles.take(3).map { listOf(it + 1, it + 1) }, first)
         assertTrue(obj.any { it.contains("Uncalibrated") })
         assertFalse(obj.any { it.startsWith("mtllib ") })
     }

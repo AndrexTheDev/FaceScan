@@ -56,7 +56,8 @@ object TextureSelfTest {
                 if (!String(glb, Charsets.ISO_8859_1).contains("image/jpeg")) return false
                 val obj = String(ObjWriter.write(surface), Charsets.UTF_8)
                 return obj.lineSequence().count { it.startsWith("v ") } == 468 &&
-                    obj.lineSequence().count { it.startsWith("f ") } == 898
+                    obj.lineSequence().count { it.startsWith("vn ") } == 468 &&
+                    obj.lineSequence().count { it.startsWith("f ") } == 898 && obj.contains("//")
             } finally { decoded.recycle() }
         } finally { bitmap.recycle() }
     }

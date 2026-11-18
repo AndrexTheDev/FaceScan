@@ -8,8 +8,8 @@ object RobustMultiViewTriangulation {
     }
 
     /**
-     * Nur mindestens drei und strikt mehr als die Hälfte aller Beobachtungen
-     * dürfen einen Konsens bilden. Aus allen Paaren erzeugte Hypothesen werden
+     * Mindestens drei Ansichten müssen übereinstimmen; ab vier Ansichten
+     * zusätzlich strikt mehr als die Hälfte. Zwei Ansichten reichen nie. Aus allen Paaren erzeugte Hypothesen werden
      * mittels Pixelrest bewertet und der Konsens wird neu trianguliert.
      * Maximal 32 Beobachtungen; keine statistische Genauigkeitsgarantie.
      */
@@ -23,7 +23,12 @@ object RobustMultiViewTriangulation {
         if (all is MultiViewTriangulation.Result.Point) return Result.Point(all, observations.indices.toList())
         if (all is MultiViewTriangulation.Result.Rejected && all.reason == MultiViewTriangulation.Failure.INVALID_INPUT)
             return Result.Rejected(all.reason)
-        val minInliers = maxOf(3, observations.size / 2 + 1)
+        // Ein Konsens muss mindestens drei Ansichten umfassen; bei vier und mehr
+        // Ansichten zusätzlich strikt die Mehrheit. Bei nur drei Ansichten ist
+        // ein einzelner Ausreißer damit grundsätzlich nicht rekonstruierbar –
+        // bewusst konservativ, weil zwei Ansichten keine Ausreißerprüfung
+        // erlauben.
+        val minInliers = if (observations.size == 3) 3 else observations.size / 2 + 1
         fun residual(point: DoubleArray, obs: MultiViewTriangulation.Observation): Double {
             val p = obs.worldToCamera.times(point)
             for (axis in 0..2) p[axis] += obs.translation[axis]

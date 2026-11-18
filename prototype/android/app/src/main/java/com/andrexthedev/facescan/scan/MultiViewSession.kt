@@ -108,7 +108,10 @@ class MultiViewSession(
     @Synchronized fun reconstruct(maxEdgeCm: Double? = null): MultiViewCapture.Outcome {
         if (views.size < 2) return MultiViewCapture.Outcome.Rejected(MultiViewCapture.Failure.INSUFFICIENT_ACCEPTED_VIEWS)
         val focals = views.map { it.estimatedIntrinsics.fx }.sorted()
-        val median = focals[focals.size / 2]
+        // Bei gerader Anzahl den Mittelwert der beiden mittleren Werte nehmen,
+        // sonst würde eine der beiden Kameras willkürlich bevorzugt.
+        val median = if (focals.size % 2 == 1) focals[focals.size / 2]
+            else (focals[focals.size / 2 - 1] + focals[focals.size / 2]) / 2.0
         val camera = if (median.isFinite() && median > 0.0)
             MultiViewCapture.Intrinsics(median, median, intrinsics.cx, intrinsics.cy) else intrinsics
         return MultiViewCapture.reconstruct(views.map { it.view }, camera, maxEdgeCm)

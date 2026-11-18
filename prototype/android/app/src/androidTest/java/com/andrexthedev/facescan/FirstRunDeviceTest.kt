@@ -121,6 +121,7 @@ class FirstRunDeviceTest {
         // solange keine zwei echten Ansichten vorliegen.
         // Ohne Gesicht bleibt die Vorbereitung gesperrt.
         compose.onNodeWithText(text(R.string.multiview_prepare)).assertIsNotEnabled()
+        // Ohne Gesicht ist auch die Rekonstruktion gesperrt.
         compose.onNodeWithText(text(R.string.multiview_reconstruct)).assertIsNotEnabled()
         compose.onNodeWithText(text(R.string.common_cancel)).performScrollTo().performClick()
         awaitText(R.string.model_ready)

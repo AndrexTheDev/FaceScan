@@ -130,6 +130,36 @@ class MultiViewCaptureTest {
                 as MultiViewCapture.Outcome.Rejected).reason)
     }
 
+    @Test fun robustConsensusDropsAWrongCorrespondenceWithoutGuessing() {
+        // In der dritten Ansicht ist ein einzelner Nicht-Ankerpunkt um 120 px
+        // verschoben. Mit drei Ansichten ist der Ausreißer nicht sicher
+        // erkennbar; der Punkt darf deshalb fehlen, aber nie falsch sein.
+        val corrupted = view(24.0, shiftIndex = 0, shiftPixels = 120.0)
+        val views = listOf(view(0.0), view(-22.0), corrupted)
+        val robust = MultiViewCapture.reconstruct(views, intrinsics) as MultiViewCapture.Outcome.Reconstructed
+        val point = robust.result.cloud.points[0]
+        val truth = MultiViewSessionSelfTest.syntheticWorldPoints()[0]
+        assertTrue("Ausreißer darf nicht als Punkt erscheinen", point is MultiViewTriangulation.Result.Rejected)
+        // Nur dieser eine Punkt fehlt; alle anderen bleiben rekonstruiert.
+        assertEquals(467, robust.result.cloud.acceptedCount)
+        // Ohne Konsens (zwei Ansichten) bleibt nur die strenge Prüfung.
+        val strict = MultiViewCapture.reconstruct(listOf(view(0.0), view(-22.0)), intrinsics,
+            robust = false) as MultiViewCapture.Outcome.Reconstructed
+        val strictPoint = strict.result.cloud.points[0] as MultiViewTriangulation.Result.Point
+        for (axis in 0..2) assertEquals(truth[axis], strictPoint.xyz[axis], 0.1)
+    }
+
+    @Test fun robustConsensusWithFourViewsRejectsOutlierAndKeepsOthers() {
+        val corrupted = view(24.0, shiftIndex = 0, shiftPixels = 120.0)
+        val views = listOf(view(0.0), view(-22.0), view(-40.0), corrupted)
+        val robust = MultiViewCapture.reconstruct(views, intrinsics) as MultiViewCapture.Outcome.Reconstructed
+        assertTrue(robust.result.cloud.points[0] is MultiViewTriangulation.Result.Rejected)
+        val truth = MultiViewSessionSelfTest.syntheticWorldPoints()
+        val survivor = robust.result.cloud.points[100] as MultiViewTriangulation.Result.Point
+        for (axis in 0..2) assertEquals(truth[100][axis], survivor.xyz[axis], 0.1)
+        assertTrue(robust.result.surface.acceptedPoints >= 460)
+    }
+
     @Test fun rejectedAnchorsNeverProduceInventedPixels() {
         val projection = LandmarkProjection.pixel(floatArrayOf(0.5f, 0.5f, 0f), 0, w, h)
         assertNotNull(projection)

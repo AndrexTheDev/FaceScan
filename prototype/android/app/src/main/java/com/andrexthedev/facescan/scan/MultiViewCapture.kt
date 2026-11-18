@@ -71,7 +71,8 @@ object MultiViewCapture {
      * bleiben unbekannt; es werden keine Punkte erfunden. Zu lange Dreiecks-
      * kanten können optional verworfen werden (Einheit: Zentimeter der Anker).
      */
-    fun reconstruct(views: List<View>, intrinsics: Intrinsics, maxEdgeCm: Double? = null): Outcome {
+    fun reconstruct(views: List<View>, intrinsics: Intrinsics, maxEdgeCm: Double? = null,
+                    robust: Boolean = true): Outcome {
         fun reject(reason: Failure): Outcome = Outcome.Rejected(reason)
         if (views.size !in 2..MAX_VIEWS) return reject(if (views.size > MAX_VIEWS) Failure.TOO_MANY_VIEWS else Failure.INVALID_VIEW)
         val width = views.first().width
@@ -102,7 +103,24 @@ object MultiViewCapture {
         val anchored = try { AnchoredMultiView.reconstruct(calibrated) }
             catch (_: IllegalArgumentException) { return reject(Failure.INVALID_VIEW) }
         if (anchored.acceptedViewIndices.size < 2) return reject(Failure.POSE_REJECTED)
-        val cloud = anchored.cloud ?: return reject(Failure.POSE_REJECTED)
+        // Ab drei Ansichten kann ein einzelner falsch zugeordneter Punkt durch
+        // Mehrheitskonsens verworfen werden; bei zwei Ansichten bleibt nur die
+        // strenge Reprojektionsprüfung. Kein Konsens erfindet Punkte: nicht
+        // bestätigte Landmarks fehlen im Ergebnis.
+        val cloud = if (robust && anchored.acceptedViewIndices.size >= 3) {
+            val calibratedViews = calibrated.filterIndexed { index, _ -> index in anchored.acceptedViewIndices }
+            val robustCloud = com.andrexthedev.facescan.geometry.MultiViewPointCloud.reconstructRobust(calibratedViews)
+            val converted = robustCloud.points.map { value ->
+                when (value) {
+                    is com.andrexthedev.facescan.geometry.RobustMultiViewTriangulation.Result.Point -> value.fit
+                    is com.andrexthedev.facescan.geometry.RobustMultiViewTriangulation.Result.Rejected ->
+                        com.andrexthedev.facescan.geometry.MultiViewTriangulation.Result.Rejected(value.reason)
+                }
+            }
+            com.andrexthedev.facescan.geometry.MultiViewPointCloud.Result(converted,
+                converted.count { it is com.andrexthedev.facescan.geometry.MultiViewTriangulation.Result.Point })
+        } else anchored.cloud
+        if (cloud == null) return reject(Failure.POSE_REJECTED)
         val surface = PartialFaceMesh.build(cloud, maxEdgeCm)
         if (surface.mesh == null) return reject(Failure.EMPTY_CLOUD)
         val accepted = anchored.acceptedViewIndices.map { i ->

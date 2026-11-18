@@ -22,13 +22,19 @@ class RobustMultiViewTriangulationTest {
         assertArrayEquals(truth, result.fit.xyz, 1e-7)
         assertTrue(result.fit.maxPixels < 1e-7)
     }
-    @Test fun cannotReconstructWithOnlyTwoAgreeingViewsOrInsufficientParallax() {
+    @Test fun threeViewsWithOneOutlierAreRejectedInsteadOfGuessed() {
         val three = listOf(observation(0.0), observation(-100.0), observation(100.0).let { it.copy(v = it.v + 50) })
+        // Mit nur drei Ansichten lässt sich ein Ausreißer nicht sicher erkennen;
+        // die Rekonstruktion wird deshalb abgelehnt statt geraten.
         assertEquals(RobustMultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.NO_CONSENSUS),
             RobustMultiViewTriangulation.triangulate(three))
-        val same = List(5) { observation(0.0) }
+        val agreeing = listOf(observation(0.0), observation(-100.0), observation(100.0))
+        val result = RobustMultiViewTriangulation.triangulate(agreeing) as RobustMultiViewTriangulation.Result.Point
+        assertEquals(listOf(0, 1, 2), result.inliers)
+        assertArrayEquals(truth, result.fit.xyz, 1e-7)
+        val noParallax = List(5) { observation(0.0) }
         assertEquals(RobustMultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.NO_CONSENSUS),
-            RobustMultiViewTriangulation.triangulate(same))
+            RobustMultiViewTriangulation.triangulate(noParallax))
         assertEquals(RobustMultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.INVALID_INPUT),
             RobustMultiViewTriangulation.triangulate(three.take(2)))
     }

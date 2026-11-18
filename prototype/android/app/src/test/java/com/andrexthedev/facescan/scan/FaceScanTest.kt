@@ -3,9 +3,6 @@ package com.andrexthedev.facescan.scan
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
-import java.io.ByteArrayOutputStream
-import java.awt.image.BufferedImage
-import javax.imageio.ImageIO
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
@@ -175,9 +172,8 @@ class FaceScanTest {
     }
     @Test fun texturedGlbContainsEmbeddedJpegAndUvWithoutChangingMeshAnimation() {
         val surface = recordSequence()
-        val image = BufferedImage(16, 16, BufferedImage.TYPE_INT_RGB)
-        for (y in 0 until 16) for (x in 0 until 16) image.setRGB(x, y, (x * 16 shl 16) or (y * 16 shl 8))
-        val jpeg = ByteArrayOutputStream().also { assertTrue(ImageIO.write(image, "jpg", it)) }.toByteArray()
+        // Vollständig künstliches, lokal erzeugtes 16x16-Farbmuster.
+        val jpeg = javaClass.getResourceAsStream("/synthetic-gradient.jpg")!!.use { it.readBytes() }
         val uv = FloatArray(468 * 2) { i -> if (i % 2 == 0) (i / 2 % 20) / 20f else (i / 2 / 20) / 24f }
         val glb = GlbWriter.write(surface.copy(texture = FaceTexture(jpeg, uv)))
         val input = ByteBuffer.wrap(glb).order(ByteOrder.LITTLE_ENDIAN)
@@ -221,6 +217,13 @@ class FaceScanTest {
         val id = request.request(); assertEquals(id, request.take()); assertEquals(0L, request.take())
         val cancelled = request.request(); request.cancel(); assertEquals(0L, request.take())
         assertTrue(request.request() > cancelled)
+    }
+
+    @Test fun textureAndNeutralRequireMatchingCameraAndSimilarLandmarks() {
+        val base = FaceSnapshot(points(), 640, 480, 0.0, 3)
+        assertTrue(FaceTextureMatch.isConsistent(base, FaceFrame(points(0.01f), 640, 480, 100)))
+        assertFalse(FaceTextureMatch.isConsistent(base, FaceFrame(points(0.1f), 640, 480, 100)))
+        assertFalse(FaceTextureMatch.isConsistent(base, FaceFrame(points(), 480, 640, 100)))
     }
 
 }

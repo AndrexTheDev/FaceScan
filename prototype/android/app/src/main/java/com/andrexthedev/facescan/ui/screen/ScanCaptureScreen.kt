@@ -45,6 +45,7 @@ import com.andrexthedev.facescan.scan.FaceSnapshot
 import com.andrexthedev.facescan.scan.FaceSurface
 import com.andrexthedev.facescan.scan.FaceSequenceRecorder
 import com.andrexthedev.facescan.scan.FaceTextureRequest
+import com.andrexthedev.facescan.scan.FaceTextureMatch
 import com.andrexthedev.facescan.scan.NeutralCaptureQuality
 import kotlinx.coroutines.delay
 import java.io.File
@@ -72,11 +73,11 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
         FaceFrameAnalyzer(context.applicationContext, modelFile, diagnostics, active,
             onFaceFrame = { frame -> buffer.add(frame); recorder.add(frame) },
             textureRequest = textureRequest,
-            onTexture = { id, texture -> mainExecutor.execute {
+            onTexture = { id, texture, photo -> mainExecutor.execute {
                 if (active.get() && id == pendingTextureId) {
                     val base = pendingNeutral
                     pendingTextureId = 0L; pendingNeutral = null
-                    if (base != null && texture != null) {
+                    if (base != null && texture != null && SystemClock.elapsedRealtime() - photo.atMs in 0L..2500L && FaceTextureMatch.isConsistent(base, photo)) {
                         neutral = base.copy(texture = texture)
                         feedback = context.getString(R.string.scan_neutral_photo_saved, base.samples, base.jitterPx)
                     } else feedback = context.getString(R.string.scan_photo_failed)

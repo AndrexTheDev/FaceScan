@@ -26,7 +26,7 @@ class FaceFrameAnalyzer(
     private val active: AtomicBoolean,
     private val onFaceFrame: ((FaceFrame?) -> Unit)? = null,
     private val textureRequest: FaceTextureRequest? = null,
-    private val onTexture: ((Long, FaceTexture?) -> Unit)? = null,
+    private val onTexture: ((Long, FaceTexture?, FaceFrame) -> Unit)? = null,
     private val onStatus: (FaceStatus) -> Unit
 ) : AutoCloseable {
     private val clock = FrameClock()
@@ -62,7 +62,7 @@ class FaceFrameAnalyzer(
                 val id = textureRequest?.take() ?: 0L
                 if (id != 0L) {
                     val texture = try { FaceTextureCapture.capture(upright, landmarks) } catch (_: Exception) { null }
-                    if (active.get()) onTexture?.invoke(id, texture)
+                    if (active.get()) onTexture?.invoke(id, texture, FaceFrame(landmarks.copyOf(), width, height, frameStartedAt))
                 }
             }
             val found = points != null

@@ -167,6 +167,38 @@ class MultiViewCaptureTest {
         assertTrue(robust.result.surface.acceptedPoints >= 460)
     }
 
+    @Test fun reconstructedResultExportsObjAndGlbWithTheSameTriangles() {
+        val views = listOf(view(0.0), view(-22.0), view(24.0))
+        val ready = MultiViewCapture.reconstruct(views, intrinsics) as MultiViewCapture.Outcome.Reconstructed
+        val obj = ready.result.encodeExport(MeshExportFormat.OBJ)
+        val glb = ready.result.encodeExport(MeshExportFormat.GLB)
+        assertNotNull(obj)
+        assertNotNull(glb)
+        val mesh = ready.result.surface.mesh!!
+        val objText = String(obj!!, Charsets.UTF_8)
+        // OBJ beginnt mit den Fit-Zahlen des Exports; GLB trägt dieselbe Geometrie ohne Kommentare.
+        assertTrue(objText.lines().first().startsWith("# views=3 points="))
+        assertTrue(objText.contains("not a measurement of the subject"))
+        assertEquals(mesh.triangles.size / 3, objText.lines().count { it.startsWith("f ") })
+        // OBJ-Indizes sind 1-basiert und müssen zum Mesh passen.
+        val firstFace = objText.lines().first { it.startsWith("f ") }.trim().split(" ")
+        assertEquals(4, firstFace.size)
+        for ((position, token) in firstFace.drop(1).withIndex()) {
+            assertEquals((mesh.triangles[position] + 1).toString(), token.substringBefore("//"))
+        }
+        val input = java.nio.ByteBuffer.wrap(glb!!).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        assertEquals(0x46546c67, input.int)
+        assertEquals(2, input.int)
+        assertEquals(glb.size, input.int)
+        val jsonLength = input.int
+        val json = String(ByteArray(jsonLength), Charsets.UTF_8)
+        assertTrue(json.contains("\"count\":${mesh.triangles.size}"))
+        // Ohne Mesh darf kein Export entstehen, statt einer leeren Datei.
+        val empty = ready.result.copy(surface = ready.result.surface.copy(mesh = null))
+        assertNull(empty.encodeExport(MeshExportFormat.OBJ))
+        assertNull(empty.encodeExport(MeshExportFormat.GLB))
+    }
+
     @Test fun rejectedAnchorsNeverProduceInventedPixels() {
         val projection = LandmarkProjection.pixel(floatArrayOf(0.5f, 0.5f, 0f), 0, w, h)
         assertNotNull(projection)

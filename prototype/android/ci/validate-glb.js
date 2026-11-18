@@ -1,7 +1,8 @@
 const fs = require('fs');
 const validator = require(process.env.RUNNER_TEMP + '/facescan-validator/node_modules/gltf-validator');
 (async () => {
-  for (const name of ['facescan-synthetic.glb', 'facescan-synthetic-textured.glb', 'facescan-synthetic-loop.glb']) {
+  for (const name of ['facescan-synthetic.glb', 'facescan-synthetic-textured.glb', 'facescan-synthetic-loop.glb',
+                     'facescan-synthetic-partial.glb']) {
     const file = process.env.RUNNER_TEMP + '/' + name;
     const result = await validator.validateBytes(new Uint8Array(fs.readFileSync(file)), { uri: name });
     for (const message of result.issues.messages) {

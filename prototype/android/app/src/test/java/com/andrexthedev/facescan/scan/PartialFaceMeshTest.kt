@@ -6,6 +6,8 @@ import com.andrexthedev.facescan.geometry.Mat3
 import com.andrexthedev.facescan.geometry.MultiViewPointCloud
 import com.andrexthedev.facescan.geometry.MultiViewTriangulation
 import com.andrexthedev.facescan.geometry.ValidatedAnchorPose
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import org.junit.Assert.*
 import org.junit.Test
 import kotlin.math.sin
@@ -69,5 +71,42 @@ class PartialFaceMeshTest {
         val mesh = partial.mesh!!
         for (i in mesh.vertices.indices) assertArrayEquals(world(mesh.sourceIndices[i]), mesh.vertices[i], .01)
         assertTrue(String(PartialFaceMesh.writeObj(mesh), Charsets.UTF_8).contains("f "))
+    }
+
+    @Test fun glbWriterEmitsValidHeaderAndRejectsBadMeshes() {
+        val mesh = PartialFaceMesh.build(cloud(setOf(4, 61, 234))).mesh!!
+        val glb = PartialGlbWriter.write(mesh)
+        val input = ByteBuffer.wrap(glb).order(ByteOrder.LITTLE_ENDIAN)
+        assertEquals(0x46546c67, input.int)
+        assertEquals(2, input.int)
+        assertEquals(glb.size, input.int)
+        val jsonLength = input.int
+        assertEquals(0x4e4f534a, input.int)
+        assertEquals(0, jsonLength % 4)
+        val json = String(ByteArray(jsonLength), Charsets.UTF_8)
+        assertTrue(json.contains("\"mode\":4"))
+        assertTrue(json.contains("open partial surface"))
+        // Der Indexpuffer muss auf die vorhandenen Vertices zeigen.
+        assertTrue(json.contains("\"count\":${mesh.vertices.size}"))
+        assertEquals(mesh.triangles.size, json.substringAfter("\"componentType\":5123,\"count\":")
+            .substringBefore(',').toInt())
+        val binaryLength = input.int
+        assertEquals(0x004e4942, input.int)
+        assertEquals(binaryLength, input.remaining())
+        // Abgeschnittene oder leere Meshes dürfen nicht als Datei entstehen.
+        try { PartialGlbWriter.write(PartialFaceMesh.Mesh(emptyList(), IntArray(0), intArrayOf(0, 0, 0))); fail() }
+        catch (_: IllegalArgumentException) { }
+    }
+
+    @Test fun exportFormatsCarryMeshBytesAndDeclareHonestMimeTypes() {
+        val mesh = PartialFaceMesh.build(cloud(setOf(7))).mesh!!
+        val obj = MeshExportFormat.OBJ
+        val glb = MeshExportFormat.GLB
+        assertEquals("model/obj", obj.mimeType)
+        assertEquals("model/gltf-binary", glb.mimeType)
+        assertTrue(obj.fileName.endsWith(".obj") && glb.fileName.endsWith(".glb"))
+        // Beide Formate beginnen mit ihrem jeweiligen Signaturmerkmal.
+        assertTrue(String(PartialFaceMesh.writeObjWithNormals(mesh), Charsets.UTF_8).startsWith("# FaceScan"))
+        assertEquals(0x46546c67, ByteBuffer.wrap(PartialGlbWriter.write(mesh)).order(ByteOrder.LITTLE_ENDIAN).int)
     }
 }

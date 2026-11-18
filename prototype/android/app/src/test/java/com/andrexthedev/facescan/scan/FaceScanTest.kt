@@ -286,6 +286,47 @@ class FaceScanTest {
         assertTrue(obj.any { it.contains("not validated") })
     }
 
+    @Test fun syntheticMultiviewPartialGlbIsExportedForIndependentParsing() {
+        val clouds = (0 until FaceTopology.VERTEX_COUNT).map { i ->
+            if (i % 89 == 0) MultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.INSUFFICIENT_VIEWS)
+            else MultiViewTriangulation.Result.Point(
+                doubleArrayOf((i % 26 - 12.5) * 0.3, (i / 26 - 9.0) * 0.3, 1.0 + (i % 5) * 0.1), 8.0, 0.0, 0.0)
+        }
+        val cloud = MultiViewPointCloud.Result(clouds, clouds.count { it is MultiViewTriangulation.Result.Point })
+        val mesh = PartialFaceMesh.build(cloud).mesh
+        assertNotNull(mesh)
+        val glb = PartialGlbWriter.write(mesh!!)
+        val input = ByteBuffer.wrap(glb).order(ByteOrder.LITTLE_ENDIAN)
+        assertEquals(0x46546c67, input.int)
+        assertEquals(2, input.int)
+        assertEquals(glb.size, input.int)
+        val jsonLength = input.int
+        assertEquals(0x4e4f534a, input.int)
+        assertEquals(0, jsonLength % 4)
+        val jsonBytes = ByteArray(jsonLength)
+        input.get(jsonBytes)
+        val json = String(jsonBytes, Charsets.UTF_8)
+        assertTrue(json.contains("\"POSITION\":0"))
+        assertTrue(json.contains("\"NORMAL\":1"))
+        assertTrue(json.contains("\"componentType\":5123"))
+        assertTrue(json.contains("not a measurement of the subject"))
+        val binaryLength = input.int
+        assertEquals(0x004e4942, input.int)
+        assertEquals(binaryLength, input.remaining())
+        // Positionspuffer ist der erste Block; er muss die Mesh-Punkte exakt tragen.
+        for (i in mesh.vertices.indices) {
+            for (axis in 0..2)
+                assertEquals(mesh.vertices[i][axis].toFloat(), input.getFloat(12 + 8 + jsonLength + 8 + i * 12 + axis * 4), 0f)
+        }
+        System.getenv("RUNNER_TEMP")?.let { dir ->
+            File(dir, "facescan-synthetic-partial.glb").writeBytes(glb)
+            val vertices = mesh.vertices.joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
+            val faces = mesh.triangles.toList().chunked(3).joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
+            File(dir, "facescan-synthetic-partial-glb-reference.json").writeText(
+                "{\"vertices\":$vertices,\"faces\":$faces}")
+        }
+    }
+
     @Test fun badTextureFailsAndObjHasOneBasedTrianglesAndNoPhoto() {
         val surface = recordSequence()
         for (texture in listOf(FaceTexture(byteArrayOf(1, 2), FloatArray(936)),

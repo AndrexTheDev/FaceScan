@@ -54,8 +54,10 @@ import com.andrexthedev.facescan.perception.FaceFrameAnalyzer
 import com.andrexthedev.facescan.perception.FaceStatus
 import com.andrexthedev.facescan.scan.FaceMeshRenderer
 import com.andrexthedev.facescan.scan.FaceViewRequest
+import com.andrexthedev.facescan.scan.MeshExportFormat
 import com.andrexthedev.facescan.scan.MultiViewCapture
 import com.andrexthedev.facescan.scan.MultiViewSession
+import com.andrexthedev.facescan.scan.encodeExport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -340,7 +342,12 @@ fun MultiViewCaptureScreen(
                     if (ready.acceptedViews.count { it.rmsPixels > 2.0 } > 0)
                         Text(stringResource(R.string.multiview_result_weak_pose), style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error)
-                    if (stored) ObjectExportButton(ready, diagnostics) else Text(stringResource(R.string.multiview_failed))
+                    if (stored) {
+                        MeshExportButton(ready, diagnostics, MeshExportFormat.OBJ)
+                        MeshExportButton(ready, diagnostics, MeshExportFormat.GLB)
+                        Text(stringResource(R.string.multiview_export_glb_note),
+                            style = MaterialTheme.typography.bodySmall)
+                    } else Text(stringResource(R.string.multiview_failed))
                     OutlinedButton(onClick = { result = null; onCancel() }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.multiview_close))
                     }
@@ -361,21 +368,23 @@ object FaceViewGeometry {
 }
 
 @Composable
-private fun ObjectExportButton(result: MultiViewCapture.Result, diagnostics: TestDiagnostics) {
+private fun MeshExportButton(result: MultiViewCapture.Result, diagnostics: TestDiagnostics,
+                             format: MeshExportFormat) {
     val context = LocalContext.current
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/obj")) { uri ->
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(format.mimeType)) { uri ->
         if (uri != null) {
-            val data = MultiViewCapture.writeObjWithHeader(result)
+            val data = result.encodeExport(format)
             if (data == null) diagnostics.scanEvent(ScanEvent.EXPORT_FAILED)
             else {
                 val written = runCatching {
                     context.contentResolver.openOutputStream(uri)?.use { it.write(data) }
                 }.isSuccess
-                diagnostics.scanEvent(if (written) ScanEvent.OBJ_SAVED else ScanEvent.EXPORT_FAILED)
+                diagnostics.scanEvent(if (written) ScanEvent.MESH_SAVED else ScanEvent.EXPORT_FAILED)
             }
         } else diagnostics.scanEvent(ScanEvent.EXPORT_CANCELLED)
     }
-    Button(onClick = { launcher.launch("facescan-multiview.obj") }, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.multiview_export_obj))
+    Button(onClick = { launcher.launch(format.fileName) }, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(if (format == MeshExportFormat.OBJ) R.string.multiview_export_obj
+            else R.string.multiview_export_glb))
     }
 }

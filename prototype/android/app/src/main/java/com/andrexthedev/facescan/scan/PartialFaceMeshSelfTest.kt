@@ -18,6 +18,13 @@ object PartialFaceMeshSelfTest {
         if (obj.lineSequence().count { it.startsWith("v ") } != mesh.vertices.size ||
             obj.lineSequence().count { it.startsWith("f ") } != mesh.triangles.size / 3 ||
             !obj.contains("not validated")) return false
+        // Statischer GLB-Export: Kopf, Binärteil und dieselben Dreiecke wie im Mesh.
+        val glb = PartialGlbWriter.write(mesh)
+        if (glb.size < 20 || glb[0] != 'g'.code.toByte() || glb[1] != 'l'.code.toByte() ||
+            glb[2] != 'T'.code.toByte() || glb[3] != 'F'.code.toByte()) return false
+        val glbJson = String(glb, Charsets.ISO_8859_1)
+        if (!glbJson.contains("\"count\":${mesh.triangles.size}") ||
+            !glbJson.contains("open partial surface")) return false
         val dense = MultiViewSurface.densePoints(MultiViewPointCloud.Result(data, data.size - 1))
         if (dense[0].isFinite() || !dense[3].isFinite() || kotlin.math.abs(MultiViewSurface.coverage(dense) - 467.0 / 468.0) > 1e-9) return false
         return MultiViewSessionSelfTest.run()

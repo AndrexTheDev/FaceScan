@@ -171,5 +171,7 @@
     <string name="multiview_result_limits">Units and scale follow the canonical average anchors, not your face. The reprojection residual says nothing about real 3D accuracy. Holes, outliers and wrong depth are possible; there is no animation, no photo texture and no completeness guarantee.</string>
     <string name="multiview_result_weak_pose">At least one view had a large anchor residual. Treat the shape with extra caution.</string>
     <string name="multiview_export_obj">Export partial mesh as OBJ</string>
+    <string name="multiview_export_glb">Export partial mesh as GLB (static)</string>
+    <string name="multiview_export_glb_note">The GLB file contains only the triangulated points and faces with normals: no animation and no photo texture.</string>
     <string name="multiview_close">Back to start</string>
 </resources>

@@ -172,5 +172,7 @@
     <string name="multiview_result_limits">Einheit und Skala folgen den kanonischen Durchschnittsankern, nicht deiner Person. Der Reprojektionsrest sagt nichts über die reale 3D-Genauigkeit. Löcher, Ausreißer und falsche Tiefe sind möglich; es gibt keine Animation, keine Fototextur und keine Vollständigkeitsgarantie.</string>
     <string name="multiview_result_weak_pose">Mindestens eine Ansicht hatte einen großen Ankerrest. Behandle die Form mit besonderer Vorsicht.</string>
     <string name="multiview_export_obj">Teilnetz als OBJ exportieren</string>
+    <string name="multiview_export_glb">Teilnetz als GLB exportieren (statisch)</string>
+    <string name="multiview_export_glb_note">Die GLB-Datei enthält nur die triangulierten Punkte und Flächen mit Normalen: keine Animation und keine Fototextur.</string>
     <string name="multiview_close">Zurück zur Startseite</string>
 </resources>

@@ -26,6 +26,11 @@ object TriangulationSelfTest {
         }
         val mappedResult = MultiViewTriangulation.triangulate(mapped) as? MultiViewTriangulation.Result.Point ?: return false
         if ((0..2).any { abs(mappedResult.xyz[it] - truth[it]) > 1e-6 }) return false
+        val lens = BrownConradyDistortion(-0.19, 0.045, -0.005, 0.001, -0.002)
+        val original = BrownConradyDistortion.Point(0.5, -0.4)
+        val warped = lens.distort(original) ?: return false
+        val restored = lens.undistort(warped) ?: return false
+        if (abs(restored.x - original.x) > 1e-8 || abs(restored.y - original.y) > 1e-8) return false
         val noBaseline = MultiViewTriangulation.triangulate(listOf(observations[0], observations[0]))
         if (noBaseline != MultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.INSUFFICIENT_PARALLAX)) return false
         val extra = listOf(doubleArrayOf(80.0, 0.0, 0.0), doubleArrayOf(-150.0, 0.0, 0.0), doubleArrayOf(150.0, 0.0, 0.0))

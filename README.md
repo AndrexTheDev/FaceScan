@@ -5,7 +5,9 @@
 > Kein ARCore. Keine Cloud. Kein Konto.
 >
 > **Aktueller Stand, nicht das fertige Produkt:** Die Android-App erstellt eine experimentelle, offene
-> Gesichtsoberfläche aus einer Kameraansicht und exportiert GLB/OBJ. Sie benötigt beim ersten Start
+> Gesichtsoberfläche aus einer Kameraansicht und exportiert GLB/OBJ. Zusätzlich gibt es eine experimentelle
+> Mehransichten-Aufnahme aus 2–8 Kopfhaltungen, die ein trianguliertes Teilnetz als OBJ/GLB mit
+> Strukturdiagnose ausgibt – skaliert über ein Durchschnittsgesicht, nicht metrisch validiert. Sie benötigt beim ersten Start
 > Internet für einen Modelldownload. Haare, Hinterkopf, validierte metrische Genauigkeit und die meisten
 > unten beschriebenen Funktionen sind noch nicht implementiert oder nicht real getestet. Details und
 > Grenzen: [Android-README](prototype/android/README.md), [Implementierungsstatus](docs/14-implementierungsstatus.md).

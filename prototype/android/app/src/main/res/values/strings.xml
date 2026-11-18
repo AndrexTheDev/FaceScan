@@ -11,6 +11,14 @@
     <string name="home_offline_badge">Alles bleibt auf deinem Handy. Keine Cloud, kein Konto.</string>
     <string name="cd_start_scan">Demo starten</string>
 
+    <!-- Camera permission -->
+    <string name="camera_permission_title">Kameravorschau</string>
+    <string name="camera_permission_explanation">Für die Vorschau benötigt FaceScan Zugriff auf deine Kamera. In dieser Demo werden die Bilder weder gespeichert noch für einen Gesichtsscan verarbeitet. Du kannst die Erlaubnis verweigern und zurückgehen.</string>
+    <string name="camera_permission_request">Kamera erlauben</string>
+    <string name="camera_permission_settings_hint">Wenn die Systemanfrage nicht mehr erscheint, kannst du die Erlaubnis in den App-Einstellungen ändern.</string>
+    <string name="camera_permission_settings">App-Einstellungen öffnen</string>
+    <string name="camera_error">Die Frontkamera konnte nicht gestartet werden. Bitte prüfe die Berechtigung und versuche es erneut.</string>
+
     <!-- Capture -->
     <string name="capture_hint_default">Demo: Es werden noch keine Gesichtspunkte erfasst.</string>
     <string name="capture_done">Fertig</string>

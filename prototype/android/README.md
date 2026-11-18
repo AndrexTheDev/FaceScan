@@ -4,11 +4,11 @@
 
 **Die App ist eine Demo, kein funktionsfähiger Gesichtsscan.** Der Aufnahmebildschirm zeigt die Kameravorschau, übergibt aber noch keine Frames an die Gesichtserkennung. Fortschritt und Qualitätsbericht sind simuliert. Es wird kein persönliches 3D-Modell erstellt; Animation und Export sind noch nicht implementiert. Ein eingebettetes MediaPipe-Modell allein ändert daran nichts.
 
-Die Mathematik-Komponenten sind durch Unit-Tests und Referenzdaten geprüft, der vollständige Ablauf aber noch nicht auf einem Gerät verifiziert. Die Kamera-Berechtigungsbehandlung ist ebenfalls noch nicht fertig: Bei Ablehnung wird der weitere Ablauf derzeit nicht zuverlässig blockiert.
+Die Mathematik-Komponenten sind durch Unit-Tests und Referenzdaten geprüft, der vollständige Ablauf aber noch nicht auf einem Gerät verifiziert. Für die Vorschau wird die Kamera-Berechtigung erst nach einer Erklärung angefragt. Bei Ablehnung bleibt die Vorschau gesperrt; ein Weg zurück und ein Link zu den App-Einstellungen sind vorgesehen. Das Verhalten ist noch nicht auf einem Gerät verifiziert.
 
 ## Test-APK
 
-[Test-APK #19 herunterladen](https://github.com/AndrexTheDev/FaceScan/releases/tag/test-apk-19): `app-debug.apk`, rund 80 MiB, Android 10 oder neuer. Es handelt sich um einen Debug-Build, nicht um ein Produktiv-Release. Diese ältere APK kennzeichnet den Demo-Zustand **noch nicht** ausreichend in der Oberfläche; sie erstellt kein Modell, auch wenn der Bildschirm anderes suggeriert.
+[Test-APK #19 herunterladen](https://github.com/AndrexTheDev/FaceScan/releases/tag/test-apk-19): `app-debug.apk`, rund 80 MiB, Android 10 oder neuer. Es handelt sich um einen Debug-Build, nicht um ein Produktiv-Release. Diese ältere APK enthält weder die hier beschriebene Berechtigungsbehandlung noch eine ausreichende Demo-Kennzeichnung in der Oberfläche; sie erstellt kein Modell, auch wenn der Bildschirm anderes suggeriert.
 
 Zum Installieren die APK auf das Android-Gerät laden und bei Bedarf die Installation aus dieser Quelle in den Android-Einstellungen erlauben. Die Kamera-Berechtigung nur erteilen, wenn die Kameravorschau getestet werden soll. Im Manifest ist keine `INTERNET`-Berechtigung eingetragen; ein tatsächlicher Offline-Gerätetest steht noch aus.
 
@@ -16,8 +16,9 @@ Zum Installieren die APK auf das Android-Gerät laden und bei Bedarf die Install
 
 1. Gerät, Android-Version und APK-Version notieren; APK installieren und starten.
 2. Kamera erlauben und prüfen, ob die Frontkamera-Vorschau erscheint. Demo durchlaufen und wieder verlassen. **Kein echtes Scanergebnis erwarten.**
-3. App neu starten; zusätzlich testen, wie sie sich nach dem Entzug der Kamera-Berechtigung verhält. Fehler und Abstürze dokumentieren; die Behandlung ist noch unvollständig.
-4. Optional im Flugmodus wiederholen. Kameravorschau, Navigation und etwaige Fehler dokumentieren; daraus keine Aussage über eine noch nicht implementierte Rekonstruktion ableiten.
+3. App neu starten und Berechtigung verweigern: keine Vorschau, stattdessen Erklärung und Rückweg. Erneute Anfrage und nach wiederholter Ablehnung die App-Einstellungen testen. Nach Entzug bzw. Erteilung in den Einstellungen zurückkehren und prüfen, dass sich die Anzeige aktualisiert. Fehler und Abstürze dokumentieren.
+4. Kamera-Vorschau schnell öffnen und abbrechen sowie erneut öffnen; auf einen freien Kamerazugriff und Startfehler achten. Prüfen, ob bei fehlender oder anderweitig belegter Frontkamera eine Fehlermeldung statt eines Absturzes erscheint.
+5. Optional im Flugmodus wiederholen. Kameravorschau, Navigation und etwaige Fehler dokumentieren; daraus keine Aussage über eine noch nicht implementierte Rekonstruktion ableiten.
 
 ## Modell und Lizenz
 

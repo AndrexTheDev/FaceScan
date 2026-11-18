@@ -56,8 +56,8 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
     val controller = remember { CameraController(context) }
 
     var progress by remember { mutableFloatStateOf(0.12f) }   // 0..1
-    var ampel by remember { mutableStateOf(Ampel.YELLOW) }
-    var hinweis by remember { mutableStateOf("") }
+    var cameraError by remember { mutableStateOf(false) }
+    val ampel = if (cameraError) Ampel.RED else Ampel.YELLOW
 
     DisposableEffect(Unit) {
         onDispose { controller.shutdown() }
@@ -69,7 +69,7 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 PreviewView(ctx).also { previewView ->
-                    controller.bind(lifecycleOwner, previewView.surfaceProvider) { proxy ->
+                    controller.bind(lifecycleOwner, previewView.surfaceProvider, onError = { cameraError = true }) { proxy ->
                         // Demo: Frames werden noch nicht verarbeitet; CameraX muss sie freigeben.
                         proxy.close()
                     }
@@ -128,7 +128,7 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
                     )
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        text = hinweis.ifBlank { stringResource(R.string.capture_hint_default) },
+                        text = stringResource(if (cameraError) R.string.camera_error else R.string.capture_hint_default),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -151,6 +151,7 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
 
                 Button(
                     onClick = onFinished,
+                    enabled = !cameraError,
                     modifier = Modifier.weight(1f).height(56.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = FaceScanColors.NightGreen,

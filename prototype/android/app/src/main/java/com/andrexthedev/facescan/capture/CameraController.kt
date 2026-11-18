@@ -16,9 +16,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.Executors
-import kotlin.coroutines.resume
 
 /**
  * Kamera-Steuerung fuer den Scan.
@@ -36,6 +34,11 @@ import kotlin.coroutines.resume
 class CameraController(private val context: Context) {
 
     private val analyzerExecutor = Executors.newSingleThreadExecutor()
+    // bind(), der Provider-Callback und shutdown() laufen auf dem Main-Thread.
+    private val session = CameraSessionGuard()
+    private var provider: ProcessCameraProvider? = null
+    private var preview: Preview? = null
+    private var analysis: ImageAnalysis? = null
     private var camera2Control: Camera2CameraControl? = null
 
     data class Intrinsics(val fx: Double, val fy: Double, val cx: Double, val cy: Double)
@@ -93,36 +96,81 @@ class CameraController(private val context: Context) {
         }, ContextCompat.getMainExecutor(context))
     }
 
+    /** Bindet nur die eigenen Use-Cases und meldet Startfehler an die UI. */
     @SuppressLint("UnsafeOptInUsageError")
     fun bind(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
+        onError: () -> Unit,
         onFrame: (androidx.camera.core.ImageProxy) -> Unit
     ) {
-        val providerFuture = ProcessCameraProvider.getInstance(context)
+        val providerFuture = try {
+            ProcessCameraProvider.getInstance(context)
+        } catch (e: Exception) {
+            android.util.Log.e("FaceScan", "Kamera-Provider konnte nicht erstellt werden", e)
+            onError()
+            return
+        }
         providerFuture.addListener({
-            val provider = providerFuture.get()
-            val preview = Preview.Builder().build().also { it.setSurfaceProvider(surfaceProvider) }
-
-            val analysis = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .setTargetResolution(Size(1080, 1920))
-                .build()
-                .also { it.setAnalyzer(analyzerExecutor) { proxy -> onFrame(proxy) } }
-
-            val camera = provider.bindToLifecycle(
-                lifecycleOwner,
-                CameraSelector.DEFAULT_FRONT_CAMERA,
-                preview,
-                analysis
-            )
-            camera2Control = Camera2CameraControl.from(camera.cameraControl)
-            lockExposureAndFocus()
+            // Der Bildschirm kann verschwinden, bevor der Provider bereit ist.
+            session.runIfOpen {
+                try {
+                    val currentProvider = providerFuture.get()
+                    provider = currentProvider
+                    val currentPreview = Preview.Builder().build().also {
+                        it.setSurfaceProvider(surfaceProvider)
+                    }
+                    preview = currentPreview
+                    val currentAnalysis = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .setTargetResolution(Size(1080, 1920))
+                        .build()
+                    analysis = currentAnalysis
+                    currentAnalysis.setAnalyzer(analyzerExecutor) { proxy ->
+                        try {
+                            // Der Empfänger übernimmt die Verantwortung für proxy.close().
+                            onFrame(proxy)
+                        } catch (e: Exception) {
+                            proxy.close()
+                            android.util.Log.e("FaceScan", "Frame-Verarbeitung fehlgeschlagen", e)
+                        }
+                    }
+                    val camera = currentProvider.bindToLifecycle(
+                        lifecycleOwner, CameraSelector.DEFAULT_FRONT_CAMERA,
+                        currentPreview, currentAnalysis
+                    )
+                    camera2Control = Camera2CameraControl.from(camera.cameraControl)
+                    // Die Demo nutzt die automatische Kameraeinstellung. Manuelle
+                    // Belichtung benötigt gerätespezifische Prüfung und gehört zu M1.
+                } catch (e: Exception) {
+                    android.util.Log.e("FaceScan", "Kamera konnte nicht gestartet werden", e)
+                    releaseUseCases()
+                    onError()
+                }
+            }
         }, ContextCompat.getMainExecutor(context))
     }
 
+    private fun releaseUseCases() {
+        analysis?.clearAnalyzer()
+        val useCases = listOfNotNull(preview, analysis)
+        try {
+            if (useCases.isNotEmpty()) provider?.unbind(*useCases.toTypedArray())
+        } catch (e: Exception) {
+            android.util.Log.w("FaceScan", "Kamera konnte nicht freigegeben werden", e)
+        }
+        preview = null
+        analysis = null
+        provider = null
+        camera2Control = null
+    }
+
+    /** Verhindert auch ein verspätetes Binden nach Verlassen des Bildschirms. */
     fun shutdown() {
-        analyzerExecutor.shutdown()
+        session.close {
+            releaseUseCases()
+            analyzerExecutor.shutdown()
+        }
     }
 
     companion object {

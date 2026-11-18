@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.andrexthedev.facescan.ui.screen.CameraPermissionGate
 import com.andrexthedev.facescan.ui.screen.CaptureScreen
 import com.andrexthedev.facescan.ui.screen.HomeScreen
 import com.andrexthedev.facescan.ui.screen.ProcessingScreen
@@ -47,10 +48,12 @@ fun FaceScanApp() {
                 )
             }
             composable(Route.CAPTURE) {
-                CaptureScreen(
-                    onCancel = { navController.popBackStack() },
-                    onFinished = { navController.navigate(Route.PROCESSING) }
-                )
+                CameraPermissionGate(onCancel = { navController.popBackStack() }) {
+                    CaptureScreen(
+                        onCancel = { navController.popBackStack() },
+                        onFinished = { navController.navigate(Route.PROCESSING) }
+                    )
+                }
             }
             composable(Route.PROCESSING) {
                 ProcessingScreen(

@@ -10,6 +10,14 @@
     <string name="home_offline_badge">Everything stays on your phone. No cloud, no account.</string>
     <string name="cd_start_scan">Start demo</string>
 
+    <!-- Camera permission -->
+    <string name="camera_permission_title">Camera preview</string>
+    <string name="camera_permission_explanation">FaceScan needs camera access for the preview. In this demo images are neither saved nor processed for a face scan. You can decline and go back.</string>
+    <string name="camera_permission_request">Allow camera</string>
+    <string name="camera_permission_settings_hint">If the system prompt no longer appears, you can change the permission in app settings.</string>
+    <string name="camera_permission_settings">Open app settings</string>
+    <string name="camera_error">The front camera could not be started. Please check the permission and try again.</string>
+
     <!-- Capture -->
     <string name="capture_hint_default">Demo: face points are not captured yet.</string>
     <string name="capture_done">Done</string>

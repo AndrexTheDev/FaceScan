@@ -18,6 +18,6 @@ fun MultiViewCapture.Result.encodeExport(format: MeshExportFormat): ByteArray? {
     val mesh = surface.mesh ?: return null
     return when (format) {
         MeshExportFormat.OBJ -> MultiViewCapture.writeObjWithHeader(this)
-        MeshExportFormat.GLB -> PartialGlbWriter.write(mesh)
+        MeshExportFormat.GLB -> PartialGlbWriter.write(mesh, completeness = completeness)
     }
 }

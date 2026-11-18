@@ -12,7 +12,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from multiview_probe import (  # noqa: E402
-    ANCHOR_INDICES, ANCHOR_POINTS, estimate_pose, project, rodrigues, triangulate,
+    ANCHOR_INDICES, ANCHOR_POINTS, ZONE_NAMES, depth_uncertainty_cm, estimate_pose,
+    max_pairwise_parallax, project, rodrigues, triangulate, zone_index,
 )
 
 WIDTH, HEIGHT = 640, 480
@@ -52,6 +53,60 @@ def read_kotlin_anchors(path=KOTLIN_ANCHOR_FILE):
     cleaned = re.sub(r"//[^\n]*", "", points_block.group(1))
     values = [float(v) for v in re.findall(r"-?\d+\.\d+", cleaned)]
     return indices, np.asarray(values).reshape(-1, 3)
+
+
+class ZoneAndUncertaintyTest(unittest.TestCase):
+    def test_zone_boundaries_match_kotlin_order(self):
+        self.assertEqual(zone_index(5.5), 0)
+        self.assertEqual(zone_index(5.499), 1)
+        self.assertEqual(zone_index(-6.5), 3)
+        self.assertEqual(zone_index(-6.51), 4)
+        self.assertIsNone(zone_index(float("nan")))
+        self.assertIsNone(zone_index(float("inf")))
+        # Ankerzahlen je Zone: aus den kanonischen Höhen, nicht geraten.
+        counts = [0] * len(ZONE_NAMES)
+        for y in ANCHOR_POINTS[:, 1]:
+            counts[zone_index(float(y))] += 1
+        self.assertEqual(counts, [2, 7, 14, 4, 3])
+        self.assertEqual(sum(counts), len(ANCHOR_INDICES))
+
+    def test_depth_uncertainty_formula_and_guards(self):
+        expected = 1.0 / (760.0 * math.sin(math.radians(10.0))) * 60.0
+        self.assertAlmostEqual(depth_uncertainty_cm(60.0, 1.0, 10.0, 760.0), expected, places=12)
+        self.assertLess(depth_uncertainty_cm(60.0, 0.5, 20.0, 760.0), expected)
+        for args in ((None, 1.0, 10.0, 760.0), (-1.0, 1.0, 10.0, 760.0),
+                     (60.0, float("nan"), 10.0, 760.0), (60.0, 1.0, 0.0, 760.0),
+                     (60.0, 1.0, 90.0, 760.0), (60.0, 1.0, 10.0, 0.0)):
+            self.assertIsNone(depth_uncertainty_cm(*args), args)
+
+    def test_parallax_between_views_is_measured_from_rays(self):
+        rotation = np.eye(3)
+        same = [(rotation, np.array([0.0, 0.0, 60.0]), None)] * 2
+        self.assertAlmostEqual(max_pairwise_parallax(np.zeros(3), same), 0.0, places=9)
+        moved = [(rotation, np.array([0.0, 0.0, 60.0]), None),
+                 (rotation, np.array([30.0, 0.0, 60.0]), None)]
+        angle = max_pairwise_parallax(np.zeros(3), moved)
+        self.assertGreater(angle, 20.0)
+        self.assertLess(angle, 40.0)
+
+    def test_report_contains_zone_counts_and_uncertainty_without_truth(self):
+        truth, views = synthetic_scene()
+        scene = {"camera": {"fx": FOCAL, "fy": FOCAL, "cx": WIDTH / 2, "cy": HEIGHT / 2},
+                 "views": views}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "scene.json"
+            path.write_text(json.dumps(scene), encoding="utf-8")
+            output = subprocess.run([sys.executable, str(Path(__file__).with_name("multiview_probe.py")),
+                                     str(path)], check=True, capture_output=True, text=True)
+        report = json.loads(output.stdout)
+        self.assertEqual(sum(report["points_by_zone"].values()), len(report["points"]))
+        self.assertEqual(set(report["points_by_zone"]), set(ZONE_NAMES))
+        uncertainty = report["depth_uncertainty_cm"]
+        self.assertGreater(uncertainty["samples"], 400)
+        self.assertGreater(uncertainty["high"], uncertainty["median"])
+        # Ohne Rauschen ist die Schätzung praktisch null, aber nicht negativ.
+        self.assertGreaterEqual(uncertainty["median"], 0.0)
+        self.assertIn("validierte Genauigkeit", uncertainty["note"])
 
 
 class MultiviewProbeTest(unittest.TestCase):

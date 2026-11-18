@@ -368,6 +368,28 @@ fun MultiViewCaptureScreen(
                             ready.topology.nonManifoldEdges, ready.topology.components,
                             ready.topology.largestComponentTriangles),
                             style = MaterialTheme.typography.bodySmall)
+                        ready.completeness?.let { report ->
+                            val zones = report.zoneCoverages
+                            if (zones.size == 5) {
+                                // Feste Reihenfolge der Zonen: Stirn, Augen, Nase, Mund, Kinn.
+                                fun cell(index: Int) = "${zones[index].anchorsTriangulated}/${zones[index].anchorsInZone}"
+                                Text(stringResource(R.string.multiview_completeness_zones,
+                                    cell(0), cell(1), cell(2), cell(3), cell(4)),
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                            val empty = report.emptyZoneNames
+                            if (empty.isNotEmpty())
+                                Text(stringResource(R.string.multiview_completeness_empty,
+                                    empty.joinToString(", ")),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error)
+                            val median = report.medianDepthUncertaintyCm
+                            val high = report.highDepthUncertaintyCm
+                            if (median != null && high != null && report.uncertaintySamples > 0)
+                                Text(stringResource(R.string.multiview_depth_uncertainty,
+                                    median, high, report.uncertaintySamples),
+                                    style = MaterialTheme.typography.bodySmall)
+                        }
                         // Viele kleine Fragmente sind ein Warnsignal für Ausreißer,
                         // aber kein Beweis für eine falsche Form.
                         if (ready.topology.components > 3)

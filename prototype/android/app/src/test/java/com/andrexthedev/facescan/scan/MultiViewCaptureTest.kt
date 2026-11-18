@@ -283,6 +283,75 @@ class MultiViewCaptureTest {
         assertEquals(MultiViewQualityGate.Decision.ACCEPT, MultiViewQualityGate.decide(null))
     }
 
+    @Test fun completenessZonesUseCanonicalHeightsAndAreNotGuessed() {
+        // Die Zonengrenzen stammen aus den Ankerhöhen; die Summe muss 30 sein.
+        val total = (0 until MultiViewCompleteness.ZONE_COUNT).sumOf { MultiViewCompleteness.anchorsInZone(it) }
+        assertEquals(CanonicalAnchorData.COUNT, total)
+        assertEquals(2, MultiViewCompleteness.anchorsInZone(0))   // Stirn
+        assertEquals(7, MultiViewCompleteness.anchorsInZone(1))   // Augen
+        assertEquals(14, MultiViewCompleteness.anchorsInZone(2))  // Nase
+        assertEquals(4, MultiViewCompleteness.anchorsInZone(3))   // Mund
+        assertEquals(3, MultiViewCompleteness.anchorsInZone(4))   // Kinn
+        // Grenzen gehören zur oberen Zone, nicht zu beiden.
+        assertEquals(0, MultiViewCompleteness.zoneIndex(5.5))
+        assertEquals(1, MultiViewCompleteness.zoneIndex(5.499))
+        // Die Mundzone beginnt bei -6,5 cm (einschließlich); erst darunter Kinn.
+        assertEquals(3, MultiViewCompleteness.zoneIndex(-6.5))
+        assertEquals(4, MultiViewCompleteness.zoneIndex(-6.51))
+        assertNull(MultiViewCompleteness.zoneIndex(Double.NaN))
+        assertNull(MultiViewCompleteness.zoneIndex(Double.POSITIVE_INFINITY))
+    }
+
+    @Test fun depthUncertaintyFollowsResidualAndParallaxWithoutInventingValues() {
+        // 1 px Rest, fx = 760, 10 Grad Parallaxe, 60 cm Tiefe.
+        val expected = 1.0 / (760.0 * kotlin.math.sin(Math.toRadians(10.0))) * 60.0
+        assertEquals(expected, MultiViewCompleteness.depthUncertaintyCm(60.0, 1.0, 10.0, 760.0)!!, 1e-12)
+        // Kleinerer Rest und größere Parallaxe müssen die Schätzung senken.
+        val better = MultiViewCompleteness.depthUncertaintyCm(60.0, 0.5, 20.0, 760.0)!!
+        assertTrue(better < expected)
+        // Ohne belastbare Eingaben wird kein Wert erfunden.
+        assertNull(MultiViewCompleteness.depthUncertaintyCm(null, 1.0, 10.0, 760.0))
+        assertNull(MultiViewCompleteness.depthUncertaintyCm(60.0, Double.NaN, 10.0, 760.0))
+        assertNull(MultiViewCompleteness.depthUncertaintyCm(60.0, 1.0, 0.0, 760.0))
+        assertNull(MultiViewCompleteness.depthUncertaintyCm(60.0, 1.0, 10.0, 0.0))
+        assertNull(MultiViewCompleteness.depthUncertaintyCm(-5.0, 1.0, 10.0, 760.0))
+    }
+
+    @Test fun completenessReportOfRealReconstructionIsConsistent() {
+        val outcome = MultiViewCapture.reconstruct(listOf(view(0.0), view(-22.0), view(24.0)), intrinsics)
+            as MultiViewCapture.Outcome.Reconstructed
+        val report = outcome.result.completeness
+        assertNotNull(report)
+        report!!
+        assertEquals(CanonicalAnchorData.COUNT, report.anchorsInZoneTotal)
+        // Die Anker der aufgenommenen Ansichten liegen dicht beieinander, also
+        // müssen alle 30 vorhanden sein – sonst wäre die Pose falsch akzeptiert.
+        assertEquals(CanonicalAnchorData.COUNT, report.anchorsTriangulatedTotal)
+        assertEquals(1.0, report.anchorCoverageFraction, 0.0)
+        assertTrue(report.zoneCoverages.all { it.complete })
+        assertTrue(report.emptyZoneNames.isEmpty())
+        assertTrue(report.uncertaintySamples > 0)
+        // Die Schätzung muss positiv und endlich sein, nicht "0 cm exakt".
+        assertTrue(report.medianDepthUncertaintyCm!! > 0.0 && report.medianDepthUncertaintyCm!!.isFinite())
+        assertTrue(report.highDepthUncertaintyCm!! >= report.medianDepthUncertaintyCm!!)
+        val obj = String(MultiViewCapture.writeObjWithHeader(outcome.result)!!, Charsets.UTF_8)
+        assertTrue(obj.contains("# completeness anchors=30/30 zones=forehead=2/2,eyes=7/7,nose=14/14,mouth=4/4,chin=3/3"))
+        assertTrue(obj.contains("first-order estimate, not validated"))
+        val glb = String(PartialGlbWriter.write(outcome.result.surface.mesh!!, report), Charsets.ISO_8859_1)
+        assertTrue(glb.contains("\\\"zoneCoverage\\\":\\\"forehead=2/2,eyes=7/7,nose=14/14,mouth=4/4,chin=3/3\\\""))
+        assertTrue(glb.contains("\\\"samples\\\":${report.uncertaintySamples}"))
+    }
+
+    @Test fun glbWithoutCompletenessDoesNotClaimNumbers() {
+        val outcome = MultiViewCapture.reconstruct(listOf(view(0.0), view(-22.0)), intrinsics)
+            as MultiViewCapture.Outcome.Reconstructed
+        val glb = String(PartialGlbWriter.write(outcome.result.surface.mesh!!), Charsets.ISO_8859_1)
+        // Ohne Bericht: leere Zonenzeichenfolge, keine erfundene Unsicherheit.
+        assertTrue(glb.contains("\\\"zoneCoverage\\\":\\\"\\\""))
+        assertTrue(glb.contains("\\\"median\\\":null"))
+        assertTrue(glb.contains("\\\"samples\\\":0"))
+    }
+
     @Test fun topologyReportsBoundaryNonManifoldAndComponents() {
         // Ein einzelnes Dreieck hat drei Randkanten und eine Komponente.
         val single = PartialMeshTopology.inspect(3, intArrayOf(0, 1, 2))

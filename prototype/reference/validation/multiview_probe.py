@@ -137,6 +137,37 @@ def estimate_pose(anchors, pixels, fx, fy, cx, cy, iterations=30, huber=1.5):
     return rotation, translation, rms
 
 
+# Zonengrenzen in kanonischen Y-Koordinaten (cm), von oben nach unten.
+ZONE_BOUNDS = (5.5, 2.5, -2.5, -6.5)
+ZONE_NAMES = ("forehead", "eyes", "nose", "mouth", "chin")
+
+
+def zone_index(y):
+    """Zone einer kanonischen Y-Koordinate; None bei nicht-endlichen Werten."""
+    if not math.isfinite(y):
+        return None
+    for index, bound in enumerate(ZONE_BOUNDS):
+        if y >= bound:
+            return index
+    return len(ZONE_BOUNDS)
+
+
+def depth_uncertainty_cm(depth_cm, rms_px, parallax_deg, focal_px):
+    """Schätzung erster Ordnung wie in der App; None ohne belastbare Eingaben."""
+    if depth_cm is None or not math.isfinite(depth_cm) or depth_cm <= 0:
+        return None
+    if not math.isfinite(rms_px) or rms_px < 0:
+        return None
+    if not math.isfinite(parallax_deg) or not 0 < parallax_deg < 90:
+        return None
+    if not math.isfinite(focal_px) or focal_px <= 0:
+        return None
+    sine = math.sin(math.radians(parallax_deg))
+    if sine <= 1e-6:
+        return None
+    return rms_px / (focal_px * sine) * depth_cm
+
+
 def triangulate(observations, fx, fy, cx, cy):
     """Kleinste Quadrate zu den Strahlen; None bei ungueltiger Geometrie."""
     a = np.zeros((3, 3))
@@ -158,6 +189,23 @@ def triangulate(observations, fx, fy, cx, cy):
         residuals.append([fx * camera[0] / camera[2] + cx - u,
                           fy * camera[1] / camera[2] + cy - v])
     return point, float(np.max(np.abs(residuals)))
+
+
+def max_pairwise_parallax(point, poses):
+    """Größter Winkel zwischen Sichtstrahlen der Ansichten; 0 ohne zwei Strahlen."""
+    directions = []
+    for rotation, translation, _landmarks in poses:
+        origin = -rotation.T @ translation
+        ray = np.asarray(point, dtype=np.float64) - origin
+        length = float(np.linalg.norm(ray))
+        if length > 1e-9:
+            directions.append(ray / length)
+    best = 0.0
+    for i in range(len(directions)):
+        for j in range(i):
+            cosine = float(np.clip(np.dot(directions[i], directions[j]), -1.0, 1.0))
+            best = max(best, math.degrees(math.acos(cosine)))
+    return best
 
 
 def main():
@@ -187,7 +235,9 @@ def main():
         poses.append((rotation, translation, landmarks))
     if len(poses) < 2:
         raise SystemExit("Weniger als zwei akzeptierte Ansichten")
-    report = {"views": len(views), "accepted": len(poses), "points": {}}
+    report = {"views": len(views), "accepted": len(poses), "points": {},
+              "points_by_zone": {}}
+    uncertainties = []
     truth = data.get("truth")
     errors = []
     for index in range(int(data.get("landmark_count", 468))):
@@ -202,8 +252,30 @@ def main():
         if worst > 2.0:
             continue
         report["points"][str(index)] = [float(x) for x in point]
+        # Erste Ansicht als Referenz für Tiefe und Zonenstatistik.
+        rotation, translation = poses[0][0], poses[0][1]
+        depth = float((rotation @ point)[2] + translation[2])
+        if depth > 1e-6:
+            zone = zone_index(float(point[1]))
+            if zone is not None:
+                report["points_by_zone"][ZONE_NAMES[zone]] = report["points_by_zone"].get(ZONE_NAMES[zone], 0) + 1
+            # Parallaxe unabhängig bestimmt: größter Winkel zwischen den
+            # Strahlen der akzeptierten Ansichten zu diesem Punkt.
+            parallax = max_pairwise_parallax(point, poses)
+            uncertainty = depth_uncertainty_cm(depth, worst, parallax, fx)
+            if uncertainty is not None:
+                uncertainties.append(uncertainty)
         if truth is not None and str(index) in truth:
             errors.append(float(np.linalg.norm(np.asarray(truth[str(index)]) - point)))
+    if uncertainties:
+        values = np.sort(np.asarray(uncertainties, dtype=np.float64))
+        report["depth_uncertainty_cm"] = {
+            "samples": int(values.size),
+            "median": float(np.percentile(values, 50)),
+            "high": float(np.percentile(values, 90)),
+            "note": "Schätzung erster Ordnung aus Reprojektionsrest und Parallaxe; "
+                    "keine validierte Genauigkeit und ohne Kalibrier- oder Skalenfehler.",
+        }
     if errors:
         report["truth_error_cm"] = {
             "count": len(errors),

@@ -62,7 +62,9 @@ object MultiViewCapture {
         val intrinsics: Intrinsics,
         val maxAnchorRmsPixels: Double,
         /** Struktur des Teilnetzes; keine Qualitäts- oder Genauigkeitsaussage. */
-        val topology: PartialMeshTopology.Report = PartialMeshTopology.Report(0, 0, 0, 0, 0, 0)
+        val topology: PartialMeshTopology.Report = PartialMeshTopology.Report(0, 0, 0, 0, 0, 0),
+        /** Zonenabdeckung und Tiefenunsicherheit erster Ordnung; keine validierte Genauigkeit. */
+        val completeness: MultiViewCompleteness.Report? = null
     )
     sealed class Outcome {
         data class Reconstructed(val result: Result) : Outcome()
@@ -143,7 +145,15 @@ object MultiViewCapture {
         val topology = surface.mesh.let { mesh ->
             if (mesh == null) PartialMeshTopology.Report(0, 0, 0, 0, 0, 0) else PartialMeshTopology.inspect(mesh)
         }
-        return Outcome.Reconstructed(Result(surface, accepted, cloud, intrinsics, worst, topology))
+        // Referenz für die Tiefenangabe ist die erste übernommene Ansicht; ihre
+        // Pose ist bereits geprüft. Kein Bericht, wenn keine Pose vorliegt.
+        val referenceIndex = anchored.acceptedViewIndices.firstOrNull()
+        val completeness = referenceIndex?.let { index ->
+            (anchored.poses[index] as? ValidatedAnchorPose.Result.Pose)?.let { pose ->
+                MultiViewCompleteness.analyze(cloud, pose.transform.rotation, pose.transform.translation, intrinsics.fx)
+            }
+        }
+        return Outcome.Reconstructed(Result(surface, accepted, cloud, intrinsics, worst, topology, completeness))
     }
 
     /**
@@ -169,7 +179,8 @@ object MultiViewCapture {
         val header = "# views=${result.acceptedViews.size} points=${result.surface.acceptedPoints} " +
             "maxAnchorRmsPx=${"%.3f".format(java.util.Locale.ROOT, result.maxAnchorRmsPixels)} " +
             "assumedFocalPx=${"%.1f".format(java.util.Locale.ROOT, result.intrinsics.fx)}\n" +
-            "# Canonical average anchors in centimetres, not a measurement of the subject.\n"
+            "# Canonical average anchors in centimetres, not a measurement of the subject.\n" +
+            (result.completeness?.let { "# completeness ${MultiViewCompleteness.describe(it)}\n" } ?: "")
         return header.toByteArray(Charsets.UTF_8) + base
     }
 }

@@ -99,6 +99,7 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
         Text(stringResource(R.string.scan_review_title), style = MaterialTheme.typography.headlineSmall)
         Text(stringResource(R.string.scan_limitations), style = MaterialTheme.typography.bodyMedium)
         Text(stringResource(R.string.scan_jitter_neutral, surface.neutralJitterPx))
+        surface.neutralFusionAnchorRms?.let { Text(stringResource(R.string.scan_neutral_fusion, surface.neutralSamples, it)) }
         surface.maxAnchorRms?.let { Text(stringResource(R.string.scan_alignment_residual, it)) }
         Text(stringResource(R.string.scan_sequence_info, surface.keyframes().size - 1, surface.keyframes().last().seconds))
         Canvas(

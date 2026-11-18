@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FaceScan</string>
+
+    <string name="testapp_description">Test app with an experimental face surface scan; not a complete 3D head.</string>
+    <string name="model_network_notice">On first launch the app downloads about 3.6 MB of model data from Google over HTTPS and verifies it. Google can see your IP address; mobile data charges may apply. Detection does not need a connection afterwards.</string>
+    <string name="model_downloading">Checking or downloading the model …</string>
+    <string name="model_ready">Model ready. You can start the test.</string>
+    <string name="model_failed">The model could not be prepared. Check your internet connection and try again.</string>
+    <string name="model_retry">Try again</string>
+    <string name="test_start">Start camera test</string>
+    <string name="report_open">Test report</string>
+    <string name="report_title">View test report</string>
+    <string name="report_privacy">The report contains device type, Android version and technical test counts, but no photos or face points. It is only shared when you copy or deliberately send it.</string>
+    <string name="report_copy">Copy</string>
+    <string name="report_share">Share</string>
+    <string name="report_copied">Copied. You can now paste the report into the chat.</string>
+    <string name="report_back">Back</string>
+
+    <string name="selftest_summary">Device self-tests – projection: %1$s; MediaPipe: %2$s; front camera: %3$s</string>
+    <string name="test_instructions">Run the synthetic 3D math test and start the camera test. Complete the three five-second checks, then copy the test report. These checks do not test a 3D model.</string>
+    <string name="challenge_instructions">For each test, get into position first, then press the matching button and wait 5 seconds.</string>
+    <string name="challenge_face">1. Test face in view</string>
+    <string name="challenge_empty">2. Test face out of view</string>
+    <string name="challenge_offline">3. Test in airplane mode</string>
+    <string name="challenge_offline_required">Enable airplane mode and turn off Wi-Fi and other networks, then try again.</string>
+    <string name="challenge_running">Test running – please stay in position for 5 seconds.</string>
+    <string name="challenge_passed">Passed</string>
+    <string name="challenge_failed">Failed</string>
+    <string name="challenge_inconclusive">Inconclusive</string>
+    <string name="challenge_feedback">%1$s: %2$d of %3$d results matched. Details are in the test report.</string>
+
+    <string name="geometry_start">Run synthetic 3D math test</string>
+    <string name="geometry_not_run">M0 geometry test: not run yet.</string>
+    <string name="geometry_running">M0 geometry test running; please wait …</string>
+    <string name="geometry_passed">M0 geometry test passed. Values are in the report.</string>
+    <string name="geometry_failed">M0 geometry test failed. Details are in the report.</string>
+
+    <string name="scan_start">Start experimental face scan</string>
+    <string name="scan_capture_title">Capture face</string>
+    <string name="scan_capture_instruction">Hold phone and head steady, look straight ahead, and capture neutral first. Optionally capture a face photo crop: it may contain background and is embedded in GLB export. Then start the four-second expression recording.</string>
+    <string name="scan_face_ready">Face detected – hold still for capture.</string>
+    <string name="scan_face_wait">Waiting for a face in the camera.</string>
+    <string name="scan_wait_samples">Not enough recent face points yet. Hold still and try again.</string>
+    <string name="scan_neutral_saved">Neutral captured (%1$d frames, variation %2$.1f px). Ready to record expression.</string>
+    <string name="scan_neutral">1. Capture neutral</string>
+    <string name="scan_expression">2. Record expression for 4 seconds</string>
+    <string name="scan_invalid">The face points cannot be used. Please capture again.</string>
+    <string name="scan_review_title">Face surface (experimental)</string>
+    <string name="scan_limitations">Only the visible front-camera face surface: no hair or back of head. Optional photo texture comes from one view and may include background and shadows. Depth and scale are not metrically calibrated; absolute accuracy has not been measured. Experimental alignment cannot reliably separate head motion and perspective from expression.</string>
+    <string name="scan_jitter">Landmark variation during capture: neutral %1$.1f px, expression %2$.1f px. This is stability, not 3D accuracy.</string>
+    <string name="scan_preview_hint">Drag to rotate. The slider follows the recorded sequence. Playback repeats the sequence and may jump at the end.</string>
+    <string name="scan_play">Play sequence</string>
+    <string name="scan_pause">Pause animation</string>
+    <string name="scan_export">Export animated GLB</string>
+    <string name="scan_export_ok">GLB saved. It contains face data and, if selected, the photo crop – share it deliberately.</string>
+    <string name="scan_export_error">Export failed. An incomplete file may remain at the chosen destination; please check and try again.</string>
+    <string name="scan_discard">Discard model and go back</string>
+
+    <string name="selftest_scan">Device self-test (synthetic scan mesh/GLB): %1$s</string>
+    <string name="scan_quality_retry">Neutral capture unusable: fit your entire face closer in the frame and hold still for several seconds. This is only a rough heuristic.</string>
+    <string name="scan_recording">Recording (4 seconds). Keep your face in view and change expression.</string>
+    <string name="scan_record_interrupted">Recording failed or was interrupted. Keep your face in view and try again.</string>
+    <string name="scan_record_cancel">Cancel recording</string>
+    <string name="scan_record_cancelled">Recording cancelled. You can start again.</string>
+    <string name="scan_jitter_neutral">Neutral landmark variation: %1$.1f px. This measures stability, not 3D accuracy.</string>
+    <string name="scan_sequence_info">%1$d captured shapes over %2$.1f seconds.</string>
+
+    <string name="scan_alignment_retry">Alignment failed: keep your head and phone steady, fit your face fully in view, and try recording again. This check is only a heuristic.</string>
+    <string name="scan_alignment_residual">Largest alignment residual across 13 anchors: %1$.3f eye distances. Internal agreement, not measured 3D error.</string>
+
+    <string name="scan_neutral_photo">1. Capture neutral with photo crop</string>
+    <string name="scan_photo_wait">Waiting for the next detected face to capture the photo crop …</string>
+    <string name="scan_photo_failed">Photo crop failed. Try again or continue without a photo.</string>
+    <string name="scan_photo_cancel">Cancel photo capture</string>
+    <string name="scan_photo_cancelled">Photo capture cancelled.</string>
+    <string name="scan_neutral_photo_saved">Neutral and photo crop captured (%1$d frames, variation %2$.1f px). Ready to record expression.</string>
+    <string name="scan_texture_preview">Photo crop for GLB export (may show background):</string>
+    <string name="scan_texture_description">Captured face photo crop</string>
+    <string name="scan_export_obj">Export neutral surface as OBJ (no photo or animation)</string>
+    <string name="scan_obj_ok">OBJ saved. It contains face geometry – share it deliberately.</string>
+
+    <!-- Home -->
+    <string name="home_start_scan">START DEMO</string>
+    <string name="home_open_project">Open project</string>
+    <string name="home_settings">Settings</string>
+    <string name="home_empty">Prototype: real scanning is not available yet.</string>
+    <string name="home_offline_badge">Everything stays on your phone. No cloud, no account.</string>
+    <string name="cd_start_scan">Start demo</string>
+
+    <!-- Camera permission -->
+    <string name="camera_permission_title">Camera preview and face detection</string>
+    <string name="camera_permission_explanation">FaceScan needs camera access for preview and scanning. Face points and the model stay in memory during use. Only if you explicitly choose the photo option is a face photo crop captured in memory and embedded in GLB export. Data is saved only when you explicitly export. You can decline and go back.</string>
+    <string name="camera_permission_request">Allow camera</string>
+    <string name="camera_permission_settings_hint">If the system prompt no longer appears, you can change the permission in app settings.</string>
+    <string name="camera_permission_settings">Open app settings</string>
+    <string name="camera_error">The front camera could not be started. Please check the permission and try again.</string>
+
+    <string name="face_waiting">Demo: Waiting for camera frames and detection.</string>
+    <string name="face_not_found">Demo: No face detected. No 3D model is created.</string>
+    <string name="face_found">Demo: Face detected. No 3D model is created yet.</string>
+    <string name="face_model_missing">Demo: Model missing – face detection is unavailable. Preview works without the model.</string>
+    <string name="face_error">Demo: Face detection failed. You can still use the preview and demo.</string>
+
+    <!-- Capture -->
+    <string name="capture_hint_default">Demo: face points are not captured yet.</string>
+    <string name="capture_done">Continue demo</string>
+    <string name="common_cancel">Cancel</string>
+
+    <!-- Processing -->
+    <string name="processing_title">Processing (demo)</string>
+    <string name="processing_subtitle">Progress is simulated; no model is calculated.</string>
+    <string name="processing_offline_note">This is only a preview of the flow.</string>
+    <string name="processing_continue">Continue</string>
+    <string name="stage_perception">Detecting face points</string>
+    <string name="stage_calibration">Computing camera poses</string>
+    <string name="stage_coarse_fit">Fitting head shape</string>
+    <string name="stage_refine">Refining details</string>
+
+    <!-- Review -->
+    <string name="review_title">Example report (demo)</string>
+    <string name="review_tips_title">How to make it even better</string>
+    <string name="review_animate">Animate</string>
+    <string name="review_export">Export</string>
+    <string name="review_done">Done</string>
+</resources>

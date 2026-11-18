@@ -1,0 +1,154 @@
+{
+  "scene": {
+    "frames": 16,
+    "image": [
+      540,
+      960
+    ],
+    "focal_px": 916.6,
+    "voxel_mm": 1.5,
+    "trunc_mm": 6.0,
+    "seed": 2026,
+    "head_vertices": 14065,
+    "head_triangles": 27360,
+    "hair_vertices": 8829,
+    "hair_triangles": 17012,
+    "non_parametric_detail_mm": {
+      "mean": 5.847128384470471,
+      "max": 19.229033810308408
+    }
+  },
+  "skin": {
+    "chamfer": {
+      "chamfer_mm": 0.7446890021118853,
+      "from_recon_mm": 0.8303297302993762,
+      "to_recon_mm": 0.6590482739243942,
+      "p95_mm": 1.5553673917348134,
+      "max_mm": 53.95343623928905,
+      "within_0_8mm": 0.6957125499045305,
+      "within_2_0mm": 0.9635079379915346
+    },
+    "chamfer_all_visible": {
+      "chamfer_mm": 2.1627147338736643,
+      "from_recon_mm": 0.6763554616389732,
+      "to_recon_mm": 3.6490740061083553,
+      "p95_mm": 6.501364333556024,
+      "max_mm": 136.28650160733943,
+      "within_0_8mm": 0.6716434229068468,
+      "within_2_0mm": 0.9249842072015161
+    },
+    "mesh": {
+      "vertices": 40409,
+      "triangles": 76208,
+      "surface_cm2": 269.97662147101244,
+      "edge_min_mm": 0.002905580836938031,
+      "edge_median_mm": 0.9803091844103698,
+      "edge_max_mm": 3.6739169013540858,
+      "degenerate_triangles": 0
+    }
+  },
+  "hair": {
+    "iou_all": {
+      "iou": 0.870531344717299,
+      "precision": 0.8838780704962669,
+      "recall": 0.9829498066960012,
+      "voxels_recon": 541362,
+      "voxels_truth": 486798
+    },
+    "iou_observed": {
+      "iou": 0.870565246817894,
+      "precision": 0.883877212491549,
+      "recall": 0.9829940916897438,
+      "voxels_recon": 541358,
+      "voxels_truth": 486772
+    },
+    "voxels_observed_truth": 486772,
+    "mesh": {
+      "vertices": 90420,
+      "triangles": 180836,
+      "surface_cm2": 2328.878098160153,
+      "edge_min_mm": 1.5,
+      "edge_median_mm": 1.5,
+      "edge_max_mm": 3.6742346141747673,
+      "degenerate_triangles": 0
+    }
+  },
+  "texture": {
+    "covered_any": 0.9989358806206539,
+    "covered_min_views": 0.9626073399490213,
+    "mean_views": 9.294860055928135
+  },
+  "texture_any": {
+    "covered_any": 0.9989358806206539,
+    "covered_min_views": 0.9989358806206539,
+    "mean_views": 9.294860055928135
+  },
+  "skin_visible_fraction": 0.37193333333333334,
+  "skin_well_observed_fraction": 0.24821666666666667,
+  "hair_thickness_estimate_mm": 24.22377149255513,
+  "hair_mesh_voxel_mm": 3.0,
+  "export": [
+    {
+      "file": "facescan_m1.obj",
+      "passed": true,
+      "note": "130,829 Punkte / 257,044 Dreiecke, max. Abweichung 5.0e-07 mm",
+      "normals": 4.99999989800326e-07
+    },
+    {
+      "file": "facescan_m1.ply",
+      "passed": true,
+      "note": "130,829 Punkte / 257,044 Dreiecke, max. Abweichung 3.8e-06 mm",
+      "normals": 2.9802297185632654e-08
+    },
+    {
+      "file": "facescan_m1.glb",
+      "passed": true,
+      "note": "130,829 Punkte / 257,044 Dreiecke, max. Abweichung 3.8e-06 mm",
+      "normals": null
+    },
+    {
+      "file": "facescan_m1.stl",
+      "passed": true,
+      "note": "257,044 Dreiecke (je 3 Punkte), max. Abweichung 3.8e-06 mm",
+      "normals": null
+    },
+    {
+      "file": "facescan_m1.usda",
+      "passed": true,
+      "note": "130,829 Punkte, Indizes identisch, metersPerUnit=0.001, upAxis=Y",
+      "normals": 4.99999989800326e-07
+    },
+    {
+      "file": "facescan_m1.usdz",
+      "passed": true,
+      "note": "ZIP mit 1 Eintrag(en), primaer facescan.usda, STORED=True, 64-Byte-ausgerichtet=True",
+      "normals": null
+    },
+    {
+      "file": "facescan_m1.fbx",
+      "passed": true,
+      "note": "Version 7500, 130,829 Punkte, PolygonIndex-Konvention korrekt",
+      "normals": null
+    },
+    {
+      "file": "facescan_m1.abc",
+      "passed": true,
+      "note": "Ogawa v1, 130,829 Punkte (float32, max. Abweichung 3.8e-06 mm), Schema PolyMesh_v1",
+      "normals": 2.9802297185632654e-08
+    },
+    {
+      "file": "facescan_m1.dae",
+      "passed": true,
+      "note": "Collada 1.4.1, 130,829 Punkte identisch (0.0e+00 mm), 257,044 Indizes identisch, unit meter=0.001, up_axis=Y_UP, Farbe 0.0e+00/255, Sources ['colors', 'normals', 'positions'], Verweise ins Leere: 0",
+      "normals": 0.0
+    }
+  ],
+  "gates": {
+    "chamfer_skin_mm <= 0.8": true,
+    "hair_iou_observed >= 0.85": true,
+    "texture_coverage >= 0.95": true,
+    "export_roundtrip_ok": true,
+    "no_degenerate_triangles": true
+  },
+  "runtime_s": 102.15486931800842
+}

@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Standard = Deutsch. Englisch liegt in values-en/strings.xml. -->
+<resources>
+    <string name="app_name">FaceScan</string>
+
+    <string name="testapp_description">Test-App mit experimentellem Gesichtsoberflächen-Scan; kein vollständiger 3D-Kopf.</string>
+    <string name="model_network_notice">Beim ersten Start lädt die App etwa 3,6 MB Modelldaten über HTTPS von Google herunter und prüft sie. Dabei sieht Google deine IP-Adresse; ggf. fallen Mobilfunkkosten an. Danach ist für die Erkennung keine Verbindung nötig.</string>
+    <string name="model_downloading">Modell wird geprüft oder heruntergeladen …</string>
+    <string name="model_ready">Modell bereit. Der Test kann beginnen.</string>
+    <string name="model_failed">Das Modell konnte nicht vorbereitet werden. Bitte Internetverbindung prüfen und erneut versuchen.</string>
+    <string name="model_retry">Erneut versuchen</string>
+    <string name="test_start">Kameratest starten</string>
+    <string name="report_open">Testbericht</string>
+    <string name="report_title">Testbericht ansehen</string>
+    <string name="report_privacy">Der Bericht enthält Gerätetyp, Android-Version und technische Testzähler, aber keine Fotos oder Gesichtspunkte. Er wird nur geteilt, wenn du ihn kopierst oder bewusst sendest.</string>
+    <string name="report_copy">Kopieren</string>
+    <string name="report_share">Teilen</string>
+    <string name="report_copied">Kopiert. Du kannst den Bericht jetzt im Chat einfügen.</string>
+    <string name="report_back">Zurück</string>
+
+    <string name="selftest_summary">Geräte-Selbsttests – Projektion: %1$s; MediaPipe: %2$s; Frontkamera: %3$s</string>
+    <string name="test_instructions">Starte den synthetischen 3D-Mathe-Test und den Kameratest. Führe danach die drei 5-Sekunden-Prüfungen aus und kopiere den Testbericht. Die Prüfungen testen noch kein 3D-Modell.</string>
+    <string name="challenge_instructions">Für jeden Test zuerst positionieren, dann die passende Taste drücken und 5 Sekunden warten.</string>
+    <string name="challenge_face">1. Gesicht im Bild testen</string>
+    <string name="challenge_empty">2. Gesicht außerhalb testen</string>
+    <string name="challenge_offline">3. Im Flugmodus testen</string>
+    <string name="challenge_offline_required">Bitte Flugmodus einschalten und WLAN sowie andere Netze ausschalten; dann erneut drücken.</string>
+    <string name="challenge_running">Test läuft – bitte 5 Sekunden in Position bleiben.</string>
+    <string name="challenge_passed">Bestanden</string>
+    <string name="challenge_failed">Fehlgeschlagen</string>
+    <string name="challenge_inconclusive">Nicht aussagekräftig</string>
+    <string name="challenge_feedback">%1$s: %2$d von %3$d Auswertungen passend. Details im Testbericht.</string>
+
+    <string name="geometry_start">Synthetischen 3D-Mathe-Test starten</string>
+    <string name="geometry_not_run">M0-Geometrietest: noch nicht ausgeführt.</string>
+    <string name="geometry_running">M0-Geometrietest läuft; bitte warten …</string>
+    <string name="geometry_passed">M0-Geometrietest bestanden. Werte stehen im Bericht.</string>
+    <string name="geometry_failed">M0-Geometrietest fehlgeschlagen. Details stehen im Bericht.</string>
+
+    <string name="scan_start">Experimentellen Gesichts-Scan starten</string>
+    <string name="scan_capture_title">Gesicht aufnehmen</string>
+    <string name="scan_capture_instruction">Halte Handy und Kopf ruhig, schaue geradeaus und nimm zunächst neutral auf. Optional kannst du dafür einen Gesichtsfoto-Ausschnitt aufnehmen: Er kann Hintergrund enthalten und wird beim GLB-Export eingebettet. Starte dann die vier Sekunden lange Mimikaufnahme.</string>
+    <string name="scan_face_ready">Gesicht erkannt – für die Aufnahme möglichst ruhig halten.</string>
+    <string name="scan_face_wait">Warte auf ein Gesicht in der Kamera.</string>
+    <string name="scan_wait_samples">Noch nicht genügend aktuelle Gesichtspunkte. Bitte ruhig halten und erneut versuchen.</string>
+    <string name="scan_neutral_saved">Neutral aufgenommen (%1$d Bilder, Schwankung %2$.1f px). Bereit für die Mimikaufnahme.</string>
+    <string name="scan_neutral">1. Neutral aufnehmen</string>
+    <string name="scan_expression">2. Mimik 4 Sekunden aufnehmen</string>
+    <string name="scan_invalid">Die Gesichtspunkte sind nicht verwendbar. Bitte erneut aufnehmen.</string>
+    <string name="scan_review_title">Gesichtsoberfläche (experimentell)</string>
+    <string name="scan_limitations">Nur die sichtbare Frontkamera-Gesichtsoberfläche: keine Haare oder Rückseite. Optionale Fototextur stammt aus einer Ansicht und kann Hintergrund und Schatten enthalten. Tiefe und Maßstab sind nicht metrisch kalibriert; absolute Genauigkeit ist nicht gemessen. Die experimentelle Ausrichtung kann Kopfbewegungen und Perspektive nicht zuverlässig von Mimik trennen.</string>
+    <string name="scan_jitter">Schwankung der Punkte während der Aufnahme: neutral %1$.1f px, Mimik %2$.1f px. Das ist Stabilität, keine 3D-Genauigkeit.</string>
+    <string name="scan_preview_hint">Vorschau durch Wischen drehen. Der Regler zeigt den zeitlichen Verlauf. Die Wiedergabe wiederholt die Sequenz; am Ende kann sie springen.</string>
+    <string name="scan_play">Sequenz abspielen</string>
+    <string name="scan_pause">Animation pausieren</string>
+    <string name="scan_export">Animiertes GLB exportieren</string>
+    <string name="scan_export_ok">GLB gespeichert. Es enthält Gesichtsdaten und gegebenenfalls den Fotoausschnitt – teile es nur bewusst.</string>
+    <string name="scan_export_error">Export fehlgeschlagen. Eine unvollständige Datei kann am gewählten Speicherort liegen; bitte prüfen und erneut versuchen.</string>
+    <string name="scan_discard">Modell verwerfen und zurück</string>
+
+    <string name="selftest_scan">Geräte-Selbsttest (synthetisches Scan-Mesh/GLB): %1$s</string>
+    <string name="scan_quality_retry">Neutralaufnahme unbrauchbar: Bitte Gesicht vollständig und größer ins Bild nehmen und mehrere Sekunden ruhig halten. Die Prüfung ist nur eine grobe Heuristik.</string>
+    <string name="scan_recording">Aufnahme läuft (4 Sekunden). Gesicht im Bild behalten und Mimik ändern.</string>
+    <string name="scan_record_interrupted">Aufnahme fehlgeschlagen oder unterbrochen. Gesicht im Bild behalten und erneut versuchen.</string>
+    <string name="scan_record_cancel">Aufnahme abbrechen</string>
+    <string name="scan_record_cancelled">Aufnahme abgebrochen. Du kannst erneut starten.</string>
+    <string name="scan_jitter_neutral">Punktschwankung der Neutralaufnahme: %1$.1f px. Das misst Stabilität, keine 3D-Genauigkeit.</string>
+    <string name="scan_sequence_info">%1$d aufgenommene Formen über %2$.1f Sekunden.</string>
+
+    <string name="scan_alignment_retry">Ausrichtung fehlgeschlagen: Kopf und Handy möglichst ruhig halten, Gesicht ganz ins Bild nehmen und die Mimikaufnahme erneut starten. Die Prüfung ist nur eine Heuristik.</string>
+    <string name="scan_alignment_residual">Größter Ausrichtungsrest der 13 Anker: %1$.3f Augenabstände. Interne Übereinstimmung, kein gemessener 3D-Fehler.</string>
+
+    <string name="scan_neutral_photo">1. Neutral mit Fotoausschnitt aufnehmen</string>
+    <string name="scan_photo_wait">Warte auf das nächste erkannte Gesicht für den Fotoausschnitt …</string>
+    <string name="scan_photo_failed">Fotoausschnitt fehlgeschlagen. Bitte erneut versuchen oder ohne Foto fortfahren.</string>
+    <string name="scan_photo_cancel">Fotoaufnahme abbrechen</string>
+    <string name="scan_photo_cancelled">Fotoaufnahme abgebrochen.</string>
+    <string name="scan_neutral_photo_saved">Neutral und Fotoausschnitt aufgenommen (%1$d Bilder, Schwankung %2$.1f px). Bereit für die Mimikaufnahme.</string>
+    <string name="scan_texture_preview">Fotoausschnitt für den GLB-Export (kann Hintergrund zeigen):</string>
+    <string name="scan_texture_description">Aufgenommener Gesichtsfoto-Ausschnitt</string>
+    <string name="scan_export_obj">Neutrale Oberfläche als OBJ exportieren (ohne Foto und Animation)</string>
+    <string name="scan_obj_ok">OBJ gespeichert. Es enthält Gesichtsgeometrie – teile es nur bewusst.</string>
+
+    <!-- Home -->
+    <string name="home_start_scan">DEMO STARTEN</string>
+    <string name="home_open_project">Projekt öffnen</string>
+    <string name="home_settings">Einstellungen</string>
+    <string name="home_empty">Prototyp: Ein echter Scan ist noch nicht verfügbar.</string>
+    <string name="home_offline_badge">Alles bleibt auf deinem Handy. Keine Cloud, kein Konto.</string>
+    <string name="cd_start_scan">Demo starten</string>
+
+    <!-- Camera permission -->
+    <string name="camera_permission_title">Kameravorschau und Gesichtserkennung</string>
+    <string name="camera_permission_explanation">Für Vorschau und Scan benötigt FaceScan Zugriff auf deine Kamera. Gesichtspunkte und Modell bleiben während der Nutzung im Arbeitsspeicher. Nur wenn du die Foto-Option ausdrücklich auswählst, wird ein Gesichtsfoto-Ausschnitt im Arbeitsspeicher erfasst und beim GLB-Export eingebettet. Daten werden nur auf deinen ausdrücklichen Export gespeichert. Du kannst ablehnen und zurückgehen.</string>
+    <string name="camera_permission_request">Kamera erlauben</string>
+    <string name="camera_permission_settings_hint">Wenn die Systemanfrage nicht mehr erscheint, kannst du die Erlaubnis in den App-Einstellungen ändern.</string>
+    <string name="camera_permission_settings">App-Einstellungen öffnen</string>
+    <string name="camera_error">Die Frontkamera konnte nicht gestartet werden. Bitte prüfe die Berechtigung und versuche es erneut.</string>
+
+    <string name="face_waiting">Demo: Warte auf Kamerabilder und Erkennung.</string>
+    <string name="face_not_found">Demo: Kein Gesicht erkannt. Es wird kein 3D-Modell erstellt.</string>
+    <string name="face_found">Demo: Gesicht erkannt. Es wird noch kein 3D-Modell erstellt.</string>
+    <string name="face_model_missing">Demo: Modell fehlt – Gesichtserkennung nicht verfügbar. Die Vorschau funktioniert ohne Modell.</string>
+    <string name="face_error">Demo: Gesichtserkennung fehlgeschlagen. Vorschau und Demo können weiter genutzt werden.</string>
+
+    <!-- Capture -->
+    <string name="capture_hint_default">Demo: Es werden noch keine Gesichtspunkte erfasst.</string>
+    <string name="capture_done">Demo fortsetzen</string>
+    <string name="common_cancel">Abbrechen</string>
+
+    <!-- Processing -->
+    <string name="processing_title">Verarbeitung (Demo)</string>
+    <string name="processing_subtitle">Der Fortschritt ist simuliert; es wird kein Modell berechnet.</string>
+    <string name="processing_offline_note">Dies ist nur eine Vorschau des Ablaufs.</string>
+    <string name="processing_continue">Weiter</string>
+    <string name="stage_perception">Gesichtspunkte erkennen</string>
+    <string name="stage_calibration">Kameraposen berechnen</string>
+    <string name="stage_coarse_fit">Kopfform anpassen</string>
+    <string name="stage_refine">Details verfeinern</string>
+
+    <!-- Review -->
+    <string name="review_title">Beispielbericht (Demo)</string>
+    <string name="review_tips_title">So wird es noch besser</string>
+    <string name="review_animate">Animieren</string>
+    <string name="review_export">Exportieren</string>
+    <string name="review_done">Fertig</string>
+</resources>

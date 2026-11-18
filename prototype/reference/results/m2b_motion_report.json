@@ -1,0 +1,37 @@
+{
+  "frames": 16,
+  "fps": 30.0,
+  "frame_time_s": 0.03333333333333333,
+  "channels": [
+    "Head_Xposition",
+    "Head_Yposition",
+    "Head_Zposition",
+    "Head_Zrotation",
+    "Head_Xrotation",
+    "Head_Yrotation"
+  ],
+  "units": {
+    "translation": "m",
+    "rotation": "deg"
+  },
+  "euler_order": "ZXY",
+  "up_axis": "Y",
+  "radius_mm": 520.0,
+  "translation_range_m": [
+    -6.058379769246215e-17,
+    0.5220029815576218
+  ],
+  "rotation_range_deg": [
+    -255.0,
+    7.6467215282404934
+  ],
+  "max_step_deg_before_unwrap": 350.0,
+  "max_step_deg_after_unwrap": 10.000000000000028,
+  "files_kb": {
+    "BVH": 1.140625,
+    "CSV": 1.197265625,
+    "JSON": 1.5810546875
+  },
+  "roundtrip_max_error": 4.972039621131685e-07,
+  "roundtrip_ok": true
+}

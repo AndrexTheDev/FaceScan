@@ -1,0 +1,266 @@
+# Prüft automatisch und baut eine Test-APK nur auf ausdrücklichen Dispatch.
+#
+# Warum das hier steht und nicht lokal läuft: in der Entwicklungsumgebung
+# gibt es kein Java, kein Gradle und kein Android-SDK, und die
+# Download-Hosts von Google sind gesperrt. Auf einem GitHub-Runner ist
+# alles davon vorhanden. Der CI-Lauf ist damit der Compiler — er sagt,
+# was falsch ist, und das ist mehr wert als ein blindes „sollte gehen".
+#
+# Zwei Eigenheiten dieser Umgebung, die man kennen muss, wenn man hier
+# etwas ändert:
+#
+#   * Logs und Artefakte kann die Entwicklungsumgebung NICHT abrufen
+#     (results-receiver.actions.githubusercontent.com ist gesperrt).
+#     Fehlermeldungen kommen deshalb als `::error::`/`::notice::`
+#     Workflow-Befehle heraus — die stehen in den Annotations und sind
+#     lesbar. Ein `run:`-Schritt, der sein Protokoll nur auf die Konsole
+#     schreibt, ist für uns verloren.
+#   * `sdkmanager` liegt auf dem Runner NICHT auf dem PATH (Exit 127).
+#     Es gibt kein cmdline-tools. Gebraucht wird es aber nur, wenn die
+#     Plattform fehlt — das prüfen wir, statt blind zu installieren.
+
+name: Test-APK
+
+# Mehrere Läufe gleichzeitig auf demselben Stand laden dieselben
+# Abhängigkeiten mehrfach herunter. Maven Central quittiert das mit 429
+# („Too Many Requests") und der Build wird rot, ohne dass eine Zeile Code
+# schuld ist. Ein neuer Lauf bricht daher den alten ab.
+concurrency:
+  group: test-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Zusätzlich ein GitHub-Release mit der APK anlegen
+        type: boolean
+        default: false
+      quality_only:
+        description: Nur Unit-Tests und GLB-Prüfung, keine APK bauen
+        type: boolean
+        default: false
+
+  push:
+    branches: ['**']
+    paths:
+      - 'prototype/android/**'
+      - 'prototype/reference/validation/**'
+      - '.github/workflows/apk.yml'
+
+permissions:
+  # write, weil der letzte Schritt ein Release anlegen kann. Mit read
+  # schlägt genau DER Schritt fehl, der die APK aufs Telefon bringt --
+  # nachdem der Build längst grün war.
+  contents: write
+  issues: write          # für das Fehlerprotokoll in Issue #1
+
+jobs:
+  # Erst die Mathematik. Die Kotlin-Tests prüfen denselben Stoff wie die
+  # Python-Referenz — wenn die Zahlen hier abweichen, ist die APK zwar
+  # gebaut, aber falsch. Ein APK, die rechnet, ist keine Aussage.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          # AGP 8.7 verlangt mindestens Gradle 8.9 — darunter bricht der
+          # Build mit einer Meldung ab, die nichts über die Ursache sagt.
+          gradle-version: '8.9'
+
+      - name: Modell-URL und Prüfsumme prüfen
+        run: |
+          set -euo pipefail
+          modell="${RUNNER_TEMP}/facescan-model.task"
+          trap 'rm -f "$modell"' EXIT
+          curl -fsSL --retry 2 --connect-timeout 15 --max-time 120 -o "$modell" \
+            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+          echo "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff  $modell" | sha256sum -c -
+          echo "::notice title=Modell-URL::Download und SHA-256 geprüft; nicht in die APK eingebettet"
+
+      - name: Android-SDK prüfen
+        run: |
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "::notice title=SDK-Pfad::$SDK"
+          echo "::notice title=SDK-Inhalt::$(ls -1 "$SDK" 2>&1 | tr '\n' ' ')"
+          echo "::notice title=Plattformen::$(ls -1 "$SDK/platforms" 2>&1 | tr '\n' ' ')"
+          echo "::notice title=Build-Tools::$(ls -1 "$SDK/build-tools" 2>&1 | tr '\n' ' ')"
+          echo "::notice title=sdkmanager::$(command -v sdkmanager || echo nicht-auf-PATH)"
+          # Gradle findet das SDK über ANDROID_HOME -- und falls nicht,
+          # über local.properties. Beides zu setzen kostet eine Zeile und
+          # erspart die Suche danach, warum Gradle "SDK not found" sagt.
+          echo "sdk.dir=$SDK" > prototype/android/local.properties
+
+      - name: Unit-Tests (Kotlin gegen die bekannte Wahrheit)
+        working-directory: prototype/android
+        run: |
+          set -o pipefail
+          # Maven Central und plugins.gradle.org antworten gelegentlich mit
+          # 429. Das ist kein Fehler im Projekt -- wer es trotzdem rot
+          # meldet, verliert den Blick darauf, was wirklich kaputt ist.
+          rc=1
+          for versuch in 1 2 3; do
+            if gradle --no-daemon :app:testDebugUnitTest 2>&1 | tail -n 400 | tee build.log; then
+              rc=0
+              break
+            fi
+            echo "::notice title=Gradle-Versuch gescheitert::Versuch $versuch von 3 fehlgeschlagen; Ursache im Build-Protokoll prüfen"
+            [ "$versuch" -lt 3 ] && sleep 30
+          done
+          echo "::notice title=Testergebnis::Gradle-Exitcode $rc; Details im Testbericht-Artefakt"
+          exit $rc
+
+      - name: Synthetischen GLB-Export unabhängig validieren
+        working-directory: prototype/android
+        run: |
+          set -euo pipefail
+          if [ ! -s "$RUNNER_TEMP/facescan-synthetic.glb" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-textured.glb" ]; then
+            gradle --no-daemon :app:testDebugUnitTest --tests 'com.andrexthedev.facescan.scan.FaceScanTest' --rerun-tasks
+          fi
+          npm install --prefix "$RUNNER_TEMP/facescan-validator" --no-save --no-audit --no-fund gltf-validator@2.0.0-dev.3.10
+          node ci/validate-glb.js
+
+      - name: Referenz-Vergleich synthetisch prüfen
+        run: |
+          python3 -m pip install --user numpy
+          python3 -m unittest discover -s prototype/reference/validation -v
+
+      - name: Testergebnis hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testbericht
+          path: prototype/android/app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - name: Fehlerprotokoll melden
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "## Lauf #${{ github.run_number }} — Job \`$GITHUB_JOB\`"
+            echo "Commit \`${{ github.sha }}\`."
+            echo
+            echo '```'
+            tail -c 30000 prototype/android/build.log 2>/dev/null \
+              || echo "(kein build.log — früher Schritt gescheitert)"
+            echo '```'
+          } > /tmp/meldung.md
+          gh issue comment 1 --body-file /tmp/meldung.md
+
+  apk:
+    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.quality_only }}
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Android-SDK prüfen
+        run: |
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "::notice title=SDK-Pfad::$SDK"
+          echo "::notice title=Plattformen::$(ls -1 "$SDK/platforms" 2>&1 | tr '\n' ' ')"
+          echo "::notice title=Build-Tools::$(ls -1 "$SDK/build-tools" 2>&1 | tr '\n' ' ')"
+          echo "sdk.dir=$SDK" > prototype/android/local.properties
+
+      - name: Debug-APK bauen
+        working-directory: prototype/android
+        run: |
+          set -o pipefail
+          rc=1
+          for versuch in 1 2 3; do
+            if gradle --no-daemon :app:assembleDebug 2>&1 | tail -n 400 | tee build.log; then
+              rc=0
+              break
+            fi
+            echo "::notice title=Gradle-Versuch gescheitert::Versuch $versuch von 3 fehlgeschlagen; Ursache im Build-Protokoll prüfen"
+            [ "$versuch" -lt 3 ] && sleep 30
+          done
+          exit $rc
+
+      # Das Modell wird erst auf dem Gerät heruntergeladen. Die APK darf
+      # die separat lizenzpflichtigen Gewichte nicht enthalten.
+      - name: Kurzbericht
+        run: |
+          APK=prototype/android/app/build/outputs/apk/debug/app-debug.apk
+          ls -l "$APK"
+          unzip -Z1 "$APK" > "$RUNNER_TEMP/facescan-apk-entries.txt"
+          for abi in arm64-v8a armeabi-v7a x86; do
+            if ! grep -Fx "lib/$abi/libmediapipe_tasks_vision_jni.so" "$RUNNER_TEMP/facescan-apk-entries.txt" >/dev/null; then
+              echo "::error title=MediaPipe-ABI::JNI-Bibliothek für $abi fehlt"
+              exit 1
+            fi
+          done
+          if grep -q '^lib/x86_64/' "$RUNNER_TEMP/facescan-apk-entries.txt"; then
+            echo "::error title=MediaPipe-ABI::x86_64 kann eine inkompatible ABI-Auswahl verursachen"
+            exit 1
+          fi
+          echo "::notice title=APK::$(du -h "$APK" | cut -f1)"
+          echo "::notice title=Architekturen::$(unzip -l "$APK" 'lib/*' | grep -oE 'lib/[a-z0-9_-]+/' | sort -u | tr '\n' ' ')"
+          # Woher das Gewicht kommt: 4 Architekturen x MediaPipe-Nativcode
+          # sind schnell 50 MB, und dann ist eine 80-MB-APK normal und kein
+          # Fehler. Erst die Auflisteung macht den Unterschied zwischen
+          # „viele Native-Libs" und „etwas ist doppelt drin" sichtbar.
+          echo "::notice title=Groesste Eintraege::$(unzip -l "$APK" | awk 'NR>3 && $1 ~ /^[0-9]+$/ {print $1" "$4}' | sort -rn | head -8 | tr '\n' ';')"
+          echo "::notice title=Nativ gesamt::$(unzip -l "$APK" | awk 'NR>3 && $4 ~ /^lib\// {s+=$1; n++} END {printf "%.1f MiB in %d Eintraegen", s/1048576, n}')"
+          if unzip -l "$APK" | grep -q "assets/face_landmarker.task"; then
+            echo "::error title=Modellasset::Gewichte dürfen nicht in der APK liegen"
+            exit 1
+          fi
+          echo "::notice title=Modellasset::nicht eingebettet; Download beim ersten Start"
+
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: facescan-test-apk
+          path: prototype/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Fehlerprotokoll melden
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "## Lauf #${{ github.run_number }} — Job \`$GITHUB_JOB\`"
+            echo "Commit \`${{ github.sha }}\`."
+            echo
+            echo '```'
+            tail -c 30000 prototype/android/build.log 2>/dev/null \
+              || echo "(kein build.log — früher Schritt gescheitert)"
+            echo '```'
+          } > /tmp/meldung.md
+          gh issue comment 1 --body-file /tmp/meldung.md
+
+      - name: Release anlegen
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.release }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # --target ist Pflicht: ohne ihn haengt das Release am
+          # Standard-Branch (main), obwohl die APK aus diesem Branch
+          # gebaut wurde. main kennt diesen Workflow noch gar nicht --
+          # das Release wuerde also auf einen Stand zeigen, aus dem
+          # diese APK nicht stammen kann.
+          gh release create "test-apk-${{ github.run_number }}" \
+            --target "${{ github.ref_name }}" \
+            --title "Test-APK #${{ github.run_number }}" \
+            --notes "Automatisch gebaut aus ${{ github.sha }}. Debug-Signatur, nur zum Testen. Das Modell wird beim ersten Start von Google heruntergeladen und lokal geprüft. Experimentelle Gesichtsoberfläche mit vier Sekunden aufgezeichneter Mimik, experimenteller Kopfbewegungskorrektur, optionaler einseitiger Fototextur und GLB-/OBJ-Export; keine metrische Kalibrierung oder vollständiger Kopf. Modelllizenzprüfung in docs/09 ist offen." \
+            prototype/android/app/build/outputs/apk/debug/app-debug.apk

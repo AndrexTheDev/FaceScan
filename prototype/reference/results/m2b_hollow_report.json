@@ -1,0 +1,108 @@
+{
+  "wall_requested_mm": 2.4,
+  "wall_scan": [
+    {
+      "wall_mm": 1.6,
+      "median_mm": 1.3860711203362803,
+      "p01_mm": 0.9124850372904025,
+      "p05_mm": 0.9124850372904025,
+      "min_mm": 0.9124850372904025,
+      "samples": 3007
+    },
+    {
+      "wall_mm": 2.0,
+      "median_mm": 1.8805011610375395,
+      "p01_mm": 1.1151827754452452,
+      "p05_mm": 1.3775143282071927,
+      "min_mm": 0.9124850372904025,
+      "samples": 3007
+    },
+    {
+      "wall_mm": 2.4,
+      "median_mm": 2.339791452884752,
+      "p01_mm": 1.5774611805758467,
+      "p05_mm": 1.812422862291421,
+      "min_mm": 0.9124850372904025,
+      "samples": 3007
+    },
+    {
+      "wall_mm": 2.8,
+      "median_mm": 2.7703728296782506,
+      "p01_mm": 2.091698774229684,
+      "p05_mm": 2.294826545880985,
+      "min_mm": 0.9124850372904025,
+      "samples": 3007
+    },
+    {
+      "wall_mm": 3.2,
+      "median_mm": 3.2078266275173224,
+      "p01_mm": 2.697204124732233,
+      "p05_mm": 2.8001402817310495,
+      "min_mm": 0.9124850372904025,
+      "samples": 3007
+    }
+  ],
+  "target_wall_mm": 2.0,
+  "wall_min_limit_mm": 1.2,
+  "drain": {
+    "radius_mm": 5.0,
+    "z_from_mm": -36.029638489137234,
+    "z_to_mm": 3.79533158544357,
+    "connected": true,
+    "samples_in_material": 0
+  },
+  "solid": {
+    "vertices": 387431,
+    "faces": 774858,
+    "volume_cm3": 1171.1957842642353
+  },
+  "hollow": {
+    "vertices": 593193,
+    "faces": 1186382,
+    "volume_cm3": 541.785443835569,
+    "saved_pct": 53.74083043033426
+  },
+  "watertight": {
+    "boundary_edges": 0,
+    "non_manifold_edges": 0,
+    "components": 1,
+    "watertight": true,
+    "euler": 2
+  },
+  "wall": {
+    "min_mm": 0.9124850372904025,
+    "below_limit_frac": 0.00040766408479412964,
+    "below_limit_n": 4,
+    "limit_mm": 1.2,
+    "p01_mm": 1.5845581642094901,
+    "p05_mm": 1.8183731777945842,
+    "median_mm": 2.3374856162025894,
+    "samples": 9812,
+    "artefacts": 0,
+    "min_solid_mm": 0.9124850372904025
+  },
+  "wall_fine_step": {
+    "min_mm": 0.6350025563908819,
+    "below_limit_frac": null,
+    "below_limit_n": null,
+    "limit_mm": null,
+    "p01_mm": 1.640967101786493,
+    "p05_mm": 1.8190003788917328,
+    "median_mm": 2.3405689708676283,
+    "samples": 9812,
+    "artefacts": 0,
+    "min_solid_mm": 0.6350025563908819
+  },
+  "wall_at_mm": [
+    17.576995235744132,
+    65.99882858445912,
+    54.69448489127904
+  ],
+  "warning": false,
+  "trimesh": {
+    "watertight": true,
+    "volume_cm3": 541.7854223918592
+  },
+  "stl_kb": 57928.890625,
+  "runtime_s": 70.89317560195923
+}

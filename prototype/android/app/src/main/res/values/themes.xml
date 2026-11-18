@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Compose uebernimmt das komplette Design (siehe ui/theme/Theme.kt).
+      Hier steht nur das Start-Fenster, damit der Launch keinen weissen
+      Blitz zeigt, bevor Compose das erste Mal gezeichnet hat.
+    -->
+    <style name="Theme.FaceScan" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/jamaica_black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+    </style>
+</resources>

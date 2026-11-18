@@ -1,0 +1,15 @@
+{
+  "datei": "meshes/facescan.vrm",
+  "gelenke": 23,
+  "pflichtknochen_fehlend": [],
+  "verschiebung_mm": 1186.2,
+  "mimik": [
+    "jawOpen",
+    "mouthSmile",
+    "eyeBlink",
+    "browInnerUp",
+    "browDown",
+    "mouthPucker"
+  ],
+  "mimik_von_52": 6
+}

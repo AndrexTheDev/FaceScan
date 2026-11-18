@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FaceScan – experimenteller Android-Gesichtsscan</title>
+<meta name="description" content="Android-Prototyp für eine geschätzte Gesichtsoberfläche. Vollständiger 3D-Kopf und metrische Genauigkeit sind noch nicht verfügbar.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="author" content="AndrexTheDev">
+<link rel="canonical" href="https://facescan.app/">
+<link rel="alternate" hreflang="de" href="https://facescan.app/">
+<link rel="alternate" hreflang="en" href="https://facescan.app/en/">
+<link rel="alternate" hreflang="x-default" href="https://facescan.app/">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="FaceScan – 3D-Gesichtsscan offline (Android)">
+<meta property="og:description" content="Android-Prototyp für eine geschätzte Gesichtsoberfläche. Vollständiger 3D-Kopf und metrische Genauigkeit sind noch nicht verfügbar.">
+<meta property="og:image" content="https://facescan.app/assets/img/og-image.png">
+<meta property="og:locale" content="de_DE">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#000000">
+<link rel="stylesheet" href="assets/css/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "FaceScan",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Android 10+",
+  "description": "Android-Prototyp für eine geschätzte Gesichtsoberfläche. Vollständiger 3D-Kopf und metrische Genauigkeit sind noch nicht verfügbar.",
+  "author": {
+    "@type": "Person",
+    "name": "AndrexTheDev"
+  }
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Zum Inhalt springen</a>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html">
+      <img src="assets/img/logo.svg" alt="FaceScan Logo" width="34" height="34">
+      <span>Face<span class="dot">Scan</span></span>
+    </a>
+    <nav class="nav" aria-label="Hauptnavigation">
+      <a href="#funktionen">Funktionen</a>
+      <a href="#formate">Formate</a>
+      <a href="#animation">Animation</a>
+      <a href="#preise">Preise</a>
+      <a href="#faq">FAQ</a>
+      <a class="icon-btn" href="en/index.html" hreflang="en" lang="en" aria-label="Switch to English">EN</a>
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="Zwischen Tag- und Nachtmodus wechseln">☀/☾</button>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <section id="status"><div class="wrap"><p class="note"><strong>Entwicklungsstand:</strong> FaceScan ist ein experimenteller Prototyp. Die folgende Seite beschreibt eine <strong>Produktvision</strong>, keine vorhandenen oder erhältlichen Funktionen. Haar- und Hinterkopfscan, metrische Genauigkeit, die meisten Formate und der Kaufablauf fehlen. Der erste Start des Prototyps lädt ein Modell über das Internet. Bitte keine Zahlungen senden. <a href="https://github.com/AndrexTheDev/FaceScan/blob/main/docs/14-implementierungsstatus.md">Aktuellen Implementierungsstatus ansehen</a>.</p></div></section>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow">Android · Offline first · Ohne ARCore</span>
+        <h1>FaceScan.<br><em>Ein experimenteller Prototyp.</em></h1>
+        <p class="lead">Eine geschätzte Gesichtsoberfläche aus der Frontkamera, mit optionaler Textur und Animation. Noch kein vollständiger Kopf und keine validierte 3D-Genauigkeit.</p>
+        <div class="cta-row">
+          <a class="btn btn-gold" href="https://github.com/AndrexTheDev/FaceScan">
+            Projekt ansehen
+          </a>
+          <a class="btn btn-ghost" href="#wie">Wie es funktioniert</a>
+        </div>
+        <ul class="trust">
+          <li><span class="tick">✔</span> Erststart: Modelldownload über Internet</li>
+          <li><span class="tick">✔</span> Kein Konto nötig</li>
+          <li><span class="tick">✔</span> Kein ARCore, kein Tiefensensor</li>
+        </ul>
+      </div>
+      <div class="hero-art">
+        <img src="assets/img/shot-render.svg" alt="FaceScan zeigt ein Gesicht als grünes 3D-Drahtgittermodell" width="320" height="420">
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 SCHRITTE -->
+  <section id="wie">
+    <div class="wrap">
+      <p class="kicker">Drei Schritte</p>
+      <h2>Vom Selfie zum 3D-Modell</h2>
+      <p class="section-lead">Die App führt dich. Du brauchst kein 3D-Wissen – nur eine Minute und gutes Licht.</p>
+      <div class="grid grid-3">
+        <article class="card">
+          <span class="step-num">1</span>
+          <h3>Aufnehmen</h3>
+          <p>Ein Assistent zeigt dir, wohin du schauen sollst. Die App prüft Licht, Schärfe und Bewegung und
+             speichert nur die wirklich guten Bilder.</p>
+        </article>
+        <article class="card">
+          <span class="step-num">2</span>
+          <h3>Berechnen</h3>
+          <p>Aus bis zu 120 Bildern entsteht auf deinem Handy die 3D-Geometrie – Gesicht und Haare getrennt,
+             damit beides richtig aussieht.</p>
+        </article>
+        <article class="card">
+          <span class="step-num">3</span>
+          <h3>Exportieren</h3>
+          <p>Du sagst, wofür du das Modell brauchst – FaceScan liefert das passende Format inklusive Texturen,
+             Skelett und Mimik-Formen.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- VERGLEICH -->
+  <section id="vergleich">
+    <div class="wrap">
+      <p class="kicker">Ergebnis</p>
+      <h2>Foto rein – 3D-Modell raus</h2>
+      <p class="section-lead">Ziehe den Regler: links die Aufnahme, rechts das berechnete 3D-Modell.</p>
+      <div class="compare" id="compare">
+        <img src="assets/img/shot-photo.svg" alt="Foto eines Gesichts" width="320" height="420">
+        <img class="top" src="assets/img/shot-render.svg" alt="Dasselbe Gesicht als 3D-Drahtgitter" width="320" height="420">
+        <span class="handle" aria-hidden="true"></span>
+        <span class="tag left">Foto</span>
+        <span class="tag right">3D-Modell</span>
+        <input type="range" min="0" max="100" value="50" aria-label="Vergleich Foto zu 3D-Modell">
+      </div>
+      <p class="section-lead" style="margin-top:18px">
+        <small>Platzhalter-Grafik – echte Beispielscans folgen mit der ersten Beta.</small>
+      </p>
+    </div>
+  </section>
+
+  <!-- FUNKTIONEN -->
+  <section id="funktionen">
+    <div class="wrap">
+      <p class="kicker">Funktionen</p>
+      <h2>Alles, was ein 3D-Porträt braucht</h2>
+      <div class="grid grid-3">
+        <article class="card"><p class="emo">🧑</p><h3>Gesicht &amp; Haare</h3>
+          <p>Getrennte Rekonstruktion für Haut und Haar – von der Pore bis zur Strähne, in drei ehrlichen
+             Qualitätsstufen.</p></article>
+        <article class="card"><p class="emo">😀</p><h3>Animierbar</h3>
+          <p>52 Mimik-Formen (ARKit-Standard) plus Kopf- und Körperbewegung – live mit deiner Handykamera,
+             ohne Marker und ohne ARCore.</p></article>
+        <article class="card"><p class="emo">📦</p><h3>Alle Profi-Formate</h3>
+          <p>GLB, FBX, USD/USDZ, Alembic, OBJ, Collada, PLY, STL – mit Texturen, Skelett, Mimik und Animation.</p></article>
+        <article class="card"><p class="emo">🔒</p><h3>Offline &amp; privat</h3>
+          <p>Rechnung, Speicherung und Export auf dem Gerät. Verschlüsselter Tresor, kein Upload, kein Tracking.</p></article>
+        <article class="card"><p class="emo">🧭</p><h3>Einsteigerfreundlich</h3>
+          <p>Kein Fachwort ohne Erklärung. Ein Assistent, eine Ampel, ein Knopf – und ein Format-Ratgeber für
+             dein Zielprogramm.</p></article>
+        <article class="card"><p class="emo">🛠️</p><h3>Nachbearbeitbar</h3>
+          <p>Saubere Topologie, feste UVs, vollständige Material-Maps – gemacht für Blender, ZBrush, Maya oder
+             Substance Painter.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- FORMATE -->
+  <section id="formate">
+    <div class="wrap">
+      <p class="kicker">Kompatibilität</p>
+      <h2>Dein Modell, dein Programm</h2>
+      <p class="section-lead">FaceScan fragt dich, <em>wofür</em> du das Modell brauchst – und wählt Format,
+         Einheiten, Achsen und Textur-Set passend dazu.</p>
+      <ul class="chips">
+        <li class="strong">FBX</li><li class="strong">USD / USDZ</li><li class="strong">glTF / GLB</li>
+        <li class="strong">Alembic (ABC)</li><li>OBJ + MTL</li><li>Collada (DAE)</li><li>PLY</li><li>STL (3D-Druck)</li>
+        <li>BVH / CSV (Motion)</li><li>VRM (VTuber)</li><li>.fscan (Projekt, verlustfrei)</li>
+      </ul>
+      <ul class="chips">
+        <li>Blender</li><li>Unreal Engine</li><li>Unity</li><li>Maya</li><li>3ds Max</li><li>Houdini</li>
+        <li>ZBrush</li><li>Substance Painter</li><li>Godot / Three.js</li><li>Apple AR Quick Look</li>
+        <li>Cura / PrusaSlicer</li>
+      </ul>
+      <p class="section-lead">Dazu: Textur-Set mit Farbe, Detail-Relief, Rauigkeit, AO, SSS-Maske und
+         Displacement (bis 8K), Einheiten und Achsen auf Wunsch für jedes Programm angepasst.</p>
+    </div>
+  </section>
+
+  <!-- ANIMATION -->
+  <section id="animation">
+    <div class="wrap grid grid-2" style="align-items:center;gap:40px">
+      <div>
+        <p class="kicker">Animation</p>
+        <h2>Dein Avatar lebt</h2>
+        <p class="section-lead">
+          FaceScan erkennt deine Mimik und deine Körperbewegung live – auf dem Handy, ohne Anzug, ohne Marker,
+          ohne ARCore. Nimm es auf und exportiere die Bewegung in BVH, Alembic, FBX oder USD.
+        </p>
+        <ul class="chips">
+          <li class="strong">52 Mimik-Formen</li><li>Kopfpose</li><li>Oberkörper &amp; Arme</li>
+          <li>Hände &amp; Finger</li><li>Blickrichtung</li><li>Aufnahme als Clip</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>So läuft es ab</h3>
+        <ol>
+          <li>Einmalig 20 Sekunden kalibrieren (entspannt schauen, lächeln, Augen zu).</li>
+          <li>Kamera an – dein Avatar folgt in Echtzeit.</li>
+          <li>Aufnahme drücken, Clip schneiden, exportieren.</li>
+        </ol>
+        <p><small>Ziel: ≥ 25 Bilder pro Sekunde auf Mittelklasse-Handys.</small></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- DATENSCHUTZ -->
+  <section id="datenschutz" class="privacy">
+    <div class="wrap">
+      <p class="kicker">Datenschutz</p>
+      <h2>Erststart: Modelldownload über Internet</h2>
+      <p class="section-lead">Dein Gesicht ist keine Ware. Deshalb arbeitet FaceScan konsequent lokal.</p>
+      <ul class="privacy-list">
+        <li><span class="tick">✔</span><span><strong>Keine Cloud.</strong> Aufnahme, Berechnung, Speicherung
+          und Export laufen vollständig auf dem Gerät.</span></li>
+        <li><span class="tick">✔</span><span><strong>Kein Konto.</strong> Keine E-Mail, kein Passwort, keine
+          Telefonnummer – nichts, das wir speichern könnten.</span></li>
+        <li><span class="tick">✔</span><span><strong>Verschlüsselter Tresor.</strong> Projekte liegen
+          AES-256-GCM-verschlüsselt im Android-Keystore-geschützten Speicher.</span></li>
+        <li><span class="tick">✔</span><span><strong>Kein Tracking.</strong> Keine Werbe-, Analyse- oder
+          Crash-SDKs. Optionales Telemetrie-Opt-in existiert bewusst als „aus".</span></li>
+        <li><span class="tick">✔</span><span><strong>Volle Kontrolle.</strong> Exportieren, löschen,
+          alles löschen – mit Protokoll, jederzeit, ohne Rückfragen.</span></li>
+        <li><span class="tick">✔</span><span><strong>Offenes Projektformat.</strong> <code>.fscan</code> ist
+          dokumentiert: deine Daten bleiben lesbar, auch ohne uns.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- PREISE -->
+  <section id="preise">
+    <div class="wrap">
+      <p class="kicker">Preise</p>
+      <h2>Preiskonzept – noch nicht verfügbar</h2><p>Diese Preise und Funktionen sind nur Entwürfe, kein Angebot. Bitte nichts bezahlen.</p>
+      <p class="section-lead">Mögliche Preise und Zahlungsarten werden erforscht; es gibt derzeit keine Verkäufe oder Zahlungsabwicklung.</p>
+
+      <div class="price-grid">
+        <article class="tier">
+          <h3>Starter</h3>
+          <p class="price">0 € <small> · privat</small></p>
+          <ul>
+            <li><span class="tick">✔</span> Unbegrenzt scannen</li>
+            <li><span class="tick">✔</span> 3 gespeicherte Avatare</li>
+            <li><span class="tick">✔</span> 52 Mimik-Formen</li>
+            <li><span class="tick">✔</span> Export: GLB, OBJ, PLY, STL, .fscan</li>
+            <li><span class="tick">✔</span> Texturen 2K</li>
+            <li><span class="tick">✔</span> Haar-Stufe 1 (Volumen)</li>
+          </ul>
+          <a class="btn btn-ghost" href="https://github.com/AndrexTheDev/FaceScan">Projekt ansehen</a>
+        </article>
+
+        <article class="tier featured">
+          <span class="badge">Empfohlen</span>
+          <h3>Creator</h3>
+          <p class="price">39 € <small> · einmalig · Lifetime</small></p>
+          <ul>
+            <li><span class="tick">✔</span> Alle Starter-Funktionen, unbegrenzt</li>
+            <li><span class="tick">✔</span> <strong>+ FBX, USD, USDZ, Collada</strong></li>
+            <li><span class="tick">✔</span> Texturen 4K, Displacement, Profi-Maps</li>
+            <li><span class="tick">✔</span> Haar-Stufe 2 (Haar-Karten)</li>
+            <li><span class="tick">✔</span> Animations-Aufnahme &amp; Export</li>
+            <li><span class="tick">✔</span> Kommerzielle Indie-Lizenz (&lt; 100 k € Umsatz)</li>
+            <li><span class="tick">✔</span> Kein Wasserzeichen</li>
+          </ul>
+          <a class="btn btn-green" href="#krypto">Noch nicht verfügbar</a>
+        </article>
+
+        <article class="tier">
+          <h3>Studio</h3>
+          <p class="price">129 € <small> · einmalig · Lifetime</small></p>
+          <ul>
+            <li><span class="tick">✔</span> Alles aus Creator</li>
+            <li><span class="tick">✔</span> <strong>+ Alembic, BVH, VRM, CSV/JSON</strong></li>
+            <li><span class="tick">✔</span> Texturen 8K, Poren-Detail</li>
+            <li><span class="tick">✔</span> Haar-Stufe 3 (echte Strähnen)</li>
+            <li><span class="tick">✔</span> Ganzkörper-Mocap &amp; Export</li>
+            <li><span class="tick">✔</span> Kommerzielle Studio-Lizenz (unbegrenzt)</li>
+            <li><span class="tick">✔</span> Update-Pass inklusive</li>
+          </ul>
+          <a class="btn btn-ghost" href="#krypto">Noch nicht verfügbar</a>
+        </article>
+      </div>
+
+      <p class="credits">
+        <strong>Credit-Packs</strong> (für Gelegenheitsnutzer, verfallen nicht): Export-Pack (10 Exporte) 4,90 € ·
+        Haar-Detail-Pack 3,90 € · Motion-Pack (30 Min.) 6,90 € · Druck-Paket 2,90 €.
+        Alle Preise verstehen sich als EUR-Gegenwert; die Krypto-Menge wird zum Kurs am Zahlungstag berechnet.
+      </p>
+    </div>
+  </section>
+
+  <section id="krypto"><div class="wrap"><h2>Zahlungen noch nicht verfügbar</h2><p>Bitte keine Kryptowährung senden. Es gibt noch keinen Kauf- oder Freischaltablauf.</p></div></section>
+
+  <!-- EINSTEIGER -->
+  <section id="einsteiger">
+    <div class="wrap grid grid-2" style="align-items:center;gap:40px">
+      <div class="card">
+        <h3>Was ist „Mesh"? Und was ist „UV"?</h3>
+        <p>Wir übersetzen jedes Fachwort: <em>Mesh</em> = dein 3D-Modell (ein Netz aus Dreiecken).
+          <em>UV</em> = die flachgelegte Verpackung, damit man es bemalen kann.
+          <em>Rig</em> = das unsichtbare Skelett zum Bewegen.
+          Jeder dieser Begriffe hat in der App ein „ⓘ Was ist das?".</p>
+        <p>Und beim Exportieren fragt FaceScan nicht nach einem Format, sondern nach deinem Ziel:
+          „Blender", „Unreal", „3D-Druck", „Web" – den Rest erledigt die App.</p>
+      </div>
+      <div>
+        <p class="kicker">Für Einsteiger</p>
+        <h2>Du brauchst kein 3D-Wissen</h2>
+        <p class="section-lead">Sechs Minuten vom Öffnen der App bis zur fertigen Datei – das ist unser
+          Versprechen aus den Usability-Tests.</p>
+        <ul class="chips">
+          <li>Geführte Aufnahme mit Ampel</li><li>Sprachansagen (DE/EN)</li><li>Übungsmodus mit Puppe</li>
+          <li>Format-Assistent</li><li>Nacht- und Tag-Modus</li><li>Barrierefrei (WCAG 2.2 AA)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="wrap">
+      <p class="kicker">FAQ</p>
+      <h2>Häufige Fragen</h2>
+      <details><summary>Brauche ich ein besonderes Handy?</summary>
+        <p>Android ab Version 10. Auf Mittelklasse-Geräten läuft der Standard-Scan in etwa drei Minuten, auf
+           Flaggschiffen schneller. Ein Tiefensensor oder ARCore wird <strong>nicht</strong> benötigt.</p></details>
+      <details><summary>Wie gut werden die Haare?</summary>
+        <p>Ehrlich: einzelne Haare aus Handy-Fotos zu rekonstruieren, schafft weltweit niemand verlässlich.
+           FaceScan arbeitet deshalb in drei Stufen: Volumen (kostenlos), Haar-Karten mit Strähnenstruktur
+           (Creator) und echte Strähnen-Kurven (Studio). Welche Stufe möglich ist, sagt dir die App vorher.</p></details>
+      <details><summary>Funktioniert die App wirklich ohne Internet?</summary>
+        <p>Ja. Scannen, Berechnen, Animieren und Exportieren laufen komplett auf dem Gerät. Netz braucht die App
+           nur, wenn du etwas kaufen willst – und selbst dann bleibt sie voll nutzbar.</p></details>
+      <details><summary>Was passiert mit meinen Bildern?</summary>
+        <p>Sie bleiben auf deinem Handy, verschlüsselt im App-Tresor. Du entscheidest, ob die Quellbilder nach
+           dem Scan behalten oder gelöscht werden. Es gibt keinen Upload und kein Konto.</p></details>
+      <details><summary>Darf ich die Modelle verkaufen?</summary>
+        <p>Mit Creator für eigene kommerzielle Projekte bis 100.000 € Jahresumsatz, mit Studio unbegrenzt.
+           Nicht erlaubt sind biometrische Identifikation, Überwachung sowie täuschende oder herabwürdigende
+           Darstellungen – und du brauchst die Einwilligung der abgebildeten Person (dafür gibt es einen
+           Model-Release-Generator in der App).</p></details>
+      <details><summary>Welche Formate liefert die App?</summary>
+        <p>GLB, OBJ+MTL, PLY, STL (kostenlos), FBX, USD, USDZ, Collada (Creator), Alembic, BVH, VRM, CSV/JSON
+           (Studio) – jeweils mit Textur-Set, auf Wunsch mit Skelett, Mimik-Formen und Animation.</p></details>
+      <details><summary>Wie funktioniert die Animation ohne ARCore?</summary>
+        <p>FaceScan nutzt on-device Gesichts- und Körper-Erkennung: 478 Punkte im Gesicht, 52 Mimik-Werte,
+           33 Körper-Punkte in echten Metern. Daraus werden dein Avatar und seine Bewegung berechnet – ohne
+           Marker, ohne Anzug, ohne Google-Play-Dienste.</p></details>
+      <details><summary>Warum nur Krypto?</summary>
+        <p>Weil es zum Produkt passt: keine Konten, keine Kartendaten, keine Rückbuchungen, keine
+           Zahlungsdienstleister in der Kette. Als Bonus geben wir die ersparten Gebühren als 20 % Rabatt
+           weiter.</p></details>
+      <details><summary>Kann ich mein Geld zurückbekommen?</summary>
+        <p>Ja. 14 Tage freiwillige Rückgabe an die Absenderadresse – abzüglich der Netzwerkgebühren. Schreib
+           uns einfach mit deiner Transaktions-ID.</p></details>
+      <details><summary>Kommt eine Version für iPhone?</summary>
+        <p>Es ist nach dem Android-Start geplant. Der Rechenkern ist in C++ geschrieben und kann
+           wiederverwendet werden – Aufwand bleibt trotzdem, vor allem bei Kamera und Freigabe.</p></details>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section id="roadmap">
+    <div class="wrap">
+      <p class="kicker">Roadmap</p>
+      <h2>Wo die Reise hingeht</h2>
+      <div class="roadmap">
+        <div class="row"><span class="when">2027 Q3</span><span>Geschlossene Beta: Scan, Haar-Stufe 2, Animation, Export-Suite</span></div>
+        <div class="row"><span class="when">2028 Q1</span><span>Öffentlicher Start im Play Store + Krypto-Kauf</span></div>
+        <div class="row"><span class="when">2028 Q2</span><span>Blender-Add-on „FaceScan Link" (verlustfreier Import)</span></div>
+        <div class="row"><span class="when">2028 Q3</span><span>Haar-Stufe 3 als Strähnen-Export, VRM 1.0</span></div>
+        <div class="row"><span class="when">2028 Q4</span><span>Desktop-Begleit-App (Windows/macOS/Linux) + iOS-Test</span></div>
+      </div>
+      <p class="section-lead" style="margin-top:20px">Du hast einen Wunsch? Schreib uns:
+        <a href="mailto:hippie.highho@gmail.com">hippie.highho@gmail.com</a></p>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="final">
+    <div class="wrap">
+      <h2>Dein Gesicht in 3D.<br>In einer Minute.</h2>
+      <p class="section-lead" style="margin-inline:auto">Projekt ansehen, offline bleiben, in alle Profi-Formate exportieren.</p>
+      <div class="cta-row">
+        <a class="btn btn-gold" href="https://github.com/AndrexTheDev/FaceScan">Projekt ansehen</a>
+        <a class="btn btn-ghost" href="#preise">Preise ansehen</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <a class="brand" href="index.html">
+          <img src="assets/img/logo.svg" alt="" width="30" height="30">
+          <span>Face<span class="dot">Scan</span></span>
+        </a>
+        <p>Offline-First-3D-Scan für Gesicht und Haare.<br>Entwickelt von AndrexTheDev.</p>
+        <p><a href="mailto:hippie.highho@gmail.com">hippie.highho@gmail.com</a></p>
+      </div>
+      <div>
+        <strong>Produkt</strong>
+        <ul>
+          <li><a href="#funktionen">Funktionen</a></li>
+          <li><a href="#formate">Formate</a></li>
+          <li><a href="#animation">Animation</a></li>
+          <li><a href="#preise">Preise</a></li>
+          <li><a href="#roadmap">Roadmap</a></li>
+        </ul>
+      </div>
+      <div>
+        <strong>Rechtliches</strong>
+        <ul>
+          <li><a href="impressum/index.html">Impressum</a></li>
+          <li><a href="privacy/index.html">Datenschutz</a></li>
+          <li><a href="terms/index.html">AGB &amp; Lizenz</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="legal-note">Entwurf: keine Zahlungen oder Produktlizenzen verfügbar.</p>
+  </div>
+</footer>
+
+<script src="assets/js/main.js" defer></script>
+</body>
+</html>

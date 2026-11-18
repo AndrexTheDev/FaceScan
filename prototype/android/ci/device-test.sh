@@ -49,6 +49,7 @@ run_case offlineFirstLaunchShowsRetryAndDiagnostic
 restore_network
 sleep 5
 run_case onlineFirstLaunchDownloadsModelAndAllowsReportAndInference
+run_case syntheticGeometryTestRunsAndAppearsInReport
 
 # Modell bleibt erhalten; Cache wird nach Prozessneustart ohne Netz verwendet.
 adb shell svc wifi disable

@@ -814,7 +814,7 @@ def main():
     # geprueft; der Fehler fiel erst in der CI auf. Darum wird hier die
     # Zuordnung selbst geprueft: jede Konstante muss zu der Kennzahl passen,
     # die unter diesem Namen gemessen wird.
-    fx = _kotlin_constants(root.parent / "android" / "app" / "src" / "test" / "java"
+    fx = _kotlin_constants(root.parent / "android" / "app" / "src" / "main" / "java"
                            / "com" / "andrexthedev" / "facescan" / "geometry"
                            / "M0Fixtures.kt")
     pairs = [

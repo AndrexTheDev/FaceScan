@@ -183,7 +183,7 @@ def write_kotlin_fixtures(scene: dict, metrics: dict, pose_metrics: dict) -> str
     Warum Kotlin statt JSON? Damit die Unit-Tests ohne Robolectric und ohne
     JSON-Parser auskommen (org.json ist auf der JVM nicht enthalten).
     """
-    out_dir = os.path.abspath(os.path.join(HERE, "..", "..", "android", "app", "src", "test",
+    out_dir = os.path.abspath(os.path.join(HERE, "..", "..", "android", "app", "src", "main",
                                            "java", "com", "andrexthedev", "facescan", "geometry"))
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, "M0Fixtures.kt")

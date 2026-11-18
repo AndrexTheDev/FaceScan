@@ -88,6 +88,19 @@ class FirstRunDeviceTest {
             compose.onAllNodesWithText("Ausgewertete Frames: 0", substring = true).fetchSemanticsNodes().isEmpty())
     }
 
+    @Test fun syntheticGeometryTestRunsAndAppearsInReport() {
+        awaitText(R.string.model_ready)
+        compose.onNodeWithText(text(R.string.geometry_start)).performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 120_000) {
+            listOf(R.string.geometry_passed, R.string.geometry_failed)
+                .any { compose.onAllNodesWithText(text(it)).fetchSemanticsNodes().isNotEmpty() }
+        }
+        compose.onNodeWithText(text(R.string.geometry_passed)).assertExists()
+        compose.onNodeWithText(text(R.string.report_open)).performScrollTo().performClick()
+        compose.onNodeWithText("Synthetischer M0-Geometrietest: F1 bestanden", substring = true).assertExists()
+        compose.onNodeWithText("F2 bestanden", substring = true).assertExists()
+    }
+
     @Test fun deniedPermissionShowsDisclosureAndReturn() {
         awaitText(R.string.model_ready)
         compose.onNodeWithText(text(R.string.test_start)).performScrollTo().performClick()

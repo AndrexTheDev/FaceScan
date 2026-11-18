@@ -19,7 +19,7 @@
     <string name="report_back">Zurück</string>
 
     <string name="selftest_summary">Geräte-Selbsttests – Projektion: %1$s; MediaPipe: %2$s; Frontkamera: %3$s</string>
-    <string name="test_instructions">Starte den Kameratest. Führe danach die drei 5-Sekunden-Prüfungen aus und kopiere den Testbericht. Die Prüfungen testen noch kein 3D-Modell.</string>
+    <string name="test_instructions">Starte den synthetischen 3D-Mathe-Test und den Kameratest. Führe danach die drei 5-Sekunden-Prüfungen aus und kopiere den Testbericht. Die Prüfungen testen noch kein 3D-Modell.</string>
     <string name="challenge_instructions">Für jeden Test zuerst positionieren, dann die passende Taste drücken und 5 Sekunden warten.</string>
     <string name="challenge_face">1. Gesicht im Bild testen</string>
     <string name="challenge_empty">2. Gesicht außerhalb testen</string>
@@ -30,6 +30,12 @@
     <string name="challenge_failed">Fehlgeschlagen</string>
     <string name="challenge_inconclusive">Nicht aussagekräftig</string>
     <string name="challenge_feedback">%1$s: %2$d von %3$d Auswertungen passend. Details im Testbericht.</string>
+
+    <string name="geometry_start">Synthetischen 3D-Mathe-Test starten</string>
+    <string name="geometry_not_run">M0-Geometrietest: noch nicht ausgeführt.</string>
+    <string name="geometry_running">M0-Geometrietest läuft; bitte warten …</string>
+    <string name="geometry_passed">M0-Geometrietest bestanden. Werte stehen im Bericht.</string>
+    <string name="geometry_failed">M0-Geometrietest fehlgeschlagen. Details stehen im Bericht.</string>
 
     <!-- Home -->
     <string name="home_start_scan">DEMO STARTEN</string>

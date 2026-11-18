@@ -18,10 +18,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.andrexthedev.facescan.R
 import com.andrexthedev.facescan.model.ModelState
+import com.andrexthedev.facescan.geometry.GeometryRunState
 import com.andrexthedev.facescan.diagnostics.DeviceSelfTest
 
 @Composable
-fun HomeScreen(state: ModelState, selfTests: DeviceSelfTest.Results?, onRetry: () -> Unit, onStart: () -> Unit, onReport: () -> Unit) {
+fun HomeScreen(state: ModelState, selfTests: DeviceSelfTest.Results?, geometryState: GeometryRunState, onGeometryTest: () -> Unit, onRetry: () -> Unit, onStart: () -> Unit, onReport: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -48,7 +49,16 @@ fun HomeScreen(state: ModelState, selfTests: DeviceSelfTest.Results?, onRetry: (
                 }
             }
         }
-        Button(onClick = onStart, enabled = state is ModelState.Ready, modifier = Modifier.fillMaxWidth()) {
+        val geometryLabel = when (geometryState) {
+            GeometryRunState.NOT_RUN -> R.string.geometry_not_run
+            GeometryRunState.RUNNING -> R.string.geometry_running
+            GeometryRunState.PASSED -> R.string.geometry_passed
+            GeometryRunState.FAILED -> R.string.geometry_failed
+        }
+        Text(stringResource(geometryLabel))
+        OutlinedButton(onClick = onGeometryTest, enabled = geometryState != GeometryRunState.RUNNING && state !is ModelState.Loading,
+            modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.geometry_start)) }
+        Button(onClick = onStart, enabled = state is ModelState.Ready && geometryState != GeometryRunState.RUNNING, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.test_start))
         }
         OutlinedButton(onClick = onReport, modifier = Modifier.fillMaxWidth()) {

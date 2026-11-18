@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
@@ -13,6 +14,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.andrexthedev.facescan.diagnostics.TestDiagnostics
 import com.andrexthedev.facescan.diagnostics.DeviceSelfTest
+import com.andrexthedev.facescan.geometry.GeometryRunState
+import com.andrexthedev.facescan.geometry.GeometrySelfTest
 import com.andrexthedev.facescan.model.ModelInstaller
 import com.andrexthedev.facescan.model.ModelHttpException
 import com.andrexthedev.facescan.model.ModelState
@@ -24,6 +27,7 @@ import com.andrexthedev.facescan.ui.theme.FaceScanTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
@@ -33,6 +37,8 @@ fun FaceScanApp() {
     var state by remember { mutableStateOf<ModelState>(ModelState.Loading) }
     var selfTests by remember { mutableStateOf<DeviceSelfTest.Results?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
+    var geometryState by remember { mutableStateOf(GeometryRunState.NOT_RUN) }
+    val scope = rememberCoroutineScope()
     val navController = rememberNavController()
 
     // Nur das Modell wird geladen; sämtliche Code-Abhängigkeiten sind in der APK.
@@ -62,6 +68,25 @@ fun FaceScanApp() {
                 HomeScreen(
                     state = state,
                     selfTests = selfTests,
+                    geometryState = geometryState,
+                    onGeometryTest = {
+                        if (geometryState != GeometryRunState.RUNNING) {
+                            geometryState = GeometryRunState.RUNNING
+                            diagnostics.geometryTest("läuft")
+                            scope.launch {
+                                try {
+                                    val result = withContext(Dispatchers.Default) { GeometrySelfTest.run() }
+                                    diagnostics.geometryTest(result.details)
+                                    geometryState = if (result.passed) GeometryRunState.PASSED else GeometryRunState.FAILED
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    diagnostics.geometryTest("fehlgeschlagen:${e.javaClass.simpleName}")
+                                    geometryState = GeometryRunState.FAILED
+                                }
+                            }
+                        }
+                    },
                     onRetry = { attempt++ },
                     onStart = { navController.navigate("capture") },
                     onReport = { navController.navigate("report") }

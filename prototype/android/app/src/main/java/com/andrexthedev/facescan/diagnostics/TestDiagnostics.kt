@@ -13,6 +13,7 @@ class TestDiagnostics {
     private var modelError = "-"
     private var cameraError = "-"
     private var inferenceError = "-"
+    private var geometryFixture = "nicht ausgeführt"
     private var frames = 0L
     private var processed = 0L
     private var faces = 0L
@@ -33,6 +34,7 @@ class TestDiagnostics {
     @Synchronized internal fun cancelChallenge() = challenges.cancel()
     @Synchronized internal fun challengeResult(kind: ChallengeKind): ChallengeResult = challenges.result(kind)
     @Synchronized fun selfTests(value: DeviceSelfTest.Results) { selfTests = value }
+    @Synchronized fun geometryTest(value: String) { geometryFixture = value }
     @Synchronized fun result(found: Boolean, durationMs: Long, frameStartMs: Long) {
         challenges.sample(found, frameStartMs)
         processed++
@@ -69,6 +71,7 @@ Modell: $modelState
 Modell-SHA256 (Soll): ${FaceModel.SHA256}
 Modell-Fehlerklasse: $modelError
 Geräte-Selbsttest (Pinhole-Projektion): ${selfTests?.geometry ?: "nicht ausgeführt"}
+Synthetischer M0-Geometrietest: $geometryFixture
 Geräte-Selbsttest (MediaPipe auf Schwarzbild): ${selfTests?.landmarker ?: "nicht ausgeführt"}
 Frontkamera laut System: ${selfTests?.frontCamera ?: "nicht geprüft"}
 Geführter Test: Gesicht im Bild: ${challenge(ChallengeKind.FACE_PRESENT)}

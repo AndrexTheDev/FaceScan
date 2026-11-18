@@ -250,5 +250,5 @@ jobs:
           gh release create "test-apk-${{ github.run_number }}" \
             --target "${{ github.ref_name }}" \
             --title "Test-APK #${{ github.run_number }}" \
-            --notes "Automatisch gebaut aus ${{ github.sha }}. Debug-Signatur, nur zum Testen. Das Modell wird beim ersten Start von Google heruntergeladen und lokal geprüft. Experimentelle Gesichtsoberfläche mit vier Sekunden aufgezeichneter Mimik und GLB-Export; keine metrische Kalibrierung, Textur oder vollständiger Kopf. Modelllizenzprüfung in docs/09 ist offen." \
+            --notes "Automatisch gebaut aus ${{ github.sha }}. Debug-Signatur, nur zum Testen. Das Modell wird beim ersten Start von Google heruntergeladen und lokal geprüft. Experimentelle Gesichtsoberfläche mit vier Sekunden aufgezeichneter Mimik, experimenteller Kopfbewegungskorrektur und GLB-Export; keine metrische Kalibrierung, Textur oder vollständiger Kopf. Modelllizenzprüfung in docs/09 ist offen." \
             prototype/android/app/build/outputs/apk/debug/app-debug.apk

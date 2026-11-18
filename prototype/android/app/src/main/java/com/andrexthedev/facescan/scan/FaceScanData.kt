@@ -11,7 +11,9 @@ data class FaceSurface(
     val expression: FloatArray,
     val neutralJitterPx: Double,
     val expressionJitterPx: Double,
-    val sequence: List<FaceKeyframe> = emptyList()
+    val sequence: List<FaceKeyframe> = emptyList(),
+    // Interner Fit-Rest im Einheitsaugenabstand; kein 3D-Messfehler.
+    val maxAnchorRms: Double? = null
 ) {
     /** Alte Zwei-Posen-Daten bleiben als explizite Übergangsanimation abspielbar. */
     fun keyframes(): List<FaceKeyframe> = if (sequence.isEmpty()) listOf(

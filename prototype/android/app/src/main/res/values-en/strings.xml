@@ -47,7 +47,7 @@
     <string name="scan_expression">2. Record expression for 4 seconds</string>
     <string name="scan_invalid">The face points cannot be used. Please capture again.</string>
     <string name="scan_review_title">Face surface (experimental)</string>
-    <string name="scan_limitations">Only the visible front-camera face surface: no texture, hair or back of head. Depth and scale are not metrically calibrated; absolute accuracy has not been measured. Head motion can appear as expression. The model stays in memory until export.</string>
+    <string name="scan_limitations">Only the visible front-camera face surface: no texture, hair or back of head. Depth and scale are not metrically calibrated; absolute accuracy has not been measured. Experimental alignment cannot reliably separate head motion and perspective distortion from expression. The model stays in memory until export.</string>
     <string name="scan_jitter">Landmark variation during capture: neutral %1$.1f px, expression %2$.1f px. This is stability, not 3D accuracy.</string>
     <string name="scan_preview_hint">Drag to rotate. The slider follows the recorded sequence. Playback repeats the sequence and may jump at the end.</string>
     <string name="scan_play">Play sequence</string>
@@ -65,6 +65,9 @@
     <string name="scan_record_cancelled">Recording cancelled. You can start again.</string>
     <string name="scan_jitter_neutral">Neutral landmark variation: %1$.1f px. This measures stability, not 3D accuracy.</string>
     <string name="scan_sequence_info">%1$d captured shapes over %2$.1f seconds.</string>
+
+    <string name="scan_alignment_retry">Alignment failed: keep your head and phone steady, fit your face fully in view, and try recording again. This check is only a heuristic.</string>
+    <string name="scan_alignment_residual">Largest alignment residual across 13 anchors: %1$.3f eye distances. Internal agreement, not measured 3D error.</string>
 
     <!-- Home -->
     <string name="home_start_scan">START DEMO</string>

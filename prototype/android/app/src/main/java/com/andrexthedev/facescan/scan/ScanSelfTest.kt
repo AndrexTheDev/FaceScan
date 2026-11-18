@@ -30,6 +30,16 @@ object ScanSelfTest {
         val mid = FaceSequencePlayback.sample(surface, (keys[3].seconds + keys[4].seconds) / 2f)
         val axis = 13 * 3 + 1
         if (kotlin.math.abs(mid[axis] - (keys[3].points[axis] + keys[4].points[axis]) / 2) > 0.0001f) return false
+        // Bekannte 90-Grad-Drehung und Translation auf künstlichem Mesh.
+        val original = surface.neutral
+        val rotated = FloatArray(original.size)
+        for (i in 0 until FaceTopology.VERTEX_COUNT) {
+            rotated[3*i] = -original[3*i+1] + 0.3f
+            rotated[3*i+1] = original[3*i] - 0.2f
+            rotated[3*i+2] = original[3*i+2] + 0.1f
+        }
+        val aligned = FaceAlignment.align(original, rotated)
+        if (aligned.anchorRms > 0.0001 || original.indices.any { kotlin.math.abs(original[it] - aligned.points[it]) > 0.0001f }) return false
         val bytes = GlbWriter.write(surface)
         val glb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         if (glb.int != 0x46546c67 || glb.int != 2 || glb.int != bytes.size) return false

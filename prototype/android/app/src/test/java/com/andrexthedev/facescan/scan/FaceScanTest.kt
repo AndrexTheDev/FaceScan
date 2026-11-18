@@ -107,6 +107,22 @@ class FaceScanTest {
         assertNull(r.finish(5000, neutral))
     }
 
+    @Test fun recordingRejectsClippedFramesAndNonRigidAnchors() {
+        val neutral = FaceSnapshot(points(), 640, 480, 0.0, 3)
+        val r = FaceSequenceRecorder()
+        r.start(1000)
+        r.add(FaceFrame(points().apply { this[0] = 0f }, 640, 480, 1200))
+        assertNull(r.finish(5000, neutral))
+        assertFalse(r.wasAlignmentFailure())
+        r.start(1000)
+        for (i in 0 until 16) {
+            val deformed = points().apply { for (anchor in listOf(10, 151, 9, 168, 6, 197)) this[3 * anchor] += 0.25f }
+            r.add(FaceFrame(deformed, 640, 480, 1200L + i * 250))
+        }
+        assertNull(r.finish(5000, neutral))
+        assertTrue(r.wasAlignmentFailure())
+    }
+
     @Test fun neutralQualityChecksScaleEdgesAndMotionWithoutClaimingAccuracy() {
         val p = points()
         assertTrue(NeutralCaptureQuality.isUsable(FaceSnapshot(p, 640, 480, 2.0, 3)))

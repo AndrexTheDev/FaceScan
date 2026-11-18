@@ -48,7 +48,7 @@
     <string name="scan_expression">2. Mimik 4 Sekunden aufnehmen</string>
     <string name="scan_invalid">Die Gesichtspunkte sind nicht verwendbar. Bitte erneut aufnehmen.</string>
     <string name="scan_review_title">Gesichtsoberfläche (experimentell)</string>
-    <string name="scan_limitations">Nur die sichtbare Frontkamera-Gesichtsoberfläche: keine Textur, Haare oder Rückseite. Tiefe und Maßstab sind nicht metrisch kalibriert; absolute Genauigkeit ist nicht gemessen. Kopfbewegungen können als Mimik erscheinen. Das Modell bleibt bis zum Export im Arbeitsspeicher.</string>
+    <string name="scan_limitations">Nur die sichtbare Frontkamera-Gesichtsoberfläche: keine Textur, Haare oder Rückseite. Tiefe und Maßstab sind nicht metrisch kalibriert; absolute Genauigkeit ist nicht gemessen. Die experimentelle Ausrichtung kann Kopfbewegungen und perspektivische Verzerrung nicht zuverlässig von Mimik trennen. Das Modell bleibt bis zum Export im Arbeitsspeicher.</string>
     <string name="scan_jitter">Schwankung der Punkte während der Aufnahme: neutral %1$.1f px, Mimik %2$.1f px. Das ist Stabilität, keine 3D-Genauigkeit.</string>
     <string name="scan_preview_hint">Vorschau durch Wischen drehen. Der Regler zeigt den zeitlichen Verlauf. Die Wiedergabe wiederholt die Sequenz; am Ende kann sie springen.</string>
     <string name="scan_play">Sequenz abspielen</string>
@@ -66,6 +66,9 @@
     <string name="scan_record_cancelled">Aufnahme abgebrochen. Du kannst erneut starten.</string>
     <string name="scan_jitter_neutral">Punktschwankung der Neutralaufnahme: %1$.1f px. Das misst Stabilität, keine 3D-Genauigkeit.</string>
     <string name="scan_sequence_info">%1$d aufgenommene Formen über %2$.1f Sekunden.</string>
+
+    <string name="scan_alignment_retry">Ausrichtung fehlgeschlagen: Kopf und Handy möglichst ruhig halten, Gesicht ganz ins Bild nehmen und die Mimikaufnahme erneut starten. Die Prüfung ist nur eine Heuristik.</string>
+    <string name="scan_alignment_residual">Größter Ausrichtungsrest der 13 Anker: %1$.3f Augenabstände. Interne Übereinstimmung, kein gemessener 3D-Fehler.</string>
 
     <!-- Home -->
     <string name="home_start_scan">DEMO STARTEN</string>

@@ -98,7 +98,7 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
             val result = if (base != null) recorder.finish(SystemClock.elapsedRealtime(), base) else null
             recording = false
             if (result != null) onComplete(result)
-            else feedback = context.getString(R.string.scan_record_interrupted)
+            else feedback = context.getString(if (recorder.wasAlignmentFailure()) R.string.scan_alignment_retry else R.string.scan_record_interrupted)
         }
     }
     fun snapshot(): FaceSnapshot? {

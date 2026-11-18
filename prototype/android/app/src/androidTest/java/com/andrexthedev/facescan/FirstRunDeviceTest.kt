@@ -59,6 +59,7 @@ class FirstRunDeviceTest {
         compose.onNodeWithText("Modell: bereit", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (Pinhole-Projektion): bestanden", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (synthetische Triangulation): bestanden", substring = true).assertExists()
+        compose.onNodeWithText("Geräte-Selbsttest (synthetische Berichtszähler): bestanden", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (MediaPipe auf Schwarzbild): bestanden", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (synthetisches Scan-Mesh und GLB): bestanden", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (synthetisches Foto/UV und OBJ): bestanden", substring = true).assertExists()
@@ -105,6 +106,8 @@ class FirstRunDeviceTest {
         compose.onNodeWithText(text(R.string.scan_wait_samples)).assertExists()
         compose.onNodeWithText(text(R.string.common_cancel)).performScrollTo().performClick()
         awaitText(R.string.model_ready)
+        compose.onNodeWithText(text(R.string.report_open)).performScrollTo().performClick()
+        compose.onNodeWithText("Neutral-Versuche/übernommen/abgelehnt: 1/0/1", substring = true).assertExists()
     }
 
     @Test fun syntheticGeometryTestRunsAndAppearsInReport() {

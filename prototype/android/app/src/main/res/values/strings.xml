@@ -12,7 +12,7 @@
     <string name="test_start">Kameratest starten</string>
     <string name="report_open">Testbericht</string>
     <string name="report_title">Testbericht ansehen</string>
-    <string name="report_privacy">Der Bericht enthält Gerätetyp, Android-Version und technische Testzähler, aber keine Fotos oder Gesichtspunkte. Er wird nur geteilt, wenn du ihn kopierst oder bewusst sendest.</string>
+    <string name="report_privacy">Der Bericht enthält Gerätetyp, Android-Version und technische Testzähler, auch zur Fotoauswahl und zum Export, aber keine Fotos, Gesichtspunkte oder Dateinamen. Er wird nur geteilt, wenn du ihn kopierst oder bewusst sendest.</string>
     <string name="report_copy">Kopieren</string>
     <string name="report_share">Teilen</string>
     <string name="report_copied">Kopiert. Du kannst den Bericht jetzt im Chat einfügen.</string>

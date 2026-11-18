@@ -43,6 +43,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.andrexthedev.facescan.R
+import com.andrexthedev.facescan.diagnostics.TestDiagnostics
+import com.andrexthedev.facescan.diagnostics.ScanEvent
 import com.andrexthedev.facescan.scan.FaceSurface
 import com.andrexthedev.facescan.scan.FaceMeshRenderer
 import com.andrexthedev.facescan.scan.FaceSequencePlayback
@@ -55,7 +57,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
+fun ScanReviewScreen(surface: FaceSurface, diagnostics: TestDiagnostics, onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var yaw by remember { mutableFloatStateOf(0f) }
@@ -79,7 +81,8 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
         }
     }
     fun export(uri: Uri?, obj: Boolean) {
-        if (uri == null || writing) return
+        if (uri == null) { diagnostics.scanEvent(ScanEvent.EXPORT_CANCELLED); return }
+        if (writing) return
         writing = true
         // Vorschau und Export verwenden denselben Stand, auch bei späterer UI-Änderung.
         val exportSurface = selectedSurface
@@ -90,10 +93,13 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
                     val stream = context.contentResolver.openOutputStream(uri, "w") ?: error("No output stream")
                     stream.use { it.write(data) }
                 }
+                diagnostics.scanEvent(if (obj) ScanEvent.OBJ_SAVED else ScanEvent.GLB_SAVED)
                 feedback = context.getString(if (obj) R.string.scan_obj_ok else R.string.scan_export_ok)
             } catch (e: kotlinx.coroutines.CancellationException) {
+                diagnostics.scanEvent(ScanEvent.EXPORT_CANCELLED)
                 throw e
             } catch (_: Exception) {
+                diagnostics.scanEvent(ScanEvent.EXPORT_FAILED)
                 feedback = context.getString(R.string.scan_export_error)
             } finally { writing = false }
         }
@@ -136,10 +142,10 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
             Text(stringResource(if (playing) R.string.scan_pause else R.string.scan_play))
         }
         Button(onClick = {
-            try { save.launch("facescan.glb") } catch (_: Exception) { feedback = context.getString(R.string.scan_export_error) }
+            try { save.launch("facescan.glb") } catch (_: Exception) { diagnostics.scanEvent(ScanEvent.EXPORT_FAILED); feedback = context.getString(R.string.scan_export_error) }
         }, enabled = !writing, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_export)) }
         OutlinedButton(onClick = {
-            try { saveObj.launch("facescan-neutral.obj") } catch (_: Exception) { feedback = context.getString(R.string.scan_export_error) }
+            try { saveObj.launch("facescan-neutral.obj") } catch (_: Exception) { diagnostics.scanEvent(ScanEvent.EXPORT_FAILED); feedback = context.getString(R.string.scan_export_error) }
         }, enabled = !writing, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_export_obj)) }
         if (feedback.isNotEmpty()) Text(feedback)
         OutlinedButton(onClick = onClose, enabled = !writing, modifier = Modifier.fillMaxWidth()) {

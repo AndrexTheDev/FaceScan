@@ -125,7 +125,7 @@ fun FaceScanApp() {
                 val surface = faceSurface
                 if (surface != null) {
                     DisposableEffect(surface) { onDispose { faceSurface = null } }
-                    ScanReviewScreen(surface) { navController.popBackStack("home", false) }
+                    ScanReviewScreen(surface, diagnostics) { navController.popBackStack("home", false) }
                 }
             }
             composable("report") {

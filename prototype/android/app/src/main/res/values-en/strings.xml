@@ -11,7 +11,7 @@
     <string name="test_start">Start camera test</string>
     <string name="report_open">Test report</string>
     <string name="report_title">View test report</string>
-    <string name="report_privacy">The report contains device type, Android version and technical test counts, but no photos or face points. It is only shared when you copy or deliberately send it.</string>
+    <string name="report_privacy">The report contains device type, Android version and technical test counts, including photo selection and exports, but no photos, face points or filenames. It is only shared when you copy or deliberately send it.</string>
     <string name="report_copy">Copy</string>
     <string name="report_share">Share</string>
     <string name="report_copied">Copied. You can now paste the report into the chat.</string>

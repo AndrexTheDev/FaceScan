@@ -23,6 +23,7 @@ class TestDiagnostics {
     private var maxMs = 0L
     private var frameDescription = "-"
     private val challenges = ChallengeTracker()
+    private val scanEvents = ScanEventCounters()
     private var selfTests: DeviceSelfTest.Results? = null
     private var calibration = CalibrationAvailability.UNKNOWN
 
@@ -45,6 +46,7 @@ class TestDiagnostics {
         maxMs = maxOf(maxMs, durationMs)
     }
     @Synchronized fun calibrationInfo(value: CalibrationAvailability) { calibration = value }
+    @Synchronized fun scanEvent(event: ScanEvent) { scanEvents.record(event) }
     @Synchronized fun cameraError(error: String) { cameraError = error }
     @Synchronized fun inferenceError(error: String) { inferenceError = error }
 
@@ -75,6 +77,7 @@ Modell-SHA256 (Soll): ${FaceModel.SHA256}
 Modell-Fehlerklasse: $modelError
 Geräte-Selbsttest (Pinhole-Projektion): ${selfTests?.geometry ?: "nicht ausgeführt"}
 Geräte-Selbsttest (synthetische Triangulation): ${selfTests?.triangulation ?: "nicht ausgeführt"}
+Geräte-Selbsttest (synthetische Berichtszähler): ${selfTests?.reportCounters ?: "nicht ausgeführt"}
 Synthetischer M0-Geometrietest: $geometryFixture
 Geräte-Selbsttest (synthetisches Scan-Mesh und GLB): ${selfTests?.scanExport ?: "nicht ausgeführt"}
 Geräte-Selbsttest (synthetische Bildhinweise): ${selfTests?.imageQuality ?: "nicht ausgeführt"}
@@ -85,6 +88,7 @@ Metadaten der zuletzt gebundenen Kamera: Intrinsics ${calibration.intrinsics.lab
 Geführter Test: Gesicht im Bild: ${challenge(ChallengeKind.FACE_PRESENT)}
 Geführter Test: Gesicht außerhalb: ${challenge(ChallengeKind.FACE_ABSENT)}
 Geführter Offline-Test: ${challenge(ChallengeKind.OFFLINE)}
+${scanEvents.summary()}
 Nicht verfügbar / nicht geprüft: metrisch validierte Genauigkeit, vollständiger Kopf/Haar, Motion-Capture und vollständiger 3D-Flugmodus-Test
 Kamera-Fehlerklasse: $cameraError
 Erkennungs-Fehler (Phase/Klasse/Code): $inferenceError

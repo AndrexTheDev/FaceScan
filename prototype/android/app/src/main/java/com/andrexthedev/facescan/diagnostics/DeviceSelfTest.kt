@@ -17,7 +17,7 @@ import kotlin.math.abs
 
 /** Kleine Smoke-Tests auf dem Gerät, kein Ersatz für die CI- oder 3D-Ground-Truth-Tests. */
 object DeviceSelfTest {
-    data class Results(val geometry: String, val landmarker: String, val frontCamera: String, val scanExport: String, val textureExport: String, val imageQuality: String, val triangulation: String)
+    data class Results(val geometry: String, val landmarker: String, val frontCamera: String, val scanExport: String, val textureExport: String, val imageQuality: String, val triangulation: String, val reportCounters: String)
 
     fun run(context: Context, model: File): Results {
         val geometry = try {
@@ -49,6 +49,8 @@ object DeviceSelfTest {
         catch (e: Exception) { "fehlgeschlagen:${e.javaClass.simpleName}" }
         val triangulation = try { if (TriangulationSelfTest.run()) "bestanden" else "fehlgeschlagen" }
         catch (e: Exception) { "fehlgeschlagen:${e.javaClass.simpleName}" }
-        return Results(geometry, landmark, front, scan, texture, imageQuality, triangulation)
+        val reportCounters = try { if (ScanEventCountersSelfTest.run()) "bestanden" else "fehlgeschlagen" }
+        catch (e: Exception) { "fehlgeschlagen:${e.javaClass.simpleName}" }
+        return Results(geometry, landmark, front, scan, texture, imageQuality, triangulation, reportCounters)
     }
 }

@@ -199,7 +199,9 @@ class MultiViewCaptureTest {
         input.get(jsonBytes)
         val json = String(jsonBytes, Charsets.UTF_8)
         assertTrue("JSON beginnt nicht wie erwartet: ${json.take(40)}", json.startsWith("{\n\"asset\":"))
-        assertTrue(json.take(200), json.contains("\"count\":${mesh.triangles.size}"))
+        val positions = FloatArray(mesh.vertices.size * 3) { i -> mesh.vertices[i / 3][i % 3].toFloat() }
+        val written = PartialGlbWriter.floatSafeTriangles(positions, mesh.triangles)
+        assertTrue(json.take(200), json.contains("\"count\":${written.size}"))
         // Ohne Mesh darf kein Export entstehen, statt einer leeren Datei.
         val empty = ready.result.copy(surface = ready.result.surface.copy(mesh = null))
         assertNull(empty.encodeExport(MeshExportFormat.OBJ))

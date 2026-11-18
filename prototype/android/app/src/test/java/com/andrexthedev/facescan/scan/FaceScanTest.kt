@@ -321,7 +321,11 @@ class FaceScanTest {
         System.getenv("RUNNER_TEMP")?.let { dir ->
             File(dir, "facescan-synthetic-partial.glb").writeBytes(glb)
             val vertices = mesh.vertices.joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
-            val faces = mesh.triangles.toList().chunked(3).joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
+            // Der GLB-Writer verwirft Dreiecke, die in Float32 flächenlos werden;
+            // die Referenz muss deshalb die tatsächlich geschriebenen Indizes tragen.
+            val positions = FloatArray(mesh.vertices.size * 3) { i -> mesh.vertices[i / 3][i % 3].toFloat() }
+            val written = PartialGlbWriter.floatSafeTriangles(positions, mesh.triangles)
+            val faces = written.toList().chunked(3).joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
             File(dir, "facescan-synthetic-partial-glb-reference.json").writeText(
                 "{\"vertices\":$vertices,\"faces\":$faces}")
         }

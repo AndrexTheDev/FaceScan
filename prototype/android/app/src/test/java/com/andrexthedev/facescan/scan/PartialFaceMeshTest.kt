@@ -93,7 +93,9 @@ class PartialFaceMeshTest {
         assertTrue(json.take(300), json.contains("open partial surface"))
         // Der Indexpuffer muss auf die vorhandenen Vertices zeigen.
         assertTrue(json.take(300), json.contains("\"count\":${mesh.vertices.size}"))
-        assertEquals(mesh.triangles.size, json.substringAfter("\"componentType\":5123,\"count\":")
+        val positions = FloatArray(mesh.vertices.size * 3) { i -> mesh.vertices[i / 3][i % 3].toFloat() }
+        val written = PartialGlbWriter.floatSafeTriangles(positions, mesh.triangles)
+        assertEquals(written.size, json.substringAfter("\"componentType\":5123,\"count\":")
             .substringBefore(',').toInt())
         val binaryLength = input.int
         assertEquals(0x004e4942, input.int)
@@ -113,5 +115,29 @@ class PartialFaceMeshTest {
         // Beide Formate beginnen mit ihrem jeweiligen Signaturmerkmal.
         assertTrue(String(PartialFaceMesh.writeObjWithNormals(mesh), Charsets.UTF_8).startsWith("# FaceScan"))
         assertEquals(0x46546c67, ByteBuffer.wrap(PartialGlbWriter.write(mesh)).order(ByteOrder.LITTLE_ENDIAN).int)
+    }
+
+    @Test fun glbDropsTrianglesThatCollapseInFloat32ButKeepsRealOnes() {
+        // Der Double-Punkt (1+1e-9, 1, 0) ergibt in Double eine winzige, aber
+        // echte Fläche; als Float32 wird daraus exakt (1, 1, 0) und das
+        // Dreieck ist flächenlos. Genau dieser Fall erzeugte in der CI ein vom
+        // Parser abgelehntes Dreieck.
+        val positions = floatArrayOf(
+            1f, 0f, 0f,
+            (1.0 + 1e-9).toFloat(), 1f, 0f,
+            1f, 2f, 0f,
+            0f, 0f, 0f,
+            1f, 0f, 0f,
+            0f, 1f, 0f
+        )
+        val triangles = intArrayOf(0, 1, 2, 3, 4, 5)
+        val kept = PartialGlbWriter.floatSafeTriangles(positions, triangles)
+        assertArrayEquals(intArrayOf(3, 4, 5), kept)
+        val mesh = PartialFaceMesh.Mesh(
+            positions.toList().map { doubleArrayOf(it[0].toDouble(), it[1].toDouble(), it[2].toDouble()) },
+            IntArray(6) { it }, triangles)
+        val json = String(PartialGlbWriter.write(mesh), Charsets.UTF_8)
+        assertTrue("Extras nennen die verworfene Fläche", json.contains("\"droppedDegenerateTriangles\":1"))
+        assertEquals(3, json.substringAfter("\"componentType\":5123,\"count\":").substringBefore(',').toInt())
     }
 }

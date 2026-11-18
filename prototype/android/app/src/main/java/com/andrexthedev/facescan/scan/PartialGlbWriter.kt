@@ -28,8 +28,13 @@ object PartialGlbWriter {
         require(count <= MAX_VERTICES)
         val positions = FloatArray(count * 3) { i -> mesh.vertices[i / 3][i % 3].toFloat() }
         require(positions.all(Float::isFinite))
-        val normals = MeshNormals.calculate(positions, mesh.triangles)
-        val indices = mesh.triangles
+        // Ein Dreieck, das in Double noch Fläche hat, kann beim Runden auf
+        // Float32 kollabieren. Im GLB steht Float32; deshalb wird hier gegen
+        // die geschriebenen Werte gefiltert, nicht gegen die Double-Quelle.
+        val indices = floatSafeTriangles(positions, mesh.triangles)
+        require(indices.isNotEmpty())
+        val dropped = mesh.triangles.size / 3 - indices.size / 3
+        val normals = MeshNormals.calculate(positions, indices)
 
         val binary = ByteArrayOutputStream()
         fun floats(values: FloatArray) {
@@ -62,7 +67,7 @@ object PartialGlbWriter {
         val (min, max) = bounds(positions)
 
         val json = """{
-"asset":{"version":"2.0","generator":"FaceScan prototype","extras":{"units":"centimetres derived from canonical average anchors; not a measurement of the subject","limitations":"open partial surface, no completion, no texture, no animation, no real-device accuracy validation"}},
+"asset":{"version":"2.0","generator":"FaceScan prototype","extras":{"units":"centimetres derived from canonical average anchors; not a measurement of the subject","limitations":"open partial surface, no completion, no texture, no animation, no real-device accuracy validation","droppedDegenerateTriangles":$dropped}},
 "scene":0,"scenes":[{"nodes":[0]}],"nodes":[{"mesh":0,"name":"PartialFaceMesh"}],
 "meshes":[{"name":"PartialFaceMesh","primitives":[{"attributes":{"POSITION":0,"NORMAL":1},"indices":2,"material":0,"mode":4}]}],
 "materials":[{"name":"Partial","doubleSided":true,"pbrMetallicRoughness":{"baseColorFactor":[0.75,0.62,0.55,1],"metallicFactor":0,"roughnessFactor":1}}],
@@ -85,5 +90,33 @@ object PartialGlbWriter {
         repeat(jsonLength - json.size) { out.put(0x20.toByte()) }
         out.putInt(bytes.size).putInt(0x004e4942).put(bytes)
         return out.array()
+    }
+
+    /**
+     * Verwirft Dreiecke, deren Fläche in Float32 exakt null wird. Das ist kein
+     * Qualitätsurteil über die Form, sondern verhindert ungültige Flächen in
+     * der geschriebenen Datei.
+     */
+    fun floatSafeTriangles(positions: FloatArray, triangles: IntArray): IntArray {
+        require(positions.isNotEmpty() && positions.size % 3 == 0)
+        require(triangles.size % 3 == 0 && triangles.all { it in 0 until positions.size / 3 })
+        val kept = ArrayList<Int>(triangles.size)
+        for (t in triangles.indices step 3) {
+            val a = triangles[t] * 3
+            val b = triangles[t + 1] * 3
+            val c = triangles[t + 2] * 3
+            val abx = positions[b] - positions[a]
+            val aby = positions[b + 1] - positions[a + 1]
+            val abz = positions[b + 2] - positions[a + 2]
+            val acx = positions[c] - positions[a]
+            val acy = positions[c + 1] - positions[a + 1]
+            val acz = positions[c + 2] - positions[a + 2]
+            val x = aby * acz - abz * acy
+            val y = abz * acx - abx * acz
+            val z = abx * acy - aby * acx
+            val area = Math.sqrt((x * x + y * y + z * z).toDouble())
+            if (area > 0.0) { kept.add(triangles[t]); kept.add(triangles[t + 1]); kept.add(triangles[t + 2]) }
+        }
+        return kept.toIntArray()
     }
 }

@@ -63,6 +63,23 @@ class FirstRunDeviceTest {
         assertTrue(report.contains("Keine Fotos, Bilddaten oder Gesichtspunkte"))
     }
 
+    @Test fun cameraFramesReachTheLandmarkerAndReport() {
+        awaitText(R.string.model_ready)
+        compose.onNodeWithText(text(R.string.test_start)).performScrollTo().performClick()
+        // Die Emulator-Kamera liefert künstliche Bilder; wir prüfen den
+        // Framepfad, nicht die Erkennungsqualität an einem echten Gesicht.
+        compose.waitUntil(timeoutMillis = 120_000) {
+            listOf(R.string.face_found, R.string.face_not_found, R.string.face_error, R.string.camera_error)
+                .any { compose.onAllNodesWithText(text(it)).fetchSemanticsNodes().isNotEmpty() }
+        }
+        assertTrue("Camera/landmarker reported an error", listOf(R.string.face_found, R.string.face_not_found)
+            .any { compose.onAllNodesWithText(text(it)).fetchSemanticsNodes().isNotEmpty() })
+        compose.onNodeWithText(text(R.string.report_open)).performClick()
+        compose.onNodeWithText("Ausgewertete Frames:", substring = true).assertExists()
+        assertTrue("Expected at least one analyzed frame",
+            compose.onAllNodesWithText("Ausgewertete Frames: 0", substring = true).fetchSemanticsNodes().isEmpty())
+    }
+
     @Test fun cachedModelStartsOffline() {
         awaitText(R.string.model_ready)
         compose.onNodeWithText(text(R.string.test_start)).assertIsEnabled()

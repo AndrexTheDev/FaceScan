@@ -54,3 +54,5 @@ adb shell svc wifi disable
 adb shell svc data disable
 sleep 3
 run_case cachedModelStartsOffline
+adb shell pm grant "$app" android.permission.CAMERA
+run_case cameraFramesReachTheLandmarkerAndReport

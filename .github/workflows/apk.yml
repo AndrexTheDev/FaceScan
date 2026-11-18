@@ -179,6 +179,17 @@ jobs:
         run: |
           APK=prototype/android/app/build/outputs/apk/debug/app-debug.apk
           ls -l "$APK"
+          unzip -Z1 "$APK" > "$RUNNER_TEMP/facescan-apk-entries.txt"
+          for abi in arm64-v8a armeabi-v7a x86; do
+            if ! grep -Fx "lib/$abi/libmediapipe_tasks_vision_jni.so" "$RUNNER_TEMP/facescan-apk-entries.txt" >/dev/null; then
+              echo "::error title=MediaPipe-ABI::JNI-Bibliothek für $abi fehlt"
+              exit 1
+            fi
+          done
+          if grep -q '^lib/x86_64/' "$RUNNER_TEMP/facescan-apk-entries.txt"; then
+            echo "::error title=MediaPipe-ABI::x86_64 kann eine inkompatible ABI-Auswahl verursachen"
+            exit 1
+          fi
           echo "::notice title=APK::$(du -h "$APK" | cut -f1)"
           echo "::notice title=Architekturen::$(unzip -l "$APK" 'lib/*' | grep -oE 'lib/[a-z0-9_-]+/' | sort -u | tr '\n' ' ')"
           # Woher das Gewicht kommt: 4 Architekturen x MediaPipe-Nativcode

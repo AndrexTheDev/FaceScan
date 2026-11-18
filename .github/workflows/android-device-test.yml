@@ -8,6 +8,7 @@ on:
       - '.github/workflows/android-device-test.yml'
       - 'prototype/android/ci/device-test.sh'
       - 'prototype/android/app/src/androidTest/**'
+      - 'prototype/android/app/src/main/**'
       - 'prototype/android/app/build.gradle.kts'
       - 'prototype/android/gradle/libs.versions.toml'
 
@@ -52,6 +53,7 @@ jobs:
           ram-size: 2048M
           emulator-boot-timeout: 600
           disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-front emulated
           working-directory: prototype/android
           script: ./ci/device-test.sh
       - name: Geräte-Testprotokoll hochladen

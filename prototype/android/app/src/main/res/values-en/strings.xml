@@ -130,4 +130,6 @@
     <string name="review_animate">Animate</string>
     <string name="review_export">Export</string>
     <string name="review_done">Done</string>
+    <string name="scan_smoothing">Lightly smooth expression (also in GLB)</string>
+    <string name="scan_smoothing_warning">Experimental: reduces short-term fluctuations but delays movement and may weaken brief expressions. Turning it off restores the original recording; OBJ remains unchanged.</string>
 </resources>

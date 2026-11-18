@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
@@ -44,6 +46,7 @@ import com.andrexthedev.facescan.R
 import com.andrexthedev.facescan.scan.FaceSurface
 import com.andrexthedev.facescan.scan.FaceMeshRenderer
 import com.andrexthedev.facescan.scan.FaceSequencePlayback
+import com.andrexthedev.facescan.scan.FaceSequenceSmoothing
 import com.andrexthedev.facescan.scan.GlbWriter
 import com.andrexthedev.facescan.scan.ObjWriter
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +61,10 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
     var yaw by remember { mutableFloatStateOf(0f) }
     var weight by remember { mutableFloatStateOf(0f) }
     var playing by remember { mutableStateOf(false) }
+    var smoothing by remember { mutableStateOf(false) }
+    val selectedSurface = remember(surface, smoothing) {
+        if (smoothing) FaceSequenceSmoothing.smooth(surface) else surface
+    }
     var writing by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf("") }
 
@@ -74,10 +81,12 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
     fun export(uri: Uri?, obj: Boolean) {
         if (uri == null || writing) return
         writing = true
+        // Vorschau und Export verwenden denselben Stand, auch bei späterer UI-Änderung.
+        val exportSurface = selectedSurface
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    val data = if (obj) ObjWriter.write(surface) else GlbWriter.write(surface)
+                    val data = if (obj) ObjWriter.write(exportSurface) else GlbWriter.write(exportSurface)
                     val stream = context.contentResolver.openOutputStream(uri, "w") ?: error("No output stream")
                     stream.use { it.write(data) }
                 }
@@ -106,7 +115,7 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
             Modifier.fillMaxWidth().height(280.dp).background(Color(0xff10141b))
                 .pointerInput(Unit) { detectDragGestures { change, drag -> change.consume(); yaw += drag.x * 0.01f } }
         ) {
-            val points = FaceSequencePlayback.sample(surface, weight * surface.keyframes().last().seconds)
+            val points = FaceSequencePlayback.sample(selectedSurface, weight * selectedSurface.keyframes().last().seconds)
             drawIntoCanvas { canvas ->
                 FaceMeshRenderer.draw(canvas.nativeCanvas, size.width, size.height, points, yaw, surface.texture, textureBitmap)
             }
@@ -117,6 +126,11 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
             Image(bitmap = textureBitmap.asImageBitmap(), contentDescription = stringResource(R.string.scan_texture_description),
                 modifier = Modifier.fillMaxWidth().height(180.dp))
         }
+        Row {
+            Checkbox(checked = smoothing, onCheckedChange = { smoothing = it }, enabled = !writing)
+            Text(stringResource(R.string.scan_smoothing))
+        }
+        if (smoothing) Text(stringResource(R.string.scan_smoothing_warning), style = MaterialTheme.typography.bodySmall)
         Slider(value = weight, onValueChange = { playing = false; weight = it })
         Button(onClick = { playing = !playing }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(if (playing) R.string.scan_pause else R.string.scan_play))

@@ -131,4 +131,6 @@
     <string name="review_animate">Animieren</string>
     <string name="review_export">Exportieren</string>
     <string name="review_done">Fertig</string>
+    <string name="scan_smoothing">Mimik leicht glätten (auch im GLB)</string>
+    <string name="scan_smoothing_warning">Experimentell: reduziert kurzfristige Schwankungen, verzögert Bewegungen und kann kurze Ausdrücke abschwächen. Originalaufnahme bleibt beim Ausschalten erhalten; OBJ bleibt unverändert.</string>
 </resources>

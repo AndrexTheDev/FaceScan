@@ -45,6 +45,12 @@ object ScanSelfTest {
         }
         val aligned = FaceAlignment.align(original, rotated)
         if (aligned.anchorRms > 0.0001 || original.indices.any { kotlin.math.abs(original[it] - aligned.points[it]) > 0.0001f }) return false
+        val smooth = FaceSequenceSmoothing.smooth(surface)
+        if (smooth.keyframes().size != keys.size || !smooth.neutral.contentEquals(surface.neutral) ||
+            smooth.keyframes()[4].points[axis] == keys[4].points[axis] ||
+            !smooth.keyframes().last().points[axis].isFinite()) return false
+        // Der geglättete Exportpfad muss ebenfalls synthetisch funktionieren.
+        if (GlbWriter.write(smooth).size < 20) return false
         val bytes = GlbWriter.write(surface)
         val glb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         if (glb.int != 0x46546c67 || glb.int != 2 || glb.int != bytes.size) return false

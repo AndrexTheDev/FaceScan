@@ -39,7 +39,7 @@ Die folgenden Werte sind eine **subjektive Planungsschätzung**, keine gemessene
 | 3D-Rekonstruktion und Genauigkeit | 25 | 3 | kalibrierte Mehransichten, reale Ground Truth |
 | Vollständiger Kopf und Haar | 15 | 0 | nicht in der Android-App umgesetzt |
 | Animation und Rig | 10 | 2 | standardisierte Ausdrucksformen, Rig, reale Validierung |
-| Export und Bedienung | 10 | 3 | weitere Formate, Interoperabilität und Echtgerätetests |
+| Export und Bedienung | 10 | 3 | Interoperabilität in echten Zielprogrammen und Echtgerätetests |
 | Datenschutz und Recht | 5 | 2 | vollständige Datenschutz- und Lizenzprüfung |
 | Qualitätssicherung und Freigabe | 10 | 2 | reale Geräte, Teilnehmer und Abnahmekriterien |
 | **Summe** | **100** | **ca. 22** | **Grobe Gesamtschätzung: etwa 22 %** |

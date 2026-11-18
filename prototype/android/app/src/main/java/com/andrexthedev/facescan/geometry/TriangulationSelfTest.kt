@@ -16,6 +16,16 @@ object TriangulationSelfTest {
         }
         val result = MultiViewTriangulation.triangulate(observations) as? MultiViewTriangulation.Result.Point ?: return false
         if ((0..2).any { abs(result.xyz[it] - truth[it]) > 1e-6 } || result.maxPixels > 1e-7) return false
+        val mapping = CalibratedPixelMapping(100.0, 200.0, 4100.0, 3200.0, 800, 600, 90,
+            1200.0, 1250.0, 2100.0, 1700.0, 12.0)
+        val mapped = listOf(0.0, -100.0).map { tx ->
+            val y = truth[1] / truth[2]
+            val pixel = CalibratedPixelMapping.Pixel(mapping.fx * (truth[0] + tx) / truth[2] + mapping.skew * y + mapping.cx,
+                mapping.fy * y + mapping.cy)
+            mapping.toObservation(mapping.sensorToUpright(pixel), Mat3.identity(), doubleArrayOf(tx, 0.0, 0.0))
+        }
+        val mappedResult = MultiViewTriangulation.triangulate(mapped) as? MultiViewTriangulation.Result.Point ?: return false
+        if ((0..2).any { abs(mappedResult.xyz[it] - truth[it]) > 1e-6 }) return false
         val noBaseline = MultiViewTriangulation.triangulate(listOf(observations[0], observations[0]))
         if (noBaseline != MultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.INSUFFICIENT_PARALLAX)) return false
         val extra = listOf(doubleArrayOf(80.0, 0.0, 0.0), doubleArrayOf(-150.0, 0.0, 0.0), doubleArrayOf(150.0, 0.0, 0.0))

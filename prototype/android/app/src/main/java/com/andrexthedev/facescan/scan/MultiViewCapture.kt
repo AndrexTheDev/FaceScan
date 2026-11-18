@@ -142,9 +142,8 @@ object MultiViewCapture {
         // Alle Ansichten stammen von derselben Kamera; die übergebenen
         // Intrinsics gelten daher für die Triangulation. Die Brennweitensuche
         // dient nur der Plausibilitätsprüfung je Ansicht.
-        val topology = surface.mesh.let { mesh ->
-            if (mesh == null) PartialMeshTopology.Report(0, 0, 0, 0, 0, 0) else PartialMeshTopology.inspect(mesh)
-        }
+        // Ein leeres Netz ist oben bereits abgelehnt; hier liegt ein Mesh vor.
+        val topology = PartialMeshTopology.inspect(surface.mesh!!)
         // Referenz für die Tiefenangabe ist die erste übernommene Ansicht; ihre
         // Pose ist bereits geprüft. Kein Bericht, wenn keine Pose vorliegt.
         val referenceIndex = anchored.acceptedViewIndices.firstOrNull()

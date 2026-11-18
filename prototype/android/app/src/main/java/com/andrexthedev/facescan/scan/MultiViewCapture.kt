@@ -2,6 +2,7 @@ package com.andrexthedev.facescan.scan
 
 import com.andrexthedev.facescan.geometry.AnchoredMultiView
 import com.andrexthedev.facescan.geometry.CameraModel
+import com.andrexthedev.facescan.geometry.ValidatedAnchorPose
 
 /**
  * Experimentelle Mehransichten-Aufnahme aus echten Kamera-Landmarks.
@@ -108,7 +109,13 @@ object MultiViewCapture {
         // strenge Reprojektionsprüfung. Kein Konsens erfindet Punkte: nicht
         // bestätigte Landmarks fehlen im Ergebnis.
         val cloud = if (robust && anchored.acceptedViewIndices.size >= 3) {
-            val calibratedViews = calibrated.filterIndexed { index, _ -> index in anchored.acceptedViewIndices }
+            // Nur die akzeptierten Posen dürfen in die robuste Triangulation.
+            val calibratedViews = anchored.acceptedViewIndices.map { index ->
+                val view = calibrated[index]
+                val pose = anchored.poses[index] as ValidatedAnchorPose.Result.Pose
+                com.andrexthedev.facescan.geometry.MultiViewPointCloud.View(
+                    view.camera, pose.transform.rotation, pose.transform.translation, view.points)
+            }
             val robustCloud = com.andrexthedev.facescan.geometry.MultiViewPointCloud.reconstructRobust(calibratedViews)
             val converted = robustCloud.points.map { value ->
                 when (value) {

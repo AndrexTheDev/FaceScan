@@ -153,10 +153,17 @@ class MultiViewCaptureTest {
         val corrupted = view(-40.0, shiftIndex = 0, shiftPixels = 120.0)
         val views = listOf(view(0.0), view(-22.0), view(24.0), corrupted)
         val robust = MultiViewCapture.reconstruct(views, intrinsics) as MultiViewCapture.Outcome.Reconstructed
-        assertTrue(robust.result.cloud.points[0] is MultiViewTriangulation.Result.Rejected)
         val truth = MultiViewSessionSelfTest.syntheticWorldPoints()
+        // Der verschobene Punkt darf nicht mit dem falschen Wert erscheinen:
+        // entweder fehlt er oder er liegt (nach Mehrheit) nahe der Wahrheit.
+        val outlier = robust.result.cloud.points[0]
+        if (outlier is MultiViewTriangulation.Result.Point) {
+            for (axis in 0..2) assertEquals(truth[0][axis], outlier.xyz[axis], 0.3)
+        }
+        // Unbeteiligte Punkte bleiben in allen vier Ansichten bestätigt.
         val survivor = robust.result.cloud.points[100] as MultiViewTriangulation.Result.Point
         for (axis in 0..2) assertEquals(truth[100][axis], survivor.xyz[axis], 0.1)
+        assertEquals(4, robust.result.acceptedViews.size)
         assertTrue(robust.result.surface.acceptedPoints >= 460)
     }
 

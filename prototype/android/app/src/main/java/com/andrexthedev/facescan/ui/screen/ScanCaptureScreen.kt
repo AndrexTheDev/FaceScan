@@ -150,7 +150,8 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
             try {
                 val sample = withContext(Dispatchers.Default) { buffer.snapshot(SystemClock.elapsedRealtime()) }
                 if (!active.get() || !owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@launch
-                if (cameraError || status != FaceStatus.FACE || sample == null) {
+                if (cameraError || status != FaceStatus.FACE || sample == null ||
+                    !buffer.hasRecentFace(SystemClock.elapsedRealtime())) {
                     neutral = null; feedback = context.getString(R.string.scan_wait_samples)
                 } else if (!NeutralCaptureQuality.isUsable(sample)) {
                     neutral = null; feedback = context.getString(R.string.scan_quality_retry)

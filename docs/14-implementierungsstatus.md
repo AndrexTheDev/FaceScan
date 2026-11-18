@@ -35,13 +35,13 @@ Die folgenden Werte sind eine **subjektive Planungsschätzung**, keine gemessene
 | Teilziel | Gewicht | Grob erfüllt | Wesentliche Lücke |
 |---|---:|---:|---|
 | Installation, lokaler Betrieb | 10 | 6 | Modell-Lizenz, breite Gerätetests und Netzwerkmessung |
-| Geführte Aufnahme und Qualitätskontrolle | 15 | 3 | echte Mehransichten, Beleuchtung/Verdeckung validieren |
+| Geführte Aufnahme und Qualitätskontrolle | 15 | 4 | Beleuchtung/Verdeckung validieren, Hinweise an echten Personen prüfen |
 | 3D-Rekonstruktion und Genauigkeit | 25 | 3 | kalibrierte Mehransichten, reale Ground Truth |
 | Vollständiger Kopf und Haar | 15 | 0 | nicht in der Android-App umgesetzt |
 | Animation und Rig | 10 | 2 | standardisierte Ausdrucksformen, Rig, reale Validierung |
 | Export und Bedienung | 10 | 3 | weitere Formate, Interoperabilität und Echtgerätetests |
 | Datenschutz und Recht | 5 | 2 | vollständige Datenschutz- und Lizenzprüfung |
 | Qualitätssicherung und Freigabe | 10 | 2 | reale Geräte, Teilnehmer und Abnahmekriterien |
-| **Summe** | **100** | **ca. 21** | **Grobe Gesamtschätzung: etwa 21 %** |
+| **Summe** | **100** | **ca. 22** | **Grobe Gesamtschätzung: etwa 22 %** |
 
 Ein bestandenes synthetisches oder Emulator-Testpaket erhöht diese Zahl nicht automatisch: der ungelöste Kern ist die echte, validierte Rekonstruktion, nicht die Zahl der Tests oder Dateien. Die Mehransichten-Aufnahme erhöht den Anteil nur geringfügig, weil sie zwar echte Kamerabilder nutzt, aber auf einem Durchschnittsgesicht als Bezug beruht und noch nie an einer Person geprüft wurde.

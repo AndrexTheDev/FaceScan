@@ -78,7 +78,7 @@ class FaceSequenceRecorder {
             if (failed || dimensions != (neutral.width to neutral.height) || frames.size < 4 || frames.first().atMs - startMs > MAX_GAP_MS ||
                 startMs + DURATION_MS - frames.last().atMs > MAX_GAP_MS) null
             else {
-                val neutralPoints = FaceSurfaceBuilder.convert(neutral)
+                val neutralPoints = FaceSurfaceBuilder.neutralPoints(neutral)
                 val keys = mutableListOf(FaceKeyframe(0f, neutralPoints))
                 var maxResidual = 0.0
                 for (frame in frames) {
@@ -91,7 +91,8 @@ class FaceSequenceRecorder {
                     maxResidual = maxOf(maxResidual, aligned.anchorRms)
                     keys.add(FaceKeyframe((frame.atMs - startMs) / 1000f, aligned.points))
                 }
-                if (alignmentFailed) null else FaceSurface(neutralPoints, keys.last().points, neutral.jitterPx, 0.0, keys, maxResidual, neutral.texture)
+                if (alignmentFailed) null else FaceSurface(neutralPoints, keys.last().points, neutral.jitterPx, 0.0, keys, maxResidual, neutral.texture,
+                    neutral.samples, neutral.fusionAnchorRms)
             }
         } catch (_: IllegalArgumentException) { alignmentFailed = true; null }
         frames.clear(); dimensions = null

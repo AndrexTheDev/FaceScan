@@ -81,6 +81,7 @@
     <string name="scan_export_obj">Neutrale Oberfläche als OBJ exportieren (ohne Foto und Animation)</string>
     <string name="scan_obj_ok">OBJ gespeichert. Es enthält Gesichtsgeometrie – teile es nur bewusst.</string>
 
+    <string name="scan_neutral_fusion">Neutralgeometrie aus %1$d ausgerichteten Frames; größter interner Ankerrest %2$.3f Augenabstände. Kein realer 3D-Messfehler.</string>
     <!-- Home -->
     <string name="home_start_scan">DEMO STARTEN</string>
     <string name="home_open_project">Projekt öffnen</string>

@@ -5,7 +5,12 @@ import kotlin.math.sqrt
 /** 468 ungespiegelte Landmarks auf dem aufrecht gedrehten Kamerabild, nur im RAM. */
 data class FaceFrame(val points: FloatArray, val width: Int, val height: Int, val atMs: Long)
 data class FaceTexture(val jpeg: ByteArray, val uv: FloatArray)
-data class FaceSnapshot(val points: FloatArray, val width: Int, val height: Int, val jitterPx: Double, val samples: Int, val texture: FaceTexture? = null)
+data class FaceSnapshot(
+    val points: FloatArray, val width: Int, val height: Int, val jitterPx: Double, val samples: Int,
+    val texture: FaceTexture? = null,
+    val fusedPoints: FloatArray? = null,
+    val fusionAnchorRms: Double? = null
+)
 data class FaceKeyframe(val seconds: Float, val points: FloatArray)
 data class FaceSurface(
     val neutral: FloatArray,
@@ -15,7 +20,9 @@ data class FaceSurface(
     val sequence: List<FaceKeyframe> = emptyList(),
     // Interner Fit-Rest im Einheitsaugenabstand; kein 3D-Messfehler.
     val maxAnchorRms: Double? = null,
-    val texture: FaceTexture? = null
+    val texture: FaceTexture? = null,
+    val neutralSamples: Int = 0,
+    val neutralFusionAnchorRms: Double? = null
 ) {
     /** Alte Zwei-Posen-Daten bleiben als explizite Übergangsanimation abspielbar. */
     fun keyframes(): List<FaceKeyframe> = if (sequence.isEmpty()) listOf(
@@ -23,7 +30,7 @@ data class FaceSurface(
     ) else sequence
 }
 
-/** Kleine Rolling-Window-Mittelung; Ausfall oder veraltete Frames ergeben keinen Scan. */
+/** Kleines Rolling Window; Ausfall oder veraltete Frames ergeben keinen Scan. */
 class FaceFrameBuffer {
     private val frames = ArrayDeque<FaceFrame>()
 
@@ -33,7 +40,8 @@ class FaceFrameBuffer {
             frame.points.take(FaceTopology.VERTEX_COUNT * 3).any { !it.isFinite() }) {
             frames.clear(); return
         }
-        if (frames.isNotEmpty() && (frames.last().width != frame.width || frames.last().height != frame.height)) frames.clear()
+        if (frames.isNotEmpty() && (frames.last().width != frame.width || frames.last().height != frame.height ||
+                frame.atMs <= frames.last().atMs)) frames.clear()
         frames.addLast(frame.copy(points = frame.points.copyOf(FaceTopology.VERTEX_COUNT * 3)))
         while (frames.size > 5) frames.removeFirst()
     }
@@ -42,17 +50,28 @@ class FaceFrameBuffer {
         val recent = frames.filter { nowMs >= it.atMs && nowMs - it.atMs <= 5000 }
         if (recent.size < 3 || nowMs - recent.last().atMs > 2500) return null
         val size = FaceTopology.VERTEX_COUNT * 3
+        val valid = recent.filter { NeutralCaptureQuality.inFrame(it.points, it.width, it.height) }
+        if (valid.size < NeutralGeometryFusion.MIN_FRAMES) return null
+        val converted = valid.map { frame ->
+            try { FaceSurfaceBuilder.convert(FaceSnapshot(frame.points, frame.width, frame.height, 0.0, 1)) }
+            catch (_: IllegalArgumentException) { FloatArray(0) }
+        }
+        val fusion = NeutralGeometryFusion.fuse(converted) ?: return null
+        val accepted = fusion.accepted.map { valid[it] }
+        // Ein aktueller erkannter Frame muss auch zum Konsens passen.
+        if (accepted.last().atMs != recent.last().atMs || nowMs - accepted.last().atMs > 2500) return null
         val mean = FloatArray(size)
-        for (f in recent) for (i in 0 until size) mean[i] += f.points[i] / recent.size
-        val width = recent.last().width
-        val height = recent.last().height
+        for (f in accepted) for (i in 0 until size) mean[i] += f.points[i] / accepted.size
+        val width = accepted.last().width
+        val height = accepted.last().height
         var sq = 0.0
-        for (f in recent) for (i in 0 until FaceTopology.VERTEX_COUNT) {
+        for (f in accepted) for (i in 0 until FaceTopology.VERTEX_COUNT) {
             val dx = (f.points[3 * i] - mean[3 * i]) * width
             val dy = (f.points[3 * i + 1] - mean[3 * i + 1]) * height
             sq += dx * dx + dy * dy
         }
-        return FaceSnapshot(mean, width, height, sqrt(sq / (recent.size * FaceTopology.VERTEX_COUNT)), recent.size)
+        return FaceSnapshot(mean, width, height, sqrt(sq / (accepted.size * FaceTopology.VERTEX_COUNT)),
+            accepted.size, fusedPoints = fusion.points, fusionAnchorRms = fusion.maxAnchorRms)
     }
 }
 
@@ -60,7 +79,14 @@ class FaceFrameBuffer {
 object FaceSurfaceBuilder {
     fun build(neutral: FaceSnapshot, expression: FaceSnapshot): FaceSurface {
         require(neutral.jitterPx.isFinite() && expression.jitterPx.isFinite())
-        return FaceSurface(convert(neutral), convert(expression), neutral.jitterPx, expression.jitterPx)
+        return FaceSurface(neutralPoints(neutral), convert(expression), neutral.jitterPx, expression.jitterPx,
+            neutralSamples = neutral.samples, neutralFusionAnchorRms = neutral.fusionAnchorRms)
+    }
+
+    fun neutralPoints(frame: FaceSnapshot): FloatArray {
+        val fused = frame.fusedPoints ?: return convert(frame)
+        require(fused.size == FaceTopology.VERTEX_COUNT * 3 && fused.all { it.isFinite() })
+        return fused.copyOf()
     }
 
     fun convert(frame: FaceSnapshot): FloatArray {

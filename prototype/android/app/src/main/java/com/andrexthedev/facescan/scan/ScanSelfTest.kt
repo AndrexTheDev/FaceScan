@@ -18,6 +18,11 @@ object ScanSelfTest {
         val buffer = FaceFrameBuffer()
         for (t in 1L..3L) buffer.add(FaceFrame(points, 640, 480, t * 100))
         val neutral = buffer.snapshot(300) ?: return false
+        if (neutral.samples != 3 || neutral.fusedPoints == null || neutral.fusionAnchorRms == null) return false
+        val base = neutral.fusedPoints
+        val aberrant = base.copyOf().apply { this[13*3+1] += 0.5f }
+        val fused = NeutralGeometryFusion.fuse(listOf(base, base.copyOf(), aberrant)) ?: return false
+        if (kotlin.math.abs(fused.points[13*3+1] - base[13*3+1]) > 0.0001f) return false
         val recorder = FaceSequenceRecorder()
         recorder.start(1000)
         for (i in 0 until 16) {

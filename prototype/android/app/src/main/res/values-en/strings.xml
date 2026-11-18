@@ -80,6 +80,7 @@
     <string name="scan_export_obj">Export neutral surface as OBJ (no photo or animation)</string>
     <string name="scan_obj_ok">OBJ saved. It contains face geometry – share it deliberately.</string>
 
+    <string name="scan_neutral_fusion">Neutral geometry from %1$d aligned frames; largest internal anchor residual %2$.3f eye distances. Not a real-world 3D error.</string>
     <!-- Home -->
     <string name="home_start_scan">START DEMO</string>
     <string name="home_open_project">Open project</string>

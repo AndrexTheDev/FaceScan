@@ -83,13 +83,12 @@ class PartialFaceMeshTest {
         val jsonLength = input.int
         assertEquals(0x4e4f534a, input.int)
         assertEquals(0, jsonLength % 4)
-        val json = String(ByteArray(jsonLength), Charsets.UTF_8)
-        // Fehlermeldung enthält den Anfang des JSON, damit ein Fehlschlag die
-        // Ursache nennt statt nur eine Zeilennummer.
-        // Hex statt Text: eine Zeichenketten-Meldung kann in Berichten
-        // unlesbar werden, Zahlen bleiben eindeutig.
-        assertTrue("JSON-Bytes: ${glb.copyOfRange(20, 36).joinToString(",")}",
-            json.startsWith("{\n\"asset\":"))
+        // ByteArray(jsonLength) allein liest nichts: der Puffer muss gefüllt
+        // werden, sonst enthält der String nur Nullbytes.
+        val jsonBytes = ByteArray(jsonLength)
+        input.get(jsonBytes)
+        val json = String(jsonBytes, Charsets.UTF_8)
+        assertTrue("JSON beginnt nicht wie erwartet: ${json.take(40)}", json.startsWith("{\n\"asset\":"))
         assertTrue(json.take(300), json.contains("\"mode\":4"))
         assertTrue(json.take(300), json.contains("open partial surface"))
         // Der Indexpuffer muss auf die vorhandenen Vertices zeigen.

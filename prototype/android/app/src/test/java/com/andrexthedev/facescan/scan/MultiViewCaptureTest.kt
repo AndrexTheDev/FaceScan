@@ -194,9 +194,11 @@ class MultiViewCaptureTest {
         // Chunk-Kopf (Typ) gehört nicht zum JSON; ohne dieses Lesen verschiebt
         // sich der Text um vier Bytes und jede Inhaltsprüfung scheitert.
         assertEquals(0x4e4f534a, input.int)
-        val json = String(ByteArray(jsonLength), Charsets.UTF_8)
-        assertTrue("JSON-Bytes: ${glb.copyOfRange(20, 36).joinToString(",")}",
-            json.startsWith("{\n\"asset\":"))
+        // ByteArray(jsonLength) allein liest nichts aus dem Puffer.
+        val jsonBytes = ByteArray(jsonLength)
+        input.get(jsonBytes)
+        val json = String(jsonBytes, Charsets.UTF_8)
+        assertTrue("JSON beginnt nicht wie erwartet: ${json.take(40)}", json.startsWith("{\n\"asset\":"))
         assertTrue(json.take(200), json.contains("\"count\":${mesh.triangles.size}"))
         // Ohne Mesh darf kein Export entstehen, statt einer leeren Datei.
         val empty = ready.result.copy(surface = ready.result.surface.copy(mesh = null))

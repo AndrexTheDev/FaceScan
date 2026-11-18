@@ -6,6 +6,7 @@ import java.nio.ByteOrder
 /** Schnelltest mit künstlichen Punkten; sagt nichts über echte Scan-Genauigkeit aus. */
 object ScanSelfTest {
     fun run(): Boolean {
+        if (!PartialFaceMeshSelfTest.run()) return false
         val points = FloatArray(FaceTopology.VERTEX_COUNT * 3) { i ->
             when (i % 3) {
                 0 -> 0.2f + (i / 3 % 20) * 0.02f

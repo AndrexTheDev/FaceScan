@@ -1,4 +1,4 @@
-# Baut die Test-APK.
+# Prüft automatisch und baut eine Test-APK nur auf ausdrücklichen Dispatch.
 #
 # Warum das hier steht und nicht lokal läuft: in der Entwicklungsumgebung
 # gibt es kein Java, kein Gradle und kein Android-SDK, und die
@@ -40,6 +40,13 @@ on:
         description: Nur Unit-Tests und GLB-Prüfung, keine APK bauen
         type: boolean
         default: false
+
+  push:
+    branches: ['**']
+    paths:
+      - 'prototype/android/**'
+      - 'prototype/reference/validation/**'
+      - '.github/workflows/apk.yml'
 
 permissions:
   # write, weil der letzte Schritt ein Release anlegen kann. Mit read
@@ -150,7 +157,7 @@ jobs:
           gh issue comment 1 --body-file /tmp/meldung.md
 
   apk:
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.quality_only) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.quality_only }}
     needs: test
     runs-on: ubuntu-latest
     steps:

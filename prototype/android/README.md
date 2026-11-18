@@ -49,7 +49,7 @@ Die Modellkarte und die Google-AI-Edge-Bedingungen sind nach [`docs/09`](../../d
 
 ## Build und Tests
 
-Der Workflow [`.github/workflows/apk.yml`](../../.github/workflows/apk.yml) testet die Kotlin-Komponenten und baut die Debug-APK. Auf dem GitHub-Runner kann zusätzlich ein Test-Release erzeugt werden:
+Der Workflow [`.github/workflows/apk.yml`](../../.github/workflows/apk.yml) prüft bei Änderungen automatisch die Kotlin-Komponenten, die synthetischen GLBs und den Referenzvergleich, ohne eine APK zu bauen. Erst auf ausdrücklichen Dispatch werden Debug-APK und optional Test-Release gebaut. Der Emulatortest ist ebenfalls manuell zu starten. Ein Test-Release kann so erzeugt werden:
 
 ```sh
 gh workflow run apk.yml --ref arena/ee31e880-facescan -f release=true
@@ -57,6 +57,6 @@ gh workflow run apk.yml --ref arena/ee31e880-facescan -f release=true
 
 Die Unit-Tests prüfen unter anderem synthetische starre 3D-Rotationen/Translationen, fehlerhafte Anker, Gesichtsoberfläche, Animation und GLB-Export; ein unabhängiger Khronos glTF-Validator prüft synthetische GLB-Dateien mit und ohne Fototextur. Weitere Tests prüfen Cache-Wiederverwendung, fehlerhafte Prüfsummen, Größenbegrenzung, Download-Fehler, Frame-Timing und den Schutz vor verspäteter Kamera-Bindung.
 
-Der separate Workflow [Android-Emulatortest](../../.github/workflows/android-device-test.yml) prüft auf Android 11 mit x86-Emulator: Erststart ohne Netz, tatsächlichen Download und Integrität, Inferenz auf einem schwarzen Testbild, Bericht und Kopierfunktion, Offline-Start mit Modell-Cache sowie Kameraframes aus der emulierten Frontkamera. Dabei werden auch der synthetische F1/F2-Geometrietest, die geführten Tests und die Berechtigungsseite geprüft. Künstliche Bilder ersetzen weder ein menschliches Gesicht noch einen Test auf echter Hardware. Ein Gerätetest einschließlich Erkennungsqualität und manuellem Teilen bleibt erforderlich.
+Der separate Workflow [Android-Emulatortest](../../.github/workflows/android-device-test.yml) prüft auf Android 11 mit x86-Emulator: Erststart ohne Netz, tatsächlichen Download und Integrität, Inferenz auf einem schwarzen Testbild, Bericht und Kopierfunktion, Offline-Start mit Modell-Cache sowie Kameraframes aus der emulierten Frontkamera. Dabei werden auch der synthetische F1/F2-Geometrietest, die geführten Tests und die Berechtigungsseite geprüft. Künstliche Bilder ersetzen weder ein menschliches Gesicht noch einen Test auf echter Hardware. Der aktuelle Implementierungs- und Prüfstand steht in [docs/14](../../docs/14-implementierungsstatus.md). Ein Gerätetest einschließlich Erkennungsqualität und manuellem Teilen bleibt erforderlich.
 
 MediaPipe 0.10.14 enthält native Bibliotheken für `arm64-v8a`, `armeabi-v7a` und `x86`, aber nicht für `x86_64`. Die APK ist deshalb auf diese drei ABIs begrenzt; ein x86-64-Gerät benötigt 32-Bit-x86-Unterstützung. Reine x86-64-Geräte ohne x86-Unterstützung werden nicht unterstützt. Ein CI-Check verhindert, dass eine nicht passende ABI-Auswahl versehentlich ausgeliefert wird.

@@ -51,6 +51,9 @@ object ScanSelfTest {
             !smooth.keyframes().last().points[axis].isFinite()) return false
         // Der geglättete Exportpfad muss ebenfalls synthetisch funktionieren.
         if (GlbWriter.write(smooth).size < 20) return false
+        val loop = FaceSequenceLoop.close(smooth)
+        if (loop.keyframes().size != keys.size + 1 || !loop.keyframes().last().points.contentEquals(surface.neutral) ||
+            GlbWriter.write(loop).size < 20) return false
         val normals = MeshNormals.calculate(floatArrayOf(0f,0f,0f, 1f,0f,0f, 0f,1f,0f), intArrayOf(0,1,2))
         if (normals[2] != 1f || normals[5] != 1f || normals[8] != 1f) return false
         val integrity = MeshIntegrity.inspect(floatArrayOf(0f,0f,0f, 0.1f,0f,0f, 0f,0.1f,0f), intArrayOf(0,1,2, 0,0,1))

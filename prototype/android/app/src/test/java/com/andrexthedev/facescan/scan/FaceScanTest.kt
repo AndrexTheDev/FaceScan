@@ -226,7 +226,10 @@ class FaceScanTest {
         assertTrue(changedNormals > 0)
         // CI lässt diesen ausschließlich synthetischen Export zusätzlich vom
         // unabhängigen Khronos glTF-Validator prüfen.
-        System.getenv("RUNNER_TEMP")?.let { File(it, "facescan-synthetic.glb").writeBytes(glb) }
+        System.getenv("RUNNER_TEMP")?.let {
+            File(it, "facescan-synthetic.glb").writeBytes(glb)
+            File(it, "facescan-synthetic-loop.glb").writeBytes(GlbWriter.write(FaceSequenceLoop.close(surface)))
+        }
     }
     @Test fun texturedGlbContainsEmbeddedJpegAndUvWithoutChangingMeshAnimation() {
         val surface = recordSequence()

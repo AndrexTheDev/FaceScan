@@ -50,6 +50,7 @@ import com.andrexthedev.facescan.scan.FaceMeshRenderer
 import com.andrexthedev.facescan.scan.MeshIntegrity
 import com.andrexthedev.facescan.scan.FaceSequencePlayback
 import com.andrexthedev.facescan.scan.FaceSequenceSmoothing
+import com.andrexthedev.facescan.scan.FaceSequenceLoop
 import com.andrexthedev.facescan.scan.GlbWriter
 import com.andrexthedev.facescan.scan.ObjWriter
 import kotlinx.coroutines.Dispatchers
@@ -65,8 +66,10 @@ fun ScanReviewScreen(surface: FaceSurface, diagnostics: TestDiagnostics, onClose
     var weight by remember { mutableFloatStateOf(0f) }
     var playing by remember { mutableStateOf(false) }
     var smoothing by remember { mutableStateOf(false) }
-    val selectedSurface = remember(surface, smoothing) {
-        if (smoothing) FaceSequenceSmoothing.smooth(surface) else surface
+    var loopTransition by remember { mutableStateOf(false) }
+    val selectedSurface = remember(surface, smoothing, loopTransition) {
+        val chosen = if (smoothing) FaceSequenceSmoothing.smooth(surface) else surface
+        if (loopTransition) FaceSequenceLoop.close(chosen) else chosen
     }
     var integrity by remember { mutableStateOf<MeshIntegrity.Summary?>(null) }
     var integrityError by remember { mutableStateOf(false) }
@@ -79,9 +82,9 @@ fun ScanReviewScreen(surface: FaceSurface, diagnostics: TestDiagnostics, onClose
     var writing by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf("") }
 
-    LaunchedEffect(playing) {
+    LaunchedEffect(playing, selectedSurface) {
         if (playing) {
-            val duration = surface.keyframes().last().seconds
+            val duration = selectedSurface.keyframes().last().seconds
             val start = SystemClock.elapsedRealtime() - (weight * duration * 1000).toLong()
             while (true) {
                 weight = (((SystemClock.elapsedRealtime() - start) / 1000f) % duration) / duration
@@ -152,6 +155,11 @@ fun ScanReviewScreen(surface: FaceSurface, diagnostics: TestDiagnostics, onClose
             Text(stringResource(R.string.scan_smoothing))
         }
         if (smoothing) Text(stringResource(R.string.scan_smoothing_warning), style = MaterialTheme.typography.bodySmall)
+        Row {
+            Checkbox(checked = loopTransition, onCheckedChange = { loopTransition = it }, enabled = !writing)
+            Text(stringResource(R.string.scan_loop_transition))
+        }
+        if (loopTransition) Text(stringResource(R.string.scan_loop_note), style = MaterialTheme.typography.bodySmall)
         Slider(value = weight, onValueChange = { playing = false; weight = it })
         Button(onClick = { playing = !playing }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(if (playing) R.string.scan_pause else R.string.scan_play))

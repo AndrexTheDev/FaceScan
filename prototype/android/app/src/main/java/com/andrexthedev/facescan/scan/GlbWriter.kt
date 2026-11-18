@@ -9,7 +9,7 @@ object GlbWriter {
     fun write(surface: FaceSurface): ByteArray {
         val n = FaceTopology.VERTEX_COUNT
         val keys = surface.keyframes()
-        require(keys.size in 2..(FaceSequenceRecorder.MAX_FRAMES + 1))
+        require(keys.size in 2..FaceSequenceRecorder.MAX_EXPORT_KEYFRAMES)
         require(surface.neutral.size == n * 3 && keys.first().seconds == 0f && keys.first().points.contentEquals(surface.neutral))
         keys.forEachIndexed { i, key ->
             require(key.points.size == n * 3 && key.points.all { it.isFinite() } && key.seconds.isFinite())

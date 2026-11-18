@@ -35,6 +35,8 @@ class FaceSequenceRecorder internal constructor(
         const val SAMPLE_INTERVAL_MS = 250L
         const val MAX_GAP_MS = 1250L
         const val MAX_FRAMES = 16
+        // Neutral, bis zu 16 Aufnahmen, optional ein künstlicher Rückweg.
+        const val MAX_EXPORT_KEYFRAMES = MAX_FRAMES + 2
         // Experimentelle Schwelle in Augenabständen, nicht physisch validiert.
         const val MAX_ANCHOR_RMS = 0.12
     }

@@ -49,7 +49,7 @@
     <string name="scan_review_title">Face surface (experimental)</string>
     <string name="scan_limitations">Only the visible front-camera face surface: no hair or back of head. Optional photo texture comes from one view and may include background and shadows. Depth and scale are not metrically calibrated; absolute accuracy has not been measured. Experimental alignment cannot reliably separate head motion and perspective from expression.</string>
     <string name="scan_jitter">Landmark variation during capture: neutral %1$.1f px, expression %2$.1f px. This is stability, not 3D accuracy.</string>
-    <string name="scan_preview_hint">Drag to rotate. The slider follows the recorded sequence. Playback repeats the sequence and may jump at the end.</string>
+    <string name="scan_preview_hint">Drag to rotate. The slider follows the recorded sequence. Playback repeats the sequence and may jump at the end without the optional return.</string>
     <string name="scan_play">Play sequence</string>
     <string name="scan_pause">Pause animation</string>
     <string name="scan_export">Export animated GLB</string>
@@ -135,4 +135,6 @@
     <string name="scan_mesh_integrity">Mesh check (heuristic): neutral %1$d/%2$d nearly zero-area triangles; %3$d/%2$d triangles with edges over 0.75 eye distances. Maximum in an animation shape: %4$d and %5$d respectively.</string>
     <string name="scan_mesh_integrity_note">Thresholds have not been validated on real faces. Mouth, eyes or occlusion may trigger warnings; an unremarkable result does not guarantee correct shape or 3D accuracy.</string>
     <string name="scan_mesh_integrity_unavailable">Mesh check unavailable.</string>
+    <string name="scan_loop_transition">Add a return transition for looping (also in GLB)</string>
+    <string name="scan_loop_note">Adds an artificial 0.5-second transition back to the neutral shape. This portion was not recorded; turning it off restores the original recording.</string>
 </resources>

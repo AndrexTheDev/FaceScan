@@ -50,7 +50,7 @@
     <string name="scan_review_title">Gesichtsoberfläche (experimentell)</string>
     <string name="scan_limitations">Nur die sichtbare Frontkamera-Gesichtsoberfläche: keine Haare oder Rückseite. Optionale Fototextur stammt aus einer Ansicht und kann Hintergrund und Schatten enthalten. Tiefe und Maßstab sind nicht metrisch kalibriert; absolute Genauigkeit ist nicht gemessen. Die experimentelle Ausrichtung kann Kopfbewegungen und Perspektive nicht zuverlässig von Mimik trennen.</string>
     <string name="scan_jitter">Schwankung der Punkte während der Aufnahme: neutral %1$.1f px, Mimik %2$.1f px. Das ist Stabilität, keine 3D-Genauigkeit.</string>
-    <string name="scan_preview_hint">Vorschau durch Wischen drehen. Der Regler zeigt den zeitlichen Verlauf. Die Wiedergabe wiederholt die Sequenz; am Ende kann sie springen.</string>
+    <string name="scan_preview_hint">Vorschau durch Wischen drehen. Der Regler zeigt den zeitlichen Verlauf. Die Wiedergabe wiederholt die Sequenz; ohne optionalen Rückweg kann sie am Ende springen.</string>
     <string name="scan_play">Sequenz abspielen</string>
     <string name="scan_pause">Animation pausieren</string>
     <string name="scan_export">Animiertes GLB exportieren</string>
@@ -136,4 +136,6 @@
     <string name="scan_mesh_integrity">Netzprüfung (heuristisch): neutral %1$d/%2$d fast flächenlose Dreiecke; %3$d/%2$d Dreiecke mit Kanten über 0,75 Augenabstände. Maximal in einer Animationsform: %4$d bzw. %5$d.</string>
     <string name="scan_mesh_integrity_note">Schwellen sind nicht an echten Gesichtern validiert. Mund, Augen oder Verdeckungen können Auffälligkeiten erzeugen; ein unauffälliges Ergebnis garantiert weder richtige Form noch 3D-Genauigkeit.</string>
     <string name="scan_mesh_integrity_unavailable">Netzprüfung nicht verfügbar.</string>
+    <string name="scan_loop_transition">Rückweg für Endlosschleife hinzufügen (auch im GLB)</string>
+    <string name="scan_loop_note">Fügt am Ende einen künstlichen Übergang von 0,5 Sekunden zur Neutralform hinzu. Dieser Teil wurde nicht aufgenommen; beim Ausschalten bleibt die Originalaufnahme erhalten.</string>
 </resources>

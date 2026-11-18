@@ -27,7 +27,7 @@ object MeshIntegrity {
 
     fun inspect(surface: FaceSurface): Summary {
         val keys = surface.keyframes()
-        require(keys.size in 2..FaceSequenceRecorder.MAX_FRAMES + 1 && surface.neutral.size == FaceTopology.VERTEX_COUNT * 3)
+        require(keys.size in 2..FaceSequenceRecorder.MAX_EXPORT_KEYFRAMES && surface.neutral.size == FaceTopology.VERTEX_COUNT * 3)
         require(keys.all { it.points.size == surface.neutral.size })
         val neutral = inspect(surface.neutral, FaceTopology.triangles)
         var maxTiny = neutral.tinyTriangles; var maxLong = neutral.longEdgeTriangles

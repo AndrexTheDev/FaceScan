@@ -89,7 +89,24 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
                     } else feedback = context.getString(R.string.scan_photo_failed)
                 }
             } }) { value ->
-            mainExecutor.execute { if (active.get()) status = value }
+            mainExecutor.execute {
+                if (active.get()) {
+                    status = value
+                    if (value == FaceStatus.NO_FACE || value == FaceStatus.ERROR || value == FaceStatus.MISSING_MODEL) {
+                        // Nach Verlust niemals ein altes neutrales Gesicht mit einer neuen
+                        // Erkennung oder einem anderen Menschen kombinieren.
+                        neutral = null
+                        if (recording) {
+                            recorder.cancel(); recording = false
+                            feedback = context.getString(R.string.scan_record_interrupted)
+                        }
+                        if (pendingTextureId != 0L) {
+                            textureRequest.cancel(); pendingTextureId = 0L; pendingNeutral = null
+                            feedback = context.getString(R.string.scan_photo_failed)
+                        }
+                    }
+                }
+            }
         }
     }
     DisposableEffect(controller, analyzer) {
@@ -141,6 +158,7 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
     fun captureNeutral(withPhoto: Boolean) {
         if (processingNeutral) return
         if (cameraError || status != FaceStatus.FACE) {
+            neutral = null
             feedback = context.getString(R.string.scan_wait_samples)
             return
         }

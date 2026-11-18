@@ -9,12 +9,13 @@ import com.andrexthedev.facescan.geometry.Mat3
 import com.andrexthedev.facescan.perception.FaceLandmarkerRunner
 import com.andrexthedev.facescan.scan.ScanSelfTest
 import com.andrexthedev.facescan.scan.TextureSelfTest
+import com.andrexthedev.facescan.scan.ImageQualitySelfTest
 import java.io.File
 import kotlin.math.abs
 
 /** Kleine Smoke-Tests auf dem Gerät, kein Ersatz für die CI- oder 3D-Ground-Truth-Tests. */
 object DeviceSelfTest {
-    data class Results(val geometry: String, val landmarker: String, val frontCamera: String, val scanExport: String, val textureExport: String)
+    data class Results(val geometry: String, val landmarker: String, val frontCamera: String, val scanExport: String, val textureExport: String, val imageQuality: String)
 
     fun run(context: Context, model: File): Results {
         val geometry = try {
@@ -39,6 +40,8 @@ object DeviceSelfTest {
         catch (e: Exception) { "fehlgeschlagen:${e.javaClass.simpleName}" }
         val texture = try { if (TextureSelfTest.run()) "bestanden" else "fehlgeschlagen" }
         catch (e: Exception) { "fehlgeschlagen:${e.javaClass.simpleName}" }
-        return Results(geometry, landmark, front, scan, texture)
+        val imageQuality = try { if (ImageQualitySelfTest.run()) "bestanden" else "fehlgeschlagen" }
+        catch (e: Exception) { "fehlgeschlagen:${e.javaClass.simpleName}" }
+        return Results(geometry, landmark, front, scan, texture, imageQuality)
     }
 }

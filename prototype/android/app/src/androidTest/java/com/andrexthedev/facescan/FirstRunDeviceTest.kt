@@ -61,6 +61,7 @@ class FirstRunDeviceTest {
         compose.onNodeWithText("Geräte-Selbsttest (MediaPipe auf Schwarzbild): bestanden", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (synthetisches Scan-Mesh und GLB): bestanden", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (synthetisches Foto/UV und OBJ): bestanden", substring = true).assertExists()
+        compose.onNodeWithText("Geräte-Selbsttest (synthetische Bildhinweise): bestanden", substring = true).assertExists()
         compose.onNodeWithText(text(R.string.report_copy)).performScrollTo().performClick()
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val report = clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""

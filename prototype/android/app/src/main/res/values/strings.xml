@@ -83,6 +83,11 @@
 
     <string name="scan_neutral_fusion">Neutralgeometrie aus %1$d ausgerichteten Frames; größter interner Ankerrest %2$.3f Augenabstände. Kein realer 3D-Messfehler.</string>
     <string name="scan_processing_neutral">Neutralgeometrie wird aus mehreren Aufnahmen berechnet …</string>
+    <string name="scan_image_dark">Bildhinweis: möglicherweise zu dunkel. Mehr gleichmäßiges Licht kann helfen.</string>
+    <string name="scan_image_bright">Bildhinweis: möglicherweise zu hell oder überbelichtet.</string>
+    <string name="scan_image_blur">Bildhinweis: möglicherweise unscharf. Handy ruhig halten und Fokus prüfen.</string>
+    <string name="scan_image_no_warning">Bildhinweis: keine auffälligen Licht- oder Schärfewerte erkannt. Das garantiert keine gute Aufnahme.</string>
+
     <!-- Home -->
     <string name="home_start_scan">DEMO STARTEN</string>
     <string name="home_open_project">Projekt öffnen</string>

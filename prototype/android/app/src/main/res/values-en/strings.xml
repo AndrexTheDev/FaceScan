@@ -82,6 +82,11 @@
 
     <string name="scan_neutral_fusion">Neutral geometry from %1$d aligned frames; largest internal anchor residual %2$.3f eye distances. Not a real-world 3D error.</string>
     <string name="scan_processing_neutral">Calculating neutral geometry from several frames …</string>
+    <string name="scan_image_dark">Image hint: possibly too dark. More even light may help.</string>
+    <string name="scan_image_bright">Image hint: possibly too bright or overexposed.</string>
+    <string name="scan_image_blur">Image hint: possibly blurry. Hold the phone steady and check focus.</string>
+    <string name="scan_image_no_warning">Image hint: no unusual light or sharpness values detected. This does not guarantee a good capture.</string>
+
     <!-- Home -->
     <string name="home_start_scan">START DEMO</string>
     <string name="home_open_project">Open project</string>

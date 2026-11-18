@@ -8,7 +8,7 @@ Diese Übersicht unterscheidet App-Funktionen von Entwürfen und synthetischen R
 | Kamera und Erkennung | Frontkamera; MediaPipe-Landmarks, Bildrotation, Lebenszyklus und Berechtigungen. | Kamera-Pfad mit künstlicher Emulator-Kamera getestet. Qualität und Abdeckung echter Gesichter, Geräte und Umgebungen offen. Keine Identitätsprüfung zwischen Frames. |
 | Geometrie | Offene Gesichtsfläche mit 468 Punkten und 898 Dreiecken aus einer Ansicht; neutral aus mehreren zeitlich nahen Frames derselben Ansicht starr ausgerichtet und robust per Median kombiniert. MediaPipe-Tiefe ist geschätzt, Augenabstand normiert. | Synthetische Pipeline-/Topologie-/Ausreißer-Tests vorhanden; der neue Neutral-Fusionspfad ist noch nicht auf einem echten Gerät geprüft. **Keine kalibrierte oder metrisch überprüfte 3D-Rekonstruktion, keine Multi-View-Fusion.** |
 | Abdeckung | Nur sichtbare Gesichtsoberfläche. | Haar, Ohren, Hinterkopf und ein vollständiger, geschlossener Kopf fehlen. |
-| Aufnahmequalität | Heuristische Prüfungen auf Bildrand, Gesichtsgröße und Stabilität; fehlerhafte Sequenz wird verworfen. | Schwellen nicht an echten Geräten und Gesichtern validiert; keine verlässliche Schärfe-, Belichtungs- oder Verdeckungsbewertung. |
+| Aufnahmequalität | Heuristische Prüfungen auf Bildrand, Gesichtsgröße und Stabilität; experimentelle Licht-/Kontrast-Hinweise, ohne Aufnahme zu blockieren. Fehlerhafte Sequenz wird verworfen. | Schwellen nicht an echten Geräten, Hauttönen oder Lichtbedingungen validiert; kein verlässlicher Schärfe-, Belichtungs- oder Verdeckungsnachweis. |
 | Fototextur | Optionaler, ausdrücklich angeforderter Fotoausschnitt aus einer Ansicht, mit UV-Projektion; sonst kein Fotoausschnitt. | Unit-Tests und synthetisches GLB validiert. Android-Selbsttest für künstliches Foto/UV/Vorschau implementiert, auf aktueller Version noch nicht im Emulator ausgeführt. Reale Beleuchtung, Verdeckung und Passung offen. Ausschnitt kann Hintergrund enthalten. |
 | Animation | Vier Sekunden zeitgestempelte Landmarks als Morph-Targets; starrer experimenteller Anker-Fit soll Kopfbewegung reduzieren. | Mathematische und synthetische Tests vorhanden. Kein validierter 52-Blendshape-Rig, keine zuverlässige Trennung von Pose und Ausdruck, kein Langzeit-Mocap; reale Gesichter und Zielprogramme noch nicht getestet. |
 | Vorschau | Orthografische Flächenvorschau mit optionaler Fototextur und approximativer Tiefensortierung. | Implementiert; aktueller Android-Renderpfad muss im Emulator und auf echter Hardware geprüft werden. Kein Z-Buffer oder vollständiger 3D-Renderer. |
@@ -24,3 +24,22 @@ Diese Übersicht unterscheidet App-Funktionen von Entwürfen und synthetischen R
 3. **Echte Rekonstruktion vervollständigen:** Kamerakalibrierung und Distortion, reproduzierbare Mehransichten, Bild-/Pose-Akzeptanz, eigene oder ausdrücklich lizenzierte Rekonstruktionsmodelle, geometrische Fusion, Haar/Hinterkopf und Vollständigkeits-/Unsicherheitsbericht. Ohne sichtbare Daten nicht als gemessen ausgeben.
 4. **Animation und Austausch vervollständigen:** validierter Kopf-/Augen-/Kieferrig, standardisierte Ausdrucksbasis und Zeitserien, Bewegungs-/Ausdruckstrennung, Zielprogrammtests und weitere tatsächlich implementierte Exportformate. Nicht aus zwei oder 16 aufgenommenen Formen 52 unabhängige Ausdrücke behaupten.
 5. **Abschlussgate:** Lizenz- und Datenschutzprüfung, automatische und reale Gerätetests, gemessene Güte gegen vorab festgelegte Akzeptanzkriterien, Dokumentation der Restfehler. Erst danach Test-APK bauen und verteilen.
+
+
+## Grobe Fortschrittsschätzung
+
+Die folgenden Werte sind eine **subjektive Planungsschätzung**, keine gemessene Vollständigkeit oder Zeitprognose. Bezugsziel ist das gesamte hier dokumentierte Produkt einschließlich realistischer Geräteprüfung, vollständigem Kopf/Haar, belastbarer Genauigkeit, Animation und Export. Zahlen können bei neuen Erkenntnissen steigen oder sinken.
+
+| Teilziel | Gewicht | Grob erfüllt | Wesentliche Lücke |
+|---|---:|---:|---|
+| Installation, lokaler Betrieb | 10 | 6 | Modell-Lizenz, breite Gerätetests und Netzwerkmessung |
+| Geführte Aufnahme und Qualitätskontrolle | 15 | 3 | echte Mehransichten, Beleuchtung/Verdeckung validieren |
+| 3D-Rekonstruktion und Genauigkeit | 25 | 2 | kalibrierte Mehransichten, reale Ground Truth |
+| Vollständiger Kopf und Haar | 15 | 0 | nicht in der Android-App umgesetzt |
+| Animation und Rig | 10 | 2 | standardisierte Ausdrucksformen, Rig, reale Validierung |
+| Export und Bedienung | 10 | 3 | weitere Formate, Interoperabilität und Echtgerätetests |
+| Datenschutz und Recht | 5 | 2 | vollständige Datenschutz- und Lizenzprüfung |
+| Qualitätssicherung und Freigabe | 10 | 2 | reale Geräte, Teilnehmer und Abnahmekriterien |
+| **Summe** | **100** | **ca. 20** | **Grobe Gesamtschätzung: etwa 20 %** |
+
+Ein bestandenes synthetisches oder Emulator-Testpaket erhöht diese Zahl nicht automatisch: der ungelöste Kern ist die echte, validierte Rekonstruktion, nicht die Zahl der Tests oder Dateien.

@@ -48,12 +48,14 @@ import com.andrexthedev.facescan.scan.FaceSequenceRecorder
 import com.andrexthedev.facescan.scan.FaceTextureRequest
 import com.andrexthedev.facescan.scan.FaceTextureMatch
 import com.andrexthedev.facescan.scan.NeutralCaptureQuality
+import com.andrexthedev.facescan.scan.ImageQuality
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /** Neutralaufnahme und begrenzte Mimiksequenz; Bilddaten werden nicht gespeichert. */
 @Composable
@@ -65,9 +67,11 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
     val recorder = remember { FaceSequenceRecorder() }
     val textureRequest = remember { FaceTextureRequest() }
     val active = remember { AtomicBoolean(true) }
+    val hintEpoch = remember { AtomicLong(0) }
     val scope = rememberCoroutineScope()
     val mainExecutor = remember { ContextCompat.getMainExecutor(context) }
     var status by remember { mutableStateOf(FaceStatus.WAITING) }
+    var imageHint by remember { mutableStateOf<ImageQuality.Hint?>(null) }
     var cameraError by remember { mutableStateOf(false) }
     var neutral by remember { mutableStateOf<FaceSnapshot?>(null) }
     var feedback by remember { mutableStateOf("") }
@@ -79,6 +83,12 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
         FaceFrameAnalyzer(context.applicationContext, modelFile, diagnostics, active,
             onFaceFrame = { frame -> buffer.add(frame); recorder.add(frame) },
             textureRequest = textureRequest,
+            onQualityHint = { hint ->
+                val epoch = hintEpoch.get()
+                mainExecutor.execute {
+                    if (active.get() && hintEpoch.get() == epoch && owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) imageHint = hint
+                }
+            },
             onTexture = { id, texture, photo -> mainExecutor.execute {
                 if (active.get() && id == pendingTextureId) {
                     val base = pendingNeutral
@@ -120,8 +130,10 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
     }
     DisposableEffect(owner, recorder) {
         val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START || event == Lifecycle.Event.ON_STOP) hintEpoch.incrementAndGet()
             if (event == Lifecycle.Event.ON_STOP) {
                 buffer.add(null)
+                imageHint = null
                 textureRequest.cancel(); pendingTextureId = 0L; pendingNeutral = null
                 neutral = null
                 if (recording) {
@@ -206,6 +218,15 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
                     status == FaceStatus.ERROR || status == FaceStatus.MISSING_MODEL -> R.string.face_error
                     else -> R.string.scan_face_wait
                 }))
+                if (!cameraError && status == FaceStatus.FACE) {
+                    val hint = imageHint
+                    if (hint != null) Text(stringResource(when (hint) {
+                        ImageQuality.Hint.TOO_DARK -> R.string.scan_image_dark
+                        ImageQuality.Hint.TOO_BRIGHT -> R.string.scan_image_bright
+                        ImageQuality.Hint.POSSIBLY_BLURRY -> R.string.scan_image_blur
+                        ImageQuality.Hint.NO_WARNING -> R.string.scan_image_no_warning
+                    }), style = MaterialTheme.typography.bodyMedium)
+                }
                 if (feedback.isNotEmpty()) Text(feedback, style = MaterialTheme.typography.bodyMedium)
                 Button(onClick = { captureNeutral(false) },
                     enabled = !recording && !processingNeutral && pendingTextureId == 0L,

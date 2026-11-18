@@ -10,6 +10,8 @@ import com.google.mediapipe.framework.MediaPipeException
 import java.io.File
 import com.andrexthedev.facescan.diagnostics.TestDiagnostics
 import com.andrexthedev.facescan.scan.FaceFrame
+import com.andrexthedev.facescan.scan.FaceImageQualitySampler
+import com.andrexthedev.facescan.scan.ImageQuality
 import com.andrexthedev.facescan.scan.FaceTexture
 import com.andrexthedev.facescan.scan.FaceTextureCapture
 import com.andrexthedev.facescan.scan.FaceTextureRequest
@@ -27,10 +29,13 @@ class FaceFrameAnalyzer(
     private val onFaceFrame: ((FaceFrame?) -> Unit)? = null,
     private val textureRequest: FaceTextureRequest? = null,
     private val onTexture: ((Long, FaceTexture?, FaceFrame) -> Unit)? = null,
+    private val onQualityHint: ((ImageQuality.Hint?) -> Unit)? = null,
     private val onStatus: (FaceStatus) -> Unit
 ) : AutoCloseable {
     private val clock = FrameClock()
     private var runner: FaceLandmarkerRunner? = null
+    private var qualitySampler: FaceImageQualitySampler? = null
+    private var lastQualityAt = Long.MIN_VALUE
     private var stopped = false
 
     fun analyse(proxy: ImageProxy) {
@@ -59,6 +64,15 @@ class FaceFrameAnalyzer(
             val height = bitmap.height
             phase = "inference"
             val points = runner!!.detect(bitmap, if (onFaceFrame == null) proxy.imageInfo.rotationDegrees else 0, timestamp) { upright, landmarks ->
+                if (onQualityHint != null && active.get() &&
+                    (lastQualityAt == Long.MIN_VALUE || frameStartedAt - lastQualityAt >= 500L)) {
+                    lastQualityAt = frameStartedAt
+                    val hint = try {
+                        val sampler = qualitySampler ?: FaceImageQualitySampler().also { qualitySampler = it }
+                        sampler.sample(upright, landmarks)?.hint
+                    } catch (_: Exception) { null }
+                    onQualityHint.invoke(hint)
+                }
                 val id = textureRequest?.take() ?: 0L
                 if (id != 0L) {
                     val texture = try { FaceTextureCapture.capture(upright, landmarks) } catch (_: Exception) { null }
@@ -66,6 +80,10 @@ class FaceFrameAnalyzer(
                 }
             }
             val found = points != null
+            if (!found && active.get()) {
+                lastQualityAt = Long.MIN_VALUE
+                onQualityHint?.invoke(null)
+            }
             diagnostics.result(found, SystemClock.elapsedRealtime() - startedAt, frameStartedAt)
             if (active.get()) {
                 onFaceFrame?.invoke(points?.let { FaceFrame(it, width, height, frameStartedAt) })
@@ -102,13 +120,13 @@ class FaceFrameAnalyzer(
         Log.e("FaceScan", "Gesichtserkennung konnte nicht ausgeführt werden", error)
         if (active.get()) {
             onFaceFrame?.invoke(null)
+            onQualityHint?.invoke(null)
             onStatus(FaceStatus.ERROR)
         }
     }
 
     override fun close() {
         stopped = true
-        runner?.close()
-        runner = null
+        try { runner?.close() } finally { qualitySampler?.close(); qualitySampler = null; runner = null }
     }
 }

@@ -21,6 +21,11 @@ object TextureSelfTest {
             }
             points[33 * 3] = 0.3f; points[33 * 3 + 1] = 0.4f
             points[263 * 3] = 0.7f; points[263 * 3 + 1] = 0.4f
+            FaceImageQualitySampler().use { sampler ->
+                val hint = sampler.sample(bitmap, points) ?: return false
+                if (!hint.meanLuma.isFinite() || hint.meanLuma !in 0.0..255.0 || !hint.laplacianStdDev.isFinite()) return false
+                if (sampler.sample(bitmap, FloatArray(1)) != null) return false
+            }
             val texture = FaceTextureCapture.capture(bitmap, points)
             if (texture.uv.size != 936 || texture.uv.any { it !in 0f..1f }) return false
             val decoded = BitmapFactory.decodeByteArray(texture.jpeg, 0, texture.jpeg.size) ?: return false

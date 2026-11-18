@@ -1,5 +1,8 @@
 package com.andrexthedev.facescan.scan
 
+import com.andrexthedev.facescan.geometry.MultiViewPointCloud
+import com.andrexthedev.facescan.geometry.MultiViewTriangulation
+
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File

@@ -1,7 +1,8 @@
 # FaceScan – Android-Test-App
 
-Die Test-App dient dazu, **Kameravorschau und experimentelle Gesichtserkennung auf einem echten Android-Gerät zu prüfen** und einen technischen Bericht freiwillig zu teilen. Sie erstellt noch kein 3D-Modell; Rekonstruktion, Animation und Export sind nicht implementiert. Der Erkennungsweg wurde auf einem Android-Emulator mit künstlichen Bildern geprüft, aber noch nicht auf einem echten Telefon. Ein grüner CI-Lauf ersetzt den Gerätetest nicht.
+Die App enthält einen **experimentellen Gesichtsoberflächen-Scan** neben der Testoberfläche. Sie rekonstruiert aus den MediaPipe-Gesichtspunkten zweier Aufnahmen eine offene, nicht texturierte Gesichtsoberfläche und kann zwischen neutral und einem aufgenommenen Ausdruck interpolieren. Die Animation lässt sich als GLB mit Morph-Target exportieren. Dies ist **kein vollständiger 3D-Kopf** und keine metrisch kalibrierte Rekonstruktion: Haare, Hinterkopf, Textur und validierte 3D-Genauigkeit fehlen. Das Verfahren ist noch nicht auf einem echten Telefon und mit einem echten Gesicht verifiziert.
 
+Die vorhandenen Tests und ein freiwillig teilbarer technischer Bericht bleiben zugänglich. Ein grüner CI-Lauf oder ein Emulatortest mit künstlichen Daten ersetzt den Gerätetest nicht.
 ## Installation und erster Test
 
 Die neueste Test-APK liegt bei den [GitHub-Releases](https://github.com/AndrexTheDev/FaceScan/releases). Dort `app-debug.apk` herunterladen und auf Android 10 oder neuer installieren. Es ist ein Debug-Build. Wenn Android ein Update wegen abweichender Debug-Signatur ablehnt, die ältere Testversion erst deinstallieren (dabei werden ihre App-Daten gelöscht) und dann die neue APK installieren.
@@ -13,6 +14,18 @@ Die neueste Test-APK liegt bei den [GitHub-Releases](https://github.com/AndrexTh
 5. Für **3. Im Flugmodus testen** Flugmodus einschalten und WLAN sowie weitere Netze ausschalten. Während der Test läuft, muss Android am Anfang und Ende Flugmodus ohne internetfähiges Netzwerk melden. Mindestens drei Frames müssen erfolgreich verarbeitet werden. Dies ist keine Netzwerkpaket-Messung und kein Offline-Test eines 3D-Scans.
 6. **Testbericht** öffnen. Er zeigt Ergebnisse, nicht ausgeführte und abgebrochene Tests sowie technische Daten vor dem Teilen. **Kopieren** antippen und den Text in den Chat einfügen oder bewusst mit **Teilen** versenden. Bei einem Absturz die App erneut öffnen und den Bericht auf dem Startbildschirm abrufen. Die Testresultate bleiben nur während der Sitzung erhalten; bei einem Neustart müssen die geführten Tests erneut laufen.
 7. Optional: Kamera-Berechtigung verweigern oder in den Systemeinstellungen entziehen, App wieder öffnen und Reaktion berichten. Ein Debug-Build kann geräteabhängig abweichen.
+
+## Experimenteller Gesichts-Scan
+
+1. **Experimentellen Gesichts-Scan starten**; Kameraerlaubnis erteilen und neutral in die Frontkamera schauen. Handy und Kopf möglichst ruhig halten. Nach mehreren erkannten Frames **1. Neutral aufnehmen** wählen.
+2. Mimik ändern, einige Sekunden warten und **2. Mimik aufnehmen und Modell anzeigen** wählen. Die Erkennung mittelt bis zu fünf kürzlich verarbeitete Frames je Aufnahme. Längeres Warten verringert die Vermischung beider Ausdrücke; Kopfbewegung und Mimik können trotzdem nicht zuverlässig getrennt werden.
+3. Die Drahtgitter-Vorschau kann per Wischen gedreht werden. Regler und Abspieltaste interpolieren zwischen den zwei aufgenommenen Ausdrücken. **Animiertes GLB exportieren** öffnet den Android-Dateidialog; die Datei enthält die Gesichtsgeometrie und eine einfache Morph-Animation.
+
+Die angezeigte Punktschwankung in Pixeln misst nur die Stabilität während der jeweiligen Aufnahme – keine absolute 3D-Genauigkeit. Die Koordinaten sind auf Augenabstand normiert und die MediaPipe-Tiefe ist relativ; Einheiten im GLB sind **nicht maßstabsgetreu**. Es gibt keinen belegten Fehler in Millimetern und keine Rückseite. Das Ergebnis ist für Tests und Experimente, nicht für medizinische, biometrische oder vermessungstechnische Anwendungen geeignet.
+
+Kamerabilder werden nicht gespeichert. Gesichtspunkte und Modell bleiben während der Nutzung im Arbeitsspeicher und werden beim Verlassen verworfen. Erst nach ausdrücklicher Auswahl eines Speicherorts schreibt die App ein GLB; es enthält sensible Gesichtsgeometrie und sollte nur bewusst geteilt werden.
+
+Die Dreiecksindizes stammen aus [`canonical_face_model.obj` von MediaPipe v0.10.14](https://github.com/google-ai-edge/mediapipe/blob/v0.10.14/mediapipe/modules/face_geometry/data/canonical_face_model.obj), Apache-2.0. Die Lizenz liegt in `app/src/main/assets/licenses/mediapipe.txt`; es werden weder kanonische Modellpositionen noch Modellgewichte aus dieser Datei übernommen.
 
 ## Datenschutz und Netzwerk
 

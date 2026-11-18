@@ -77,7 +77,7 @@ Frontkamera laut System: ${selfTests?.frontCamera ?: "nicht geprüft"}
 Geführter Test: Gesicht im Bild: ${challenge(ChallengeKind.FACE_PRESENT)}
 Geführter Test: Gesicht außerhalb: ${challenge(ChallengeKind.FACE_ABSENT)}
 Geführter Offline-Test: ${challenge(ChallengeKind.OFFLINE)}
-Nicht verfügbar / nicht geprüft: 3D-Rekonstruktion, 3D-Genauigkeit, Animation, Export, vollständiger 3D-Flugmodus-Test
+Nicht verfügbar / nicht geprüft: metrisch validierte Genauigkeit, vollständiger Kopf/Haar, Motion-Capture und vollständiger 3D-Flugmodus-Test
 Kamera-Fehlerklasse: $cameraError
 Erkennungs-Fehler (Phase/Klasse/Code): $inferenceError
 Letzter gespeicherter Java-Absturz: ${CrashRecorder.lastCrash(context)}
@@ -88,7 +88,7 @@ Gesicht erkannt: $faces
 Kein Gesicht erkannt: $noFaces
 Erkennung inkl. Bildkonvertierung durchschnittlich: $average
 Erkennung inkl. Bildkonvertierung maximal: $maxMs ms
-Hinweis: Geführte Gesichtstests: mindestens 3 Auswertungen, mindestens 75 % passend. Offline-Test: Flugmodus an und kein internetfähiges Netz laut Android zu Beginn und Ende; keine Netzwerkpaket-Messung. Keine Fotos, Bilddaten oder Gesichtspunkte enthalten. Zähler gelten seit App-Start; der letzte Java-Absturz bleibt lokal gespeichert. Kein 3D-Scan.
+Hinweis: Geführte Gesichtstests: mindestens 3 Auswertungen, mindestens 75 % passend. Offline-Test: Flugmodus an und kein internetfähiges Netz laut Android zu Beginn und Ende; keine Netzwerkpaket-Messung. Keine Fotos, Bilddaten oder Gesichtspunkte enthalten. Zähler gelten seit App-Start; der letzte Java-Absturz bleibt lokal gespeichert. Der Bericht enthält keine Gesichtsdaten.
         """.trimIndent()
     }
 }

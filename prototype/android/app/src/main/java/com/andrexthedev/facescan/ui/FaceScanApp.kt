@@ -2,6 +2,7 @@ package com.andrexthedev.facescan.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +24,9 @@ import com.andrexthedev.facescan.ui.screen.CameraPermissionGate
 import com.andrexthedev.facescan.ui.screen.CaptureScreen
 import com.andrexthedev.facescan.ui.screen.DiagnosticScreen
 import com.andrexthedev.facescan.ui.screen.HomeScreen
+import com.andrexthedev.facescan.ui.screen.ScanCaptureScreen
+import com.andrexthedev.facescan.ui.screen.ScanReviewScreen
+import com.andrexthedev.facescan.scan.FaceSurface
 import com.andrexthedev.facescan.ui.theme.FaceScanTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +42,7 @@ fun FaceScanApp() {
     var selfTests by remember { mutableStateOf<DeviceSelfTest.Results?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
     var geometryState by remember { mutableStateOf(GeometryRunState.NOT_RUN) }
+    var faceSurface by remember { mutableStateOf<FaceSurface?>(null) }
     val scope = rememberCoroutineScope()
     val navController = rememberNavController()
 
@@ -89,6 +94,7 @@ fun FaceScanApp() {
                     },
                     onRetry = { attempt++ },
                     onStart = { navController.navigate("capture") },
+                    onScan = { faceSurface = null; navController.navigate("scan") },
                     onReport = { navController.navigate("report") }
                 )
             }
@@ -103,6 +109,23 @@ fun FaceScanApp() {
                             onReport = { navController.navigate("report") }
                         )
                     }
+                }
+            }
+            composable("scan") {
+                val ready = state as? ModelState.Ready
+                if (ready != null) {
+                    CameraPermissionGate(onCancel = { navController.popBackStack() }) {
+                        ScanCaptureScreen(ready.file, diagnostics,
+                            onCancel = { navController.popBackStack() },
+                            onComplete = { faceSurface = it; navController.navigate("scan-review") })
+                    }
+                }
+            }
+            composable("scan-review") {
+                val surface = faceSurface
+                if (surface != null) {
+                    DisposableEffect(surface) { onDispose { faceSurface = null } }
+                    ScanReviewScreen(surface) { navController.popBackStack("home", false) }
                 }
             }
             composable("report") {

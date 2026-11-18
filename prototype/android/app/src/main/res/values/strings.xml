@@ -3,7 +3,7 @@
 <resources>
     <string name="app_name">FaceScan</string>
 
-    <string name="testapp_description">Test-App für Kameravorschau und Gesichtserkennung. Es wird noch kein 3D-Modell erstellt.</string>
+    <string name="testapp_description">Test-App mit experimentellem Gesichtsoberflächen-Scan; kein vollständiger 3D-Kopf.</string>
     <string name="model_network_notice">Beim ersten Start lädt die App etwa 3,6 MB Modelldaten über HTTPS von Google herunter und prüft sie. Dabei sieht Google deine IP-Adresse; ggf. fallen Mobilfunkkosten an. Danach ist für die Erkennung keine Verbindung nötig.</string>
     <string name="model_downloading">Modell wird geprüft oder heruntergeladen …</string>
     <string name="model_ready">Modell bereit. Der Test kann beginnen.</string>
@@ -37,6 +37,27 @@
     <string name="geometry_passed">M0-Geometrietest bestanden. Werte stehen im Bericht.</string>
     <string name="geometry_failed">M0-Geometrietest fehlgeschlagen. Details stehen im Bericht.</string>
 
+    <string name="scan_start">Experimentellen Gesichts-Scan starten</string>
+    <string name="scan_capture_title">Gesicht aufnehmen</string>
+    <string name="scan_capture_instruction">Halte das Handy ruhig und schaue geradeaus. Nimm zuerst einen neutralen Ausdruck auf. Ändere anschließend die Mimik, warte einige Sekunden und nimm den zweiten Ausdruck auf. Bilder werden nicht gespeichert.</string>
+    <string name="scan_face_ready">Gesicht erkannt – für die Aufnahme möglichst ruhig halten.</string>
+    <string name="scan_face_wait">Warte auf ein Gesicht in der Kamera.</string>
+    <string name="scan_wait_samples">Noch nicht genügend aktuelle Gesichtspunkte. Bitte ruhig halten und erneut versuchen.</string>
+    <string name="scan_neutral_saved">Neutral aufgenommen (%1$d Bilder, Schwankung %2$.1f px). Jetzt Mimik ändern und kurz warten.</string>
+    <string name="scan_neutral">1. Neutral aufnehmen</string>
+    <string name="scan_expression">2. Mimik aufnehmen und Modell anzeigen</string>
+    <string name="scan_invalid">Die Gesichtspunkte sind nicht verwendbar. Bitte erneut aufnehmen.</string>
+    <string name="scan_review_title">Gesichtsoberfläche (experimentell)</string>
+    <string name="scan_limitations">Nur die sichtbare Gesichtsoberfläche aus der Frontkamera: keine Textur, Haare oder Rückseite. Tiefe und Maßstab sind nicht metrisch kalibriert; eine absolute Genauigkeit ist nicht gemessen. Mimik und Kopfbewegungen können sich vermischen. Das Modell bleibt bis zum Export nur im Arbeitsspeicher.</string>
+    <string name="scan_jitter">Schwankung der Punkte während der Aufnahme: neutral %1$.1f px, Mimik %2$.1f px. Das ist Stabilität, keine 3D-Genauigkeit.</string>
+    <string name="scan_preview_hint">Zum Drehen über die Vorschau wischen. Der Regler mischt die beiden aufgenommenen Ausdrücke.</string>
+    <string name="scan_play">Mimik abspielen</string>
+    <string name="scan_pause">Animation pausieren</string>
+    <string name="scan_export">Animiertes GLB exportieren</string>
+    <string name="scan_export_ok">GLB gespeichert. Es enthält Gesichtsdaten – teile es nur bewusst.</string>
+    <string name="scan_export_error">Export fehlgeschlagen. Bitte einen anderen Speicherort versuchen.</string>
+    <string name="scan_discard">Modell verwerfen und zurück</string>
+
     <!-- Home -->
     <string name="home_start_scan">DEMO STARTEN</string>
     <string name="home_open_project">Projekt öffnen</string>
@@ -47,7 +68,7 @@
 
     <!-- Camera permission -->
     <string name="camera_permission_title">Kameravorschau und Gesichtserkennung</string>
-    <string name="camera_permission_explanation">Für die Vorschau benötigt FaceScan Zugriff auf deine Kamera. Falls das Modell vorhanden ist, prüft die Demo die Kamerabilder auf ein Gesicht – nur auf dem Gerät. Bilder und Gesichtspunkte werden nicht gespeichert. Du kannst ablehnen und zurückgehen.</string>
+    <string name="camera_permission_explanation">Für Vorschau und Scan benötigt FaceScan Zugriff auf deine Kamera. Bilder werden nicht gespeichert. Gesichtspunkte und Modell bleiben während der Nutzung im Arbeitsspeicher; nur beim ausdrücklich gewählten Export wird das Modell in eine Datei geschrieben. Du kannst ablehnen und zurückgehen.</string>
     <string name="camera_permission_request">Kamera erlauben</string>
     <string name="camera_permission_settings_hint">Wenn die Systemanfrage nicht mehr erscheint, kannst du die Erlaubnis in den App-Einstellungen ändern.</string>
     <string name="camera_permission_settings">App-Einstellungen öffnen</string>

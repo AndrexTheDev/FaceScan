@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">FaceScan</string>
 
-    <string name="testapp_description">Test app for camera preview and face detection. It does not create a 3D model yet.</string>
+    <string name="testapp_description">Test app with an experimental face surface scan; not a complete 3D head.</string>
     <string name="model_network_notice">On first launch the app downloads about 3.6 MB of model data from Google over HTTPS and verifies it. Google can see your IP address; mobile data charges may apply. Detection does not need a connection afterwards.</string>
     <string name="model_downloading">Checking or downloading the model …</string>
     <string name="model_ready">Model ready. You can start the test.</string>
@@ -36,6 +36,27 @@
     <string name="geometry_passed">M0 geometry test passed. Values are in the report.</string>
     <string name="geometry_failed">M0 geometry test failed. Details are in the report.</string>
 
+    <string name="scan_start">Start experimental face scan</string>
+    <string name="scan_capture_title">Capture face</string>
+    <string name="scan_capture_instruction">Hold the phone steady and look straight ahead. First capture a neutral expression. Then change your expression, wait a few seconds and capture the second expression. Images are not saved.</string>
+    <string name="scan_face_ready">Face detected – hold still for capture.</string>
+    <string name="scan_face_wait">Waiting for a face in the camera.</string>
+    <string name="scan_wait_samples">Not enough recent face points yet. Hold still and try again.</string>
+    <string name="scan_neutral_saved">Neutral captured (%1$d frames, variation %2$.1f px). Change expression and wait briefly.</string>
+    <string name="scan_neutral">1. Capture neutral</string>
+    <string name="scan_expression">2. Capture expression and show model</string>
+    <string name="scan_invalid">The face points cannot be used. Please capture again.</string>
+    <string name="scan_review_title">Face surface (experimental)</string>
+    <string name="scan_limitations">Only the visible front-camera face surface: no texture, hair or back of head. Depth and scale are not metrically calibrated; absolute accuracy has not been measured. Expression and head motion can mix. The model stays in memory until you export it.</string>
+    <string name="scan_jitter">Landmark variation during capture: neutral %1$.1f px, expression %2$.1f px. This is stability, not 3D accuracy.</string>
+    <string name="scan_preview_hint">Drag the preview to rotate. The slider mixes the two captured expressions.</string>
+    <string name="scan_play">Play expression</string>
+    <string name="scan_pause">Pause animation</string>
+    <string name="scan_export">Export animated GLB</string>
+    <string name="scan_export_ok">GLB saved. It contains face data – share it deliberately.</string>
+    <string name="scan_export_error">Export failed. Try another destination.</string>
+    <string name="scan_discard">Discard model and go back</string>
+
     <!-- Home -->
     <string name="home_start_scan">START DEMO</string>
     <string name="home_open_project">Open project</string>
@@ -46,7 +67,7 @@
 
     <!-- Camera permission -->
     <string name="camera_permission_title">Camera preview and face detection</string>
-    <string name="camera_permission_explanation">FaceScan needs camera access for the preview. If the model is present, the demo checks camera images for a face on this device only. Images and face points are not saved. You can decline and go back.</string>
+    <string name="camera_permission_explanation">FaceScan needs camera access for preview and scanning. Images are not saved. Face points and the model stay in memory during use; a file is written only if you explicitly export it. You can decline and go back.</string>
     <string name="camera_permission_request">Allow camera</string>
     <string name="camera_permission_settings_hint">If the system prompt no longer appears, you can change the permission in app settings.</string>
     <string name="camera_permission_settings">Open app settings</string>

@@ -37,11 +37,11 @@ class FaceLandmarkerRunner(context: Context, modelFile: File) : AutoCloseable {
     }
 
     /**
-     * Nur Anwesenheit, keine Speicherung von Punkten. ImageProcessingOptions
-     * dreht das ungespiegelte Kamerabild im Uhrzeigersinn; PreviewView spiegelt
-     * die Frontkamera separat. MPImage.close() gibt auch das Bitmap frei.
+     * Liefert die normalisierten Landmarks des ersten Gesichts. Die Daten
+     * verlassen das Gerät nur beim ausdrücklich gewählten Export. MPImage.close()
+     * gibt auch das Bitmap frei.
      */
-    fun hasFace(bitmap: Bitmap, rotationDegrees: Int, timestampMs: Long): Boolean {
+    fun detect(bitmap: Bitmap, rotationDegrees: Int, timestampMs: Long): FloatArray? {
         val image = try {
             BitmapImageBuilder(bitmap).build()
         } catch (e: Exception) {
@@ -50,9 +50,21 @@ class FaceLandmarkerRunner(context: Context, modelFile: File) : AutoCloseable {
         }
         return image.use {
             val options = ImageProcessingOptions.builder().setRotationDegrees(rotationDegrees).build()
-            landmarker.detectForVideo(it, options, timestampMs).faceLandmarks().isNotEmpty()
+            val points = landmarker.detectForVideo(it, options, timestampMs).faceLandmarks().firstOrNull()
+            points?.let { list ->
+                FloatArray(list.size * 3).also { out ->
+                    list.forEachIndexed { i, point ->
+                        out[3 * i] = point.x()
+                        out[3 * i + 1] = point.y()
+                        out[3 * i + 2] = point.z()
+                    }
+                }
+            }
         }
     }
+
+    fun hasFace(bitmap: Bitmap, rotationDegrees: Int, timestampMs: Long): Boolean =
+        detect(bitmap, rotationDegrees, timestampMs) != null
 
     override fun close() = landmarker.close()
 }

@@ -42,6 +42,6 @@ Die folgenden Werte sind eine **subjektive Planungsschätzung**, keine gemessene
 | Export und Bedienung | 10 | 5 | Interoperabilität in echten Zielprogrammen und Echtgerätetests |
 | Datenschutz und Recht | 5 | 2 | vollständige Datenschutz- und Lizenzprüfung |
 | Qualitätssicherung und Freigabe | 10 | 2 | reale Geräte, Teilnehmer und Abnahmekriterien |
-| **Summe** | **100** | **ca. 23** | **Grobe Gesamtschätzung: etwa 23 %** |
+| **Summe** | **100** | **ca. 24** | **Grobe Gesamtschätzung: etwa 24 %** |
 
 Ein bestandenes synthetisches oder Emulator-Testpaket erhöht diese Zahl nicht automatisch: der ungelöste Kern ist die echte, validierte Rekonstruktion, nicht die Zahl der Tests oder Dateien. Die Mehransichten-Aufnahme erhöht den Anteil nur geringfügig, weil sie zwar echte Kamerabilder nutzt, aber auf einem Durchschnittsgesicht als Bezug beruht und noch nie an einer Person geprüft wurde. Die Netzstruktur-Zählung sagt nur, wie die Flächen verdrahtet sind; sie ist kein Genauigkeitsmaß. Die Zonenabdeckung und die Tiefenunsicherheit erster Ordnung erhöhen die 3D-Bewertung nur um einen Punkt: Sie machen Lücken und Fehlerrisiken sichtbar, belegen aber keine reale Messgüte.

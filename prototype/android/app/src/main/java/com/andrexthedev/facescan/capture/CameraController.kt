@@ -11,11 +11,14 @@ import android.util.Size
 import androidx.camera.camera2.interop.Camera2CameraControl
 import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.CameraInfo
+import androidx.camera.core.CameraState
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.Observer
 import java.util.concurrent.Executors
 
 /**
@@ -40,6 +43,8 @@ class CameraController(private val context: Context) {
     private var preview: Preview? = null
     private var analysis: ImageAnalysis? = null
     private var camera2Control: Camera2CameraControl? = null
+    private var cameraInfo: CameraInfo? = null
+    private var cameraStateObserver: Observer<CameraState>? = null
 
     data class Intrinsics(val fx: Double, val fy: Double, val cx: Double, val cy: Double)
 
@@ -101,14 +106,14 @@ class CameraController(private val context: Context) {
     fun bind(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
-        onError: () -> Unit,
+        onError: (String?) -> Unit,
         onFrame: (androidx.camera.core.ImageProxy) -> Unit
     ) {
         val providerFuture = try {
             ProcessCameraProvider.getInstance(context)
         } catch (e: Exception) {
             android.util.Log.e("FaceScan", "Kamera-Provider konnte nicht erstellt werden", e)
-            onError()
+            onError(e.javaClass.simpleName)
             return
         }
         providerFuture.addListener({
@@ -140,18 +145,29 @@ class CameraController(private val context: Context) {
                         currentPreview, currentAnalysis
                     )
                     camera2Control = Camera2CameraControl.from(camera.cameraControl)
+                    cameraInfo = camera.cameraInfo
+                    val observer = Observer<CameraState> { state ->
+                        val error = state.error
+                        if (error != null) onError("CameraX_${error.code}")
+                        else if (state.type == CameraState.Type.OPEN) onError(null)
+                    }
+                    cameraStateObserver = observer
+                    camera.cameraInfo.cameraState.observe(lifecycleOwner, observer)
                     // Die Demo nutzt die automatische Kameraeinstellung. Manuelle
                     // Belichtung benötigt gerätespezifische Prüfung und gehört zu M1.
                 } catch (e: Exception) {
                     android.util.Log.e("FaceScan", "Kamera konnte nicht gestartet werden", e)
                     releaseUseCases()
-                    onError()
+                    onError(e.javaClass.simpleName)
                 }
             }
         }, ContextCompat.getMainExecutor(context))
     }
 
     private fun releaseUseCases() {
+        cameraStateObserver?.let { observer -> cameraInfo?.cameraState?.removeObserver(observer) }
+        cameraStateObserver = null
+        cameraInfo = null
         analysis?.clearAnalyzer()
         val useCases = listOfNotNull(preview, analysis)
         try {

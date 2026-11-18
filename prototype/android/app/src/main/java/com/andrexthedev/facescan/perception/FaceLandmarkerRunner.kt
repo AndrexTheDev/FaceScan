@@ -7,6 +7,9 @@ import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
+import java.io.File
+import java.io.FileInputStream
+import java.nio.channels.FileChannel
 
 /**
  * Eine Instanz pro Kamera-Sitzung. Alle Methoden laufen auf demselben
@@ -14,12 +17,16 @@ import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
  * Kamerabild länger fest als der Aufruf. Die Modellgewichte sind separat
  * lizenzpflichtig (docs/09) und nicht im Repository.
  */
-class FaceLandmarkerRunner(context: Context) : AutoCloseable {
+class FaceLandmarkerRunner(context: Context, modelFile: File) : AutoCloseable {
+    // Die gepinnte, geprüfte Datei bleibt während der Landmarker-Lebensdauer referenziert.
+    private val modelBuffer = FileInputStream(modelFile).channel.use {
+        it.map(FileChannel.MapMode.READ_ONLY, 0, it.size())
+    }
     private val landmarker: FaceLandmarker
 
     init {
         val options = FaceLandmarker.FaceLandmarkerOptions.builder()
-            .setBaseOptions(BaseOptions.builder().setModelAssetPath("face_landmarker.task").build())
+            .setBaseOptions(BaseOptions.builder().setModelAssetBuffer(modelBuffer).build())
             .setRunningMode(RunningMode.VIDEO)
             .setNumFaces(1)
             .setMinFaceDetectionConfidence(0.5f)

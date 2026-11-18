@@ -42,9 +42,11 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import android.os.SystemClock
 import java.util.concurrent.atomic.AtomicBoolean
+import java.io.File
 import kotlinx.coroutines.delay
 import com.andrexthedev.facescan.R
 import com.andrexthedev.facescan.capture.CameraController
+import com.andrexthedev.facescan.diagnostics.TestDiagnostics
 import com.andrexthedev.facescan.perception.FaceFrameAnalyzer
 import com.andrexthedev.facescan.perception.FaceStatus
 import com.andrexthedev.facescan.ui.theme.FaceScanColors
@@ -56,7 +58,7 @@ import com.andrexthedev.facescan.ui.theme.FaceScanColors
  * keine Daten für die spätere 3D-Rekonstruktion gesammelt.
  */
 @Composable
-fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
+fun CaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: () -> Unit, onReport: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val controller = remember { CameraController(context) }
@@ -67,7 +69,7 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
     val active = remember { AtomicBoolean(true) }
     val mainExecutor = remember { ContextCompat.getMainExecutor(context) }
     val analyzer = remember {
-        FaceFrameAnalyzer(context.applicationContext, active) { status ->
+        FaceFrameAnalyzer(context.applicationContext, modelFile, diagnostics, active) { status ->
             mainExecutor.execute {
                 if (active.get()) {
                     faceStatus = status
@@ -113,7 +115,7 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 PreviewView(ctx).also { previewView ->
-                    controller.bind(lifecycleOwner, previewView.surfaceProvider, onError = { cameraError = true }) { proxy ->
+                    controller.bind(lifecycleOwner, previewView.surfaceProvider, onError = { error -> if (error != null) diagnostics.cameraError(error); cameraError = error != null }) { proxy ->
                         analyzer.analyse(proxy)
                     }
                 }
@@ -182,14 +184,13 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
                 Spacer(Modifier.width(12.dp))
 
                 Button(
-                    onClick = onFinished,
-                    enabled = !cameraError,
+                    onClick = onReport,
                     modifier = Modifier.weight(1f).height(56.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = FaceScanColors.NightGreen,
                         contentColor = Color.Black
                     )
-                ) { Text(stringResource(R.string.capture_done)) }
+                ) { Text(stringResource(R.string.report_open)) }
             }
         }
     }

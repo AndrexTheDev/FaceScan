@@ -2,6 +2,21 @@
 <resources>
     <string name="app_name">FaceScan</string>
 
+    <string name="testapp_description">Test app for camera preview and face detection. It does not create a 3D model yet.</string>
+    <string name="model_network_notice">On first launch the app downloads about 3.6 MB of model data from Google over HTTPS and verifies it. Google can see your IP address; mobile data charges may apply. Detection does not need a connection afterwards.</string>
+    <string name="model_downloading">Checking or downloading the model …</string>
+    <string name="model_ready">Model ready. You can start the test.</string>
+    <string name="model_failed">The model could not be prepared. Check your internet connection and try again.</string>
+    <string name="model_retry">Try again</string>
+    <string name="test_start">Start camera test</string>
+    <string name="report_open">Test report</string>
+    <string name="report_title">View test report</string>
+    <string name="report_privacy">The report contains device type, Android version and technical test counts, but no photos or face points. It is only shared when you copy or deliberately send it.</string>
+    <string name="report_copy">Copy</string>
+    <string name="report_share">Share</string>
+    <string name="report_copied">Copied. You can now paste the report into the chat.</string>
+    <string name="report_back">Back</string>
+
     <!-- Home -->
     <string name="home_start_scan">START DEMO</string>
     <string name="home_open_project">Open project</string>

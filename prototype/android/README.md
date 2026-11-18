@@ -1,43 +1,35 @@
-# FaceScan – Android-Prototyp
+# FaceScan – Android-Test-App
 
-## Aktueller Stand
+Die Test-App dient dazu, **Kameravorschau und experimentelle Gesichtserkennung auf einem echten Android-Gerät zu prüfen** und einen technischen Bericht freiwillig zu teilen. Sie erstellt noch kein 3D-Modell; Rekonstruktion, Animation und Export sind nicht implementiert. Der Erkennungsweg wurde bisher nicht auf einem Gerät verifiziert. Ein grüner CI-Build ersetzt diesen Test nicht.
 
-**Die App ist eine Demo, kein funktionsfähiger 3D-Gesichtsscan.** Der Aufnahmebildschirm leitet Kamerabilder experimentell an MediaPipe weiter und zeigt nur „Gesicht erkannt“ bzw. „kein Gesicht erkannt“ an. Das benötigt ein eingebettetes Modell und ist noch nicht auf einem Gerät verifiziert. Ohne Modell bleibt die Vorschau nutzbar und meldet den fehlenden Baustein. Die Erkennung speichert keine Bilder oder Gesichtspunkte. Der anschließende Verarbeitungsfortschritt und Qualitätsbericht sind simuliert; es wird kein persönliches 3D-Modell erstellt. Animation und Export sind nicht implementiert.
+## Installation und erster Test
 
-Die Mathematik-Komponenten sind durch Unit-Tests und Referenzdaten geprüft, der vollständige Ablauf aber noch nicht auf einem Gerät verifiziert. Für die Vorschau wird die Kamera-Berechtigung erst nach einer Erklärung angefragt. Bei Ablehnung bleibt die Vorschau gesperrt; ein Weg zurück und ein Link zu den App-Einstellungen sind vorgesehen. Das Verhalten ist noch nicht auf einem Gerät verifiziert.
+Die neueste Test-APK liegt bei den [GitHub-Releases](https://github.com/AndrexTheDev/FaceScan/releases). Dort `app-debug.apk` herunterladen und auf Android 10 oder neuer installieren. Es ist ein Debug-Build. Wenn Android ein Update wegen abweichender Debug-Signatur ablehnt, die ältere Testversion erst deinstallieren (dabei werden ihre App-Daten gelöscht) und dann die neue APK installieren.
 
-## Test-APK
+1. Vor dem ersten Start Internet aktivieren. Die App lädt die einzige zur Laufzeit benötigte Modelldatei automatisch von Google (rund 3,6 MB) herunter und prüft deren SHA-256. Der übrige Anwendungscode und die Bibliotheken sind in der APK. Die App meldet, ob das Modell bereit ist; bei einem Fehler Verbindung prüfen und **Erneut versuchen** antippen.
+2. **Kameratest starten**, den Hinweis lesen und die Kamera erlauben. Das Gesicht einige Sekunden ins Bild halten und dann aus dem Bild bewegen. Die Anzeige sollte zwischen „Gesicht erkannt“ und „kein Gesicht erkannt“ wechseln. Der Test ist experimentell und kann auch fehlschlagen.
+3. **Testbericht** öffnen. Er zeigt die tatsächlichen Diagnose-Daten vor dem Teilen. **Kopieren** antippen und den Text in den Chat einfügen oder bewusst mit **Teilen** versenden. Bei einem Absturz die App erneut öffnen und den Bericht auf dem Startbildschirm abrufen.
+4. Nach erfolgreicher Einrichtung Flugmodus aktivieren, App neu starten und den Kameratest wiederholen. Das bereits geprüfte Modell wird lokal wiederverwendet. Bitte auch beschreiben, was sichtbar war und an welcher Stelle ein Fehler auftrat.
+5. Optional: Kamera-Berechtigung verweigern oder in den Systemeinstellungen entziehen, App wieder öffnen und Reaktion berichten. Ein Debug-Build kann geräteabhängig abweichen.
 
-[Test-APK #19 herunterladen](https://github.com/AndrexTheDev/FaceScan/releases/tag/test-apk-19): `app-debug.apk`, rund 80 MiB, Android 10 oder neuer. Es handelt sich um einen Debug-Build, nicht um ein Produktiv-Release. Diese ältere APK enthält weder die hier beschriebene Berechtigungsbehandlung noch die experimentelle Gesichtserkennung oder eine ausreichende Demo-Kennzeichnung in der Oberfläche; sie erstellt kein Modell, auch wenn der Bildschirm anderes suggeriert.
+## Datenschutz und Netzwerk
 
-Zum Installieren die APK auf das Android-Gerät laden und bei Bedarf die Installation aus dieser Quelle in den Android-Einstellungen erlauben. Die Kamera-Berechtigung nur erteilen, wenn die Kameravorschau getestet werden soll. Im Manifest ist keine `INTERNET`-Berechtigung eingetragen; ein tatsächlicher Offline-Gerätetest steht noch aus.
+Der erstmalige Modell-Download nutzt HTTPS zu `storage.googleapis.com`. Dabei sieht Google die IP-Adresse des Geräts; Mobilfunkkosten können anfallen. Die App benötigt dafür `INTERNET`. Nach der Installation wird bei erfolgreicher Integritätsprüfung kein erneuter Modell-Download ausgeführt; die Gesichtserkennung läuft lokal. Diese Aussage betrifft den implementierten Anwendungspfad, nicht eine bereits auf jedem Gerät bestätigte Netzwerkmessung.
 
-### Vorschlag für einen ersten Gerätetest
-
-1. Gerät, Android-Version und APK-Version notieren; APK installieren und starten.
-2. Kamera erlauben und prüfen, ob die Frontkamera-Vorschau erscheint. Ohne eingebettetes Modell muss „Modell fehlt“ erscheinen. Mit Modell: Gesicht ins Bild und wieder heraus bewegen; die Anzeige sollte zwischen „Gesicht erkannt“ und „kein Gesicht erkannt“ wechseln. Das auf Geräten mit unterschiedlicher Kameradrehung prüfen. Weiter zur Demo: **kein echtes 3D-Scanergebnis erwarten**.
-3. App neu starten und Berechtigung verweigern: keine Vorschau, stattdessen Erklärung und Rückweg. Erneute Anfrage und nach wiederholter Ablehnung die App-Einstellungen testen. Nach Entzug bzw. Erteilung in den Einstellungen zurückkehren und prüfen, dass sich die Anzeige aktualisiert. Fehler und Abstürze dokumentieren.
-4. Kamera-Vorschau schnell öffnen und abbrechen sowie erneut öffnen; App während der Erkennung in den Hintergrund schicken und zurückholen. Prüfen, dass die Anzeige nach Pausen nicht dauerhaft eine alte Erkennung zeigt und dass die Kamera wieder freigegeben wird. Fehler und Abstürze dokumentieren.
-5. Optional im Flugmodus wiederholen. Kameravorschau, Navigation und etwaige Fehler dokumentieren; daraus keine Aussage über eine noch nicht implementierte Rekonstruktion ableiten.
+Der Bericht enthält App-Version, Hersteller und Modell des Geräts, Android-Version, Kamera-Berechtigung, Modellstatus, Fehlerklassen, Kamerabildformat, aggregierte Frame- und Erkennungszähler sowie Laufzeiten. Ein letzter Java-Absturz wird lokal mit Ausnahme-Klasse und höchstens acht eigenen Code-Stackframes gespeichert, ohne Fehlermeldung. Native Abstürze werden dadurch nicht zuverlässig erfasst. Der übrige Bericht existiert nur während der App-Sitzung. **Keine Fotos, Bilddaten oder Gesichtspunkte werden im Bericht gespeichert oder automatisch versendet.** Der Nutzer sieht den Bericht vor dem Kopieren/Teilen; andere Apps, an die er ihn sendet, unterliegen deren eigenen Datenschutzbedingungen.
 
 ## Modell und Lizenz
 
-Die Gewichte `face_landmarker.task` sind nicht im Repository. Der Workflow lädt sie nur bei explizitem `modell=true` herunter und bettet sie dann in die APK ein. Der Standard ist `false`; ohne Modell ist die experimentelle Gesichtserkennung nicht verfügbar. Dies wird in der Aufnahme angezeigt, ohne die Demo zu blockieren.
+Die Modellgewichte sind weder im Repository noch in der APK. Die App lädt genau `face_landmarker/float16/1/face_landmarker.task` von Google und akzeptiert nur SHA-256 `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff`. Der Download ist auf 10 MiB begrenzt; kaputte oder unvollständige Dateien werden nicht verwendet. Dateien liegen im privaten App-Speicher. Sollte Google den Inhalt ändern, scheitert die Integritätsprüfung statt ein anderes Modell zu laden.
 
-Die Prüfung der Modellkarte und Google-AI-Edge-Bedingungen ist in [`docs/09`](../../docs/09-recht-compliance.md) **offen**. Vor einer Weitergabe oder anderweitigen Nutzung der Gewichte muss die Prüfung abgeschlossen und dokumentiert werden. Das Modell in der verlinkten APK ist bereits eingebettet; das ist keine Lizenzfreigabe.
+Die Modellkarte und die Google-AI-Edge-Bedingungen sind nach [`docs/09`](../../docs/09-recht-compliance.md) **noch nicht schriftlich geprüft**. Der Test-Download ist keine Lizenzfreigabe; die Prüfung bleibt vor einer Weitergabe bzw. produktiven Nutzung zu erledigen.
 
-## Build
+## Build und Tests
 
-Der Workflow [`.github/workflows/apk.yml`](../../.github/workflows/apk.yml) baut und testet den Prototyp auf GitHub Actions. In dieser Entwicklungsumgebung stehen Java, Gradle und Android-SDK nicht zur Verfügung.
+Der Workflow [`.github/workflows/apk.yml`](../../.github/workflows/apk.yml) testet die Kotlin-Komponenten und baut die Debug-APK. Auf dem GitHub-Runner kann zusätzlich ein Test-Release erzeugt werden:
 
 ```sh
-gh workflow run apk.yml --ref arena/ee31e880-facescan -f modell=false -f release=true
+gh workflow run apk.yml --ref arena/ee31e880-facescan -f release=true
 ```
 
-`release=true` erstellt zusätzlich ein GitHub-Release. `modell=true` bettet die separat heruntergeladenen Gewichte ein; Lizenzprüfung beachten. Der Kurzbericht prüft nur, ob das Asset in der APK enthalten ist, und bescheinigt keine Scanbereitschaft.
-
-Die große Debug-APK enthält Bibliotheken für vier Architekturen und ungeschrumpften Bytecode. Beispiel #19: rund 42 MiB native Bibliotheken, 34 MB DEX und 3,6 MB Modell; diese Anteile beziehen sich auf den entpackten Inhalt und sind nicht direkt mit der APK-Dateigröße vergleichbar.
-
-## MediaPipe-Version
-
-Verwendet wird `com.google.mediapipe:tasks-vision:0.10.14`. Die Java-Signaturen im [Quelltext dieser Version](https://github.com/google-ai-edge/mediapipe/blob/v0.10.14/mediapipe/tasks/java/com/google/mediapipe/tasks/vision/facelandmarker/FaceLandmarkerResult.java) sind maßgeblich; die Dokumentation kann eine andere Version beschreiben. Einzelheiten stehen in `FaceLandmarkerRunner.kt`.
+Die Unit-Tests prüfen u. a. Cache-Wiederverwendung, fehlerhafte Prüfsummen, Größenbegrenzung, Download-Fehler, Frame-Timing und den Schutz vor verspäteter Kamera-Bindung. Ein Gerätetest für Download, Kamera, Gesichtserkennung und Teilen bleibt erforderlich.

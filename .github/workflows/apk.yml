@@ -36,14 +36,6 @@ on:
         description: Zusätzlich ein GitHub-Release mit der APK anlegen
         type: boolean
         default: false
-      modell:
-        description: >-
-          MediaPipe-Modell (face_landmarker.task) einbetten. Ohne das Modell
-          ist eine spätere Gesichtserkennung nicht möglich. Der aktuelle
-          Aufnahmeablauf ist eine Demo, auch mit Modell. Vor dem Einbau
-          ist docs/09 zu klären (Lizenz der Modellgewichte: offen).
-        type: boolean
-        default: false
   push:
     branches: ['**']
     paths:
@@ -76,6 +68,16 @@ jobs:
           # AGP 8.7 verlangt mindestens Gradle 8.9 — darunter bricht der
           # Build mit einer Meldung ab, die nichts über die Ursache sagt.
           gradle-version: '8.9'
+
+      - name: Modell-URL und Prüfsumme prüfen
+        run: |
+          set -euo pipefail
+          modell="${RUNNER_TEMP}/facescan-model.task"
+          trap 'rm -f "$modell"' EXIT
+          curl -fsSL --retry 2 --connect-timeout 15 --max-time 120 -o "$modell" \
+            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+          echo "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff  $modell" | sha256sum -c -
+          echo "::notice title=Modell-URL::Download und SHA-256 geprüft; nicht in die APK eingebettet"
 
       - name: Android-SDK prüfen
         run: |
@@ -155,18 +157,6 @@ jobs:
           echo "::notice title=Build-Tools::$(ls -1 "$SDK/build-tools" 2>&1 | tr '\n' ' ')"
           echo "sdk.dir=$SDK" > prototype/android/local.properties
 
-      # Die Datei wird nur auf ausdrücklichen Wunsch eingebettet. Der
-      # aktuelle UI-Ablauf nutzt den FaceLandmarker noch nicht (M1).
-      - name: MediaPipe-Modell holen
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.modell }}
-        run: |
-          set -euo pipefail
-          ziel=prototype/android/app/src/main/assets
-          mkdir -p "$ziel"
-          curl -fsSL --retry 3 -o "$ziel/face_landmarker.task" \
-            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
-          echo "::notice title=Modell eingebettet::$(du -h "$ziel/face_landmarker.task" | cut -f1), sha256 $(sha256sum "$ziel/face_landmarker.task" | cut -d' ' -f1)"
-
       - name: Debug-APK bauen
         working-directory: prototype/android
         run: |
@@ -182,8 +172,8 @@ jobs:
           done
           exit $rc
 
-      # Nur das Vorhandensein des Assets prüfen, keine Scanbereitschaft:
-      # Aufnahme, Verarbeitung und Ergebnis sind derzeit Platzhalter.
+      # Das Modell wird erst auf dem Gerät heruntergeladen. Die APK darf
+      # die separat lizenzpflichtigen Gewichte nicht enthalten.
       - name: Kurzbericht
         run: |
           APK=prototype/android/app/build/outputs/apk/debug/app-debug.apk
@@ -197,10 +187,11 @@ jobs:
           echo "::notice title=Groesste Eintraege::$(unzip -l "$APK" | awk 'NR>3 && $1 ~ /^[0-9]+$/ {print $1" "$4}' | sort -rn | head -8 | tr '\n' ';')"
           echo "::notice title=Nativ gesamt::$(unzip -l "$APK" | awk 'NR>3 && $4 ~ /^lib\// {s+=$1; n++} END {printf "%.1f MiB in %d Eintraegen", s/1048576, n}')"
           if unzip -l "$APK" | grep -q "assets/face_landmarker.task"; then
-            echo "::notice title=Modellasset::eingebettet; Scanablauf noch nicht implementiert"
-          else
-            echo "::notice title=Modellasset::fehlt; Scanablauf noch nicht implementiert (docs/09: Lizenz offen)"
+            echo "::error title=Modellasset::Gewichte dürfen nicht in der APK liegen"
+            exit 1
           fi
+          echo "::notice title=Modellasset::nicht eingebettet; Download beim ersten Start"
+
 
       - uses: actions/upload-artifact@v4
         with:
@@ -237,5 +228,5 @@ jobs:
           gh release create "test-apk-${{ github.run_number }}" \
             --target "${{ github.ref_name }}" \
             --title "Test-APK #${{ github.run_number }}" \
-            --notes "Automatisch gebaut aus ${{ github.sha }}. Debug-Signatur, nur zum Testen. Aufnahme, Verarbeitung und Ergebnis sind eine Demo; ein echter Scan ist noch nicht implementiert." \
+            --notes "Automatisch gebaut aus ${{ github.sha }}. Debug-Signatur, nur zum Testen. Das Modell wird beim ersten Start von Google heruntergeladen und lokal geprüft. Diese Test-App bietet Kameravorschau, Gesichtserkennung und einen freiwillig teilbaren technischen Bericht; sie erstellt kein 3D-Modell. Modelllizenzprüfung in docs/09 ist offen." \
             prototype/android/app/build/outputs/apk/debug/app-debug.apk

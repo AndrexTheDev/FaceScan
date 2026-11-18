@@ -245,7 +245,7 @@ fun MultiViewCaptureScreen(
                         }
                     }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.multiview_prepare)) }
                 }
-                Button(onClick = ::captureView,
+                Button(onClick = { captureView() },
                     enabled = !cameraError && !capturing && status == FaceStatus.FACE && sessionReady &&
                         viewCount < MultiViewCapture.MAX_VIEWS,
                     modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.multiview_capture_view)) }
@@ -254,7 +254,7 @@ fun MultiViewCaptureScreen(
                     feedback = context.getString(R.string.multiview_cancelled)
                 }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.multiview_cancel_view)) }
                 if (feedback.isNotEmpty()) Text(feedback, style = MaterialTheme.typography.bodyMedium)
-                Button(onClick = ::reconstruct,
+                Button(onClick = { reconstruct() },
                     enabled = !capturing && viewCount >= 2,
                     modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.multiview_reconstruct)) }
                 OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {

@@ -10,6 +10,7 @@ import com.google.mediapipe.framework.MediaPipeException
 import java.io.File
 import com.andrexthedev.facescan.diagnostics.TestDiagnostics
 import com.andrexthedev.facescan.scan.FaceFrame
+import com.andrexthedev.facescan.scan.FaceViewRequest
 import com.andrexthedev.facescan.scan.FaceImageQualitySampler
 import com.andrexthedev.facescan.scan.FaceFrontalGuidance
 import com.andrexthedev.facescan.scan.ImageQuality

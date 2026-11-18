@@ -103,7 +103,8 @@ object PartialPlyWriter {
         // Binäres PLY schreibt Flächen als list: 1 Byte Anzahl + n Indizes.
         val faceHeader = "property list uchar int vertex_indices"
         for (t in indices.indices step 3) {
-            require(indices[t] in 0..255 && indices[t + 1] in 0..255 && indices[t + 2] in 0..255)
+            // Nur die ANZAHL je Fläche steht als uchar im Kopf; die Indizes
+            // selbst sind int und dürfen über 255 liegen.
             body.write(3)
             val buffer = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN)
             for (j in 0..2) buffer.putInt(indices[t + j])

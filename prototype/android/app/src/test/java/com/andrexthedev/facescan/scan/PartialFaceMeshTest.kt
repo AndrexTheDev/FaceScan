@@ -134,7 +134,10 @@ class PartialFaceMeshTest {
         val kept = PartialGlbWriter.floatSafeTriangles(positions, triangles)
         assertArrayEquals(intArrayOf(3, 4, 5), kept)
         val mesh = PartialFaceMesh.Mesh(
-            positions.toList().map { doubleArrayOf(it[0].toDouble(), it[1].toDouble(), it[2].toDouble()) },
+            // positions ist ein FloatArray; toList() liefert Floats, keine Tripel.
+            (0 until positions.size / 3).map { i ->
+                doubleArrayOf(positions[3 * i].toDouble(), positions[3 * i + 1].toDouble(), positions[3 * i + 2].toDouble())
+            },
             IntArray(6) { it }, triangles)
         val json = String(PartialGlbWriter.write(mesh), Charsets.UTF_8)
         assertTrue("Extras nennen die verworfene Fläche", json.contains("\"droppedDegenerateTriangles\":1"))

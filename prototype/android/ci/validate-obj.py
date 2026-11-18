@@ -220,7 +220,22 @@ def validate_partial_ply(ply_path: Path, reference_path: Path) -> None:
     if not np.isfinite(vertices).all():
         raise ValueError("Nicht-endliche Vertexposition im PLY")
     if not np.allclose(vertices, expected_vertices, rtol=0, atol=1e-5):
-        raise ValueError("PLY-Positionen weichen von den Kotlin-Werten ab")
+        # Diagnose: sind es einzelne Ausreißer oder eine systematische Verschiebung?
+        deviation_all = np.abs(vertices - expected_vertices)
+        worst_row = int(np.argmax(deviation_all.max(axis=1)))
+        print(f"::notice title=PLY-Diagnose::Form {vertices.shape}, max {deviation_all.max():.3e}, "
+              f"Median {np.median(deviation_all):.3e}, Zeile {worst_row}")
+        print(f"::notice title=PLY-Diagnose::gelesen {vertices[worst_row].tolist()} "
+              f"erwartet {expected_vertices[worst_row].tolist()}")
+        print(f"::notice title=PLY-Diagnose::Kopfzeilen {header[:8]}")
+        outlier_rows = int((deviation_all.max(axis=1) > 1e-5).sum())
+        print(f"::notice title=PLY-Diagnose::Zeilen über Toleranz: {outlier_rows} von {vertices.shape[0]}")
+        deviation = deviation_all
+        worst = np.unravel_index(int(np.argmax(deviation)), deviation.shape)
+        raise ValueError(
+            f"PLY-Positionen weichen von den Kotlin-Werten ab: max {deviation.max():.3e} "
+            f"bei Vertex {worst[0]} Achse {worst[1]} "
+            f"(gelesen {vertices[worst]:.9f}, erwartet {expected_vertices[worst]:.9f})")
     if faces.shape != expected_faces.shape or not np.array_equal(faces, expected_faces):
         raise ValueError("PLY-Flächen weichen von den Kotlin-Werten ab")
     colors = np.asarray(reference["colors"], dtype=np.int64)

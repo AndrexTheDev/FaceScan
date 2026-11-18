@@ -107,7 +107,9 @@ jobs:
           # meldet, verliert den Blick darauf, was wirklich kaputt ist.
           rc=1
           for versuch in 1 2 3; do
-            if gradle --no-daemon :app:testDebugUnitTest 2>&1 | tail -n 400 | tee build.log; then
+            # --rerun-tasks verhindert, dass Gradle Tests als UP-TO-DATE
+            # ueberspringt und ein alter Fehlschlag unsichtbar weiterlebt.
+            if gradle --no-daemon :app:testDebugUnitTest --rerun-tasks 2>&1 | tail -n 400 | tee build.log; then
               rc=0
               break
             fi
@@ -157,8 +159,22 @@ jobs:
             echo "Commit \`${{ github.sha }}\`."
             echo
             echo '```'
-            tail -c 30000 prototype/android/build.log 2>/dev/null \
+            tail -c 20000 prototype/android/build.log 2>/dev/null \
               || echo "(kein build.log — früher Schritt gescheitert)"
+            # Gradle druckt nur Testname und Zeile. Die eigentliche Ursache steht
+            # in den JUnit-XML-Berichten; ohne sie ist ein Fehlschlag nicht
+            # deutbar. Nur Fehlermeldungen, keine Bilddaten.
+            for xml in prototype/android/app/build/test-results/testDebugUnitTest/*.xml; do
+              [ -s "$xml" ] || continue
+              python3 - "$xml" <<'AUSWERTUNG'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse(sys.argv[1]).getroot()
+          for case in root.iter('testcase'):
+              for failure in case.findall('failure'):
+                  text = (failure.get('message') or failure.text or '').strip()
+                  print(f"- {case.get('classname').split('.')[-1]}.{case.get('name')}: {text[:1500]}")
+          AUSWERTUNG
+            done
             echo '```'
           } > /tmp/meldung.md
           gh issue comment 1 --body-file /tmp/meldung.md
@@ -250,8 +266,22 @@ jobs:
             echo "Commit \`${{ github.sha }}\`."
             echo
             echo '```'
-            tail -c 30000 prototype/android/build.log 2>/dev/null \
+            tail -c 20000 prototype/android/build.log 2>/dev/null \
               || echo "(kein build.log — früher Schritt gescheitert)"
+            # Gradle druckt nur Testname und Zeile. Die eigentliche Ursache steht
+            # in den JUnit-XML-Berichten; ohne sie ist ein Fehlschlag nicht
+            # deutbar. Nur Fehlermeldungen, keine Bilddaten.
+            for xml in prototype/android/app/build/test-results/testDebugUnitTest/*.xml; do
+              [ -s "$xml" ] || continue
+              python3 - "$xml" <<'AUSWERTUNG'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse(sys.argv[1]).getroot()
+          for case in root.iter('testcase'):
+              for failure in case.findall('failure'):
+                  text = (failure.get('message') or failure.text or '').strip()
+                  print(f"- {case.get('classname').split('.')[-1]}.{case.get('name')}: {text[:1500]}")
+          AUSWERTUNG
+            done
             echo '```'
           } > /tmp/meldung.md
           gh issue comment 1 --body-file /tmp/meldung.md

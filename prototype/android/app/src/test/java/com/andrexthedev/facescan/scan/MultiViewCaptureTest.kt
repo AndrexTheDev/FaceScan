@@ -195,6 +195,7 @@ class MultiViewCaptureTest {
         // sich der Text um vier Bytes und jede Inhaltsprüfung scheitert.
         assertEquals(0x4e4f534a, input.int)
         val json = String(ByteArray(jsonLength), Charsets.UTF_8)
+        assertTrue("JSON-Kopf: ${json.take(80)}", json.startsWith("{\n\"asset\":"))
         assertTrue(json.take(200), json.contains("\"count\":${mesh.triangles.size}"))
         // Ohne Mesh darf kein Export entstehen, statt einer leeren Datei.
         val empty = ready.result.copy(surface = ready.result.surface.copy(mesh = null))

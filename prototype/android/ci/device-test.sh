@@ -26,6 +26,7 @@ run_case() {
 }
 
 restore_network() {
+  adb shell settings put global airplane_mode_on 0 || true
   adb shell svc wifi enable || true
   adb shell svc data enable || true
 }
@@ -54,5 +55,10 @@ adb shell svc wifi disable
 adb shell svc data disable
 sleep 3
 run_case cachedModelStartsOffline
+run_case deniedPermissionShowsDisclosureAndReturn
 adb shell pm grant "$app" android.permission.CAMERA
 run_case cameraFramesReachTheLandmarkerAndReport
+# System-Flag plus abgeschaltete WLAN/Mobilfunk-Schnittstellen simulieren
+# den Flugmodus; ein echter Gerätetest bleibt zusätzlich erforderlich.
+adb shell settings put global airplane_mode_on 1
+run_case guidedOfflineTestRecordsResult

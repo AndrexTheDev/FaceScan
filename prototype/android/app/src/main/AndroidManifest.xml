@@ -3,6 +3,7 @@
 
     <!-- Erstinstallation: Modell über HTTPS laden; Kameraauswertung bleibt lokal. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- optional, erst mit dem Lip-Sync in v2: RECORD_AUDIO -->

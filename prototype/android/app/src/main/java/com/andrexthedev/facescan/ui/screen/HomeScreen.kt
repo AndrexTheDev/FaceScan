@@ -18,9 +18,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.andrexthedev.facescan.R
 import com.andrexthedev.facescan.model.ModelState
+import com.andrexthedev.facescan.diagnostics.DeviceSelfTest
 
 @Composable
-fun HomeScreen(state: ModelState, onRetry: () -> Unit, onStart: () -> Unit, onReport: () -> Unit) {
+fun HomeScreen(state: ModelState, selfTests: DeviceSelfTest.Results?, onRetry: () -> Unit, onStart: () -> Unit, onReport: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -33,7 +34,13 @@ fun HomeScreen(state: ModelState, onRetry: () -> Unit, onStart: () -> Unit, onRe
                 CircularProgressIndicator()
                 Text(stringResource(R.string.model_downloading))
             }
-            is ModelState.Ready -> Text(stringResource(R.string.model_ready))
+            is ModelState.Ready -> {
+                Text(stringResource(R.string.model_ready))
+                selfTests?.let {
+                    Text(stringResource(R.string.selftest_summary, it.geometry, it.landmarker, it.frontCamera))
+                }
+                Text(stringResource(R.string.test_instructions))
+            }
             ModelState.Failed -> {
                 Text(stringResource(R.string.model_failed), color = MaterialTheme.colorScheme.error)
                 OutlinedButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {

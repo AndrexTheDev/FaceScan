@@ -2,6 +2,8 @@ package com.andrexthedev.facescan.ui.screen
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,6 +49,9 @@ import kotlinx.coroutines.delay
 import com.andrexthedev.facescan.R
 import com.andrexthedev.facescan.capture.CameraController
 import com.andrexthedev.facescan.diagnostics.TestDiagnostics
+import com.andrexthedev.facescan.diagnostics.ChallengeKind
+import com.andrexthedev.facescan.diagnostics.ChallengeOutcome
+import com.andrexthedev.facescan.diagnostics.NetworkState
 import com.andrexthedev.facescan.perception.FaceFrameAnalyzer
 import com.andrexthedev.facescan.perception.FaceStatus
 import com.andrexthedev.facescan.ui.theme.FaceScanColors
@@ -66,6 +71,8 @@ fun CaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: () ->
     var cameraError by remember { mutableStateOf(false) }
     var faceStatus by remember { mutableStateOf(FaceStatus.WAITING) }
     var lastObservation by remember { mutableLongStateOf(0L) }
+    var challenge by remember { mutableStateOf<ChallengeKind?>(null) }
+    var feedback by remember { mutableStateOf("") }
     val active = remember { AtomicBoolean(true) }
     val mainExecutor = remember { ContextCompat.getMainExecutor(context) }
     val analyzer = remember {
@@ -88,6 +95,29 @@ fun CaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: () ->
             faceStatus = FaceStatus.WAITING
         }
     }
+    LaunchedEffect(challenge) {
+        val current = challenge ?: return@LaunchedEffect
+        delay(5000)
+        diagnostics.finishChallenge(current != ChallengeKind.OFFLINE || NetworkState.airplaneWithoutInternetNetwork(context))
+        val result = diagnostics.challengeResult(current)
+        val outcomeId = when (result.outcome) {
+            ChallengeOutcome.PASSED -> R.string.challenge_passed
+            ChallengeOutcome.FAILED -> R.string.challenge_failed
+            else -> R.string.challenge_inconclusive
+        }
+        feedback = context.getString(R.string.challenge_feedback, context.getString(outcomeId), result.matches, result.samples)
+        challenge = null
+    }
+    fun startChallenge(kind: ChallengeKind) {
+        if (kind == ChallengeKind.OFFLINE && !NetworkState.airplaneWithoutInternetNetwork(context)) {
+            feedback = context.getString(R.string.challenge_offline_required)
+            return
+        }
+        if (diagnostics.beginChallenge(kind, SystemClock.elapsedRealtime())) {
+            feedback = context.getString(R.string.challenge_running)
+            challenge = kind
+        }
+    }
     val ampel = when {
         cameraError || faceStatus == FaceStatus.ERROR -> Ampel.RED
         faceStatus == FaceStatus.FACE -> Ampel.GREEN
@@ -105,6 +135,7 @@ fun CaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: () ->
     DisposableEffect(controller, analyzer) {
         onDispose {
             active.set(false)
+            diagnostics.cancelChallenge()
             controller.shutdown { analyzer.close() }
         }
     }
@@ -141,8 +172,9 @@ fun CaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: () ->
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(20.dp)
-                .fillMaxWidth(),
+                .padding(12.dp)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
@@ -169,7 +201,22 @@ fun CaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: () ->
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(6.dp))
+            Text(stringResource(R.string.challenge_instructions), color = Color.White,
+                style = MaterialTheme.typography.bodyMedium)
+            if (feedback.isNotEmpty()) {
+                Text(feedback, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+            }
+            val canTest = challenge == null && !cameraError &&
+                (faceStatus == FaceStatus.FACE || faceStatus == FaceStatus.NO_FACE)
+            Button(onClick = { startChallenge(ChallengeKind.FACE_PRESENT) }, enabled = canTest,
+                modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.challenge_face)) }
+            Button(onClick = { startChallenge(ChallengeKind.FACE_ABSENT) }, enabled = canTest,
+                modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.challenge_empty)) }
+            Button(onClick = { startChallenge(ChallengeKind.OFFLINE) }, enabled = canTest,
+                modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.challenge_offline)) }
+
+            Spacer(Modifier.height(6.dp))
 
             Row(Modifier.fillMaxWidth()) {
                 Button(

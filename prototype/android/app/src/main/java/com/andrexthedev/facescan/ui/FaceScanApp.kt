@@ -12,6 +12,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.andrexthedev.facescan.diagnostics.TestDiagnostics
+import com.andrexthedev.facescan.diagnostics.DeviceSelfTest
 import com.andrexthedev.facescan.model.ModelInstaller
 import com.andrexthedev.facescan.model.ModelHttpException
 import com.andrexthedev.facescan.model.ModelState
@@ -30,6 +31,7 @@ fun FaceScanApp() {
     val context = LocalContext.current.applicationContext
     val diagnostics = remember { TestDiagnostics() }
     var state by remember { mutableStateOf<ModelState>(ModelState.Loading) }
+    var selfTests by remember { mutableStateOf<DeviceSelfTest.Results?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
     val navController = rememberNavController()
 
@@ -42,6 +44,9 @@ fun FaceScanApp() {
                 ModelInstaller(File(context.filesDir, "models")).ensureInstalled()
             }
             diagnostics.model("bereit (SHA-256 geprüft)")
+            val results = withContext(Dispatchers.Default) { DeviceSelfTest.run(context, file) }
+            diagnostics.selfTests(results)
+            selfTests = results
             state = ModelState.Ready(file)
         } catch (e: CancellationException) {
             throw e
@@ -56,6 +61,7 @@ fun FaceScanApp() {
             composable("home") {
                 HomeScreen(
                     state = state,
+                    selfTests = selfTests,
                     onRetry = { attempt++ },
                     onStart = { navController.navigate("capture") },
                     onReport = { navController.navigate("report") }

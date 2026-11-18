@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.andrexthedev.facescan.perception.FaceLandmarkerRunner
+import com.andrexthedev.facescan.diagnostics.NetworkState
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -56,6 +57,8 @@ class FirstRunDeviceTest {
         }
         compose.onNodeWithText(text(R.string.report_open)).performScrollTo().performClick()
         compose.onNodeWithText("Modell: bereit", substring = true).assertExists()
+        compose.onNodeWithText("Geräte-Selbsttest (Pinhole-Projektion): bestanden", substring = true).assertExists()
+        compose.onNodeWithText("Geräte-Selbsttest (MediaPipe auf Schwarzbild): bestanden", substring = true).assertExists()
         compose.onNodeWithText(text(R.string.report_copy)).performScrollTo().performClick()
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val report = clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
@@ -74,10 +77,46 @@ class FirstRunDeviceTest {
         }
         assertTrue("Camera/landmarker reported an error", listOf(R.string.face_found, R.string.face_not_found)
             .any { compose.onAllNodesWithText(text(it)).fetchSemanticsNodes().isNotEmpty() })
-        compose.onNodeWithText(text(R.string.report_open)).performClick()
+        compose.onNodeWithText(text(R.string.challenge_empty)).performScrollTo().performClick()
+        awaitChallengeFeedback()
+        compose.onNodeWithText(text(R.string.report_open)).performScrollTo().performClick()
+        compose.onNodeWithText("Geführter Test: Gesicht außerhalb:", substring = true).assertExists()
+        assertTrue("Guided test should be recorded",
+            compose.onAllNodesWithText("Geführter Test: Gesicht außerhalb: nicht ausgeführt", substring = true).fetchSemanticsNodes().isEmpty())
         compose.onNodeWithText("Ausgewertete Frames:", substring = true).assertExists()
         assertTrue("Expected at least one analyzed frame",
             compose.onAllNodesWithText("Ausgewertete Frames: 0", substring = true).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test fun deniedPermissionShowsDisclosureAndReturn() {
+        awaitText(R.string.model_ready)
+        compose.onNodeWithText(text(R.string.test_start)).performScrollTo().performClick()
+        compose.onNodeWithText(text(R.string.camera_permission_title)).assertExists()
+        compose.onNodeWithText(text(R.string.common_cancel)).performClick()
+        awaitText(R.string.model_ready)
+    }
+
+    @Test fun guidedOfflineTestRecordsResult() {
+        assertTrue("Emulator must be in simulated airplane mode without internet", NetworkState.airplaneWithoutInternetNetwork(context))
+        awaitText(R.string.model_ready)
+        compose.onNodeWithText(text(R.string.test_start)).performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 120_000) {
+            listOf(R.string.face_found, R.string.face_not_found)
+                .any { compose.onAllNodesWithText(text(it)).fetchSemanticsNodes().isNotEmpty() }
+        }
+        compose.onNodeWithText(text(R.string.challenge_offline)).performScrollTo().performClick()
+        awaitChallengeFeedback()
+        compose.onNodeWithText(text(R.string.report_open)).performScrollTo().performClick()
+        compose.onNodeWithText("Geführter Offline-Test:", substring = true).assertExists()
+        assertTrue("Offline test should be recorded", compose.onAllNodesWithText(
+            "Geführter Offline-Test: nicht ausgeführt", substring = true).fetchSemanticsNodes().isEmpty())
+    }
+
+    private fun awaitChallengeFeedback() {
+        compose.waitUntil(timeoutMillis = 30_000) {
+            listOf(R.string.challenge_passed, R.string.challenge_failed, R.string.challenge_inconclusive)
+                .any { compose.onAllNodesWithText(text(it) + ":", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        }
     }
 
     @Test fun cachedModelStartsOffline() {

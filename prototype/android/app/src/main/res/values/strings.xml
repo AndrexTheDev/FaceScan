@@ -18,6 +18,19 @@
     <string name="report_copied">Kopiert. Du kannst den Bericht jetzt im Chat einfügen.</string>
     <string name="report_back">Zurück</string>
 
+    <string name="selftest_summary">Geräte-Selbsttests – Projektion: %1$s; MediaPipe: %2$s; Frontkamera: %3$s</string>
+    <string name="test_instructions">Starte den Kameratest. Führe danach die drei 5-Sekunden-Prüfungen aus und kopiere den Testbericht. Die Prüfungen testen noch kein 3D-Modell.</string>
+    <string name="challenge_instructions">Für jeden Test zuerst positionieren, dann die passende Taste drücken und 5 Sekunden warten.</string>
+    <string name="challenge_face">1. Gesicht im Bild testen</string>
+    <string name="challenge_empty">2. Gesicht außerhalb testen</string>
+    <string name="challenge_offline">3. Im Flugmodus testen</string>
+    <string name="challenge_offline_required">Bitte Flugmodus einschalten und WLAN sowie andere Netze ausschalten; dann erneut drücken.</string>
+    <string name="challenge_running">Test läuft – bitte 5 Sekunden in Position bleiben.</string>
+    <string name="challenge_passed">Bestanden</string>
+    <string name="challenge_failed">Fehlgeschlagen</string>
+    <string name="challenge_inconclusive">Nicht aussagekräftig</string>
+    <string name="challenge_feedback">%1$s: %2$d von %3$d Auswertungen passend. Details im Testbericht.</string>
+
     <!-- Home -->
     <string name="home_start_scan">DEMO STARTEN</string>
     <string name="home_open_project">Projekt öffnen</string>

@@ -20,13 +20,21 @@ class TestDiagnostics {
     private var totalMs = 0L
     private var maxMs = 0L
     private var frameDescription = "-"
+    private val challenges = ChallengeTracker()
+    private var selfTests: DeviceSelfTest.Results? = null
 
     @Synchronized fun model(state: String, error: String = "-") { modelState = state; modelError = error }
     @Synchronized fun frame(width: Int, height: Int, rotation: Int) {
         frames++
         frameDescription = "${width}x$height, rotation=$rotation"
     }
-    @Synchronized fun result(found: Boolean, durationMs: Long) {
+    @Synchronized internal fun beginChallenge(kind: ChallengeKind, nowMs: Long): Boolean = challenges.begin(kind, nowMs)
+    @Synchronized internal fun finishChallenge(offlineStillConfirmed: Boolean = true) = challenges.finish(offlineStillConfirmed)
+    @Synchronized internal fun cancelChallenge() = challenges.cancel()
+    @Synchronized internal fun challengeResult(kind: ChallengeKind): ChallengeResult = challenges.result(kind)
+    @Synchronized fun selfTests(value: DeviceSelfTest.Results) { selfTests = value }
+    @Synchronized fun result(found: Boolean, durationMs: Long, frameStartMs: Long) {
+        challenges.sample(found, frameStartMs)
         processed++
         if (found) faces++ else noFaces++
         totalMs += durationMs
@@ -39,8 +47,20 @@ class TestDiagnostics {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         val permission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         val average = if (processed == 0L) "-" else "${totalMs / processed} ms"
+        fun challenge(kind: ChallengeKind): String {
+            val result = challenges.result(kind)
+            val label = when (result.outcome) {
+                ChallengeOutcome.NOT_RUN -> "nicht ausgeführt"
+                ChallengeOutcome.RUNNING -> "läuft"
+                ChallengeOutcome.PASSED -> "bestanden"
+                ChallengeOutcome.FAILED -> "fehlgeschlagen"
+                ChallengeOutcome.INCONCLUSIVE -> "nicht aussagekräftig"
+                ChallengeOutcome.CANCELLED -> "abgebrochen"
+            }
+            return "$label (${result.matches}/${result.samples} passende Auswertungen)"
+        }
         return """
-FaceScan Testbericht v1
+FaceScan Testbericht v2
 App: ${info.versionName} (${info.longVersionCode})
 Gerät: ${Build.MANUFACTURER} ${Build.MODEL}
 Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})
@@ -48,6 +68,13 @@ Kamera-Berechtigung: ${if (permission) "erteilt" else "nicht erteilt"}
 Modell: $modelState
 Modell-SHA256 (Soll): ${FaceModel.SHA256}
 Modell-Fehlerklasse: $modelError
+Geräte-Selbsttest (Pinhole-Projektion): ${selfTests?.geometry ?: "nicht ausgeführt"}
+Geräte-Selbsttest (MediaPipe auf Schwarzbild): ${selfTests?.landmarker ?: "nicht ausgeführt"}
+Frontkamera laut System: ${selfTests?.frontCamera ?: "nicht geprüft"}
+Geführter Test: Gesicht im Bild: ${challenge(ChallengeKind.FACE_PRESENT)}
+Geführter Test: Gesicht außerhalb: ${challenge(ChallengeKind.FACE_ABSENT)}
+Geführter Offline-Test: ${challenge(ChallengeKind.OFFLINE)}
+Nicht verfügbar / nicht geprüft: 3D-Rekonstruktion, 3D-Genauigkeit, Animation, Export, vollständiger 3D-Flugmodus-Test
 Kamera-Fehlerklasse: $cameraError
 Erkennungs-Fehler (Phase/Klasse/Code): $inferenceError
 Letzter gespeicherter Java-Absturz: ${CrashRecorder.lastCrash(context)}
@@ -58,7 +85,7 @@ Gesicht erkannt: $faces
 Kein Gesicht erkannt: $noFaces
 Erkennung inkl. Bildkonvertierung durchschnittlich: $average
 Erkennung inkl. Bildkonvertierung maximal: $maxMs ms
-Hinweis: Keine Fotos, Bilddaten oder Gesichtspunkte enthalten. Zähler gelten seit App-Start; der letzte Java-Absturz bleibt lokal gespeichert. Kein 3D-Scan.
+Hinweis: Geführte Gesichtstests: mindestens 3 Auswertungen, mindestens 75 % passend. Offline-Test: Flugmodus an und kein internetfähiges Netz laut Android zu Beginn und Ende; keine Netzwerkpaket-Messung. Keine Fotos, Bilddaten oder Gesichtspunkte enthalten. Zähler gelten seit App-Start; der letzte Java-Absturz bleibt lokal gespeichert. Kein 3D-Scan.
         """.trimIndent()
     }
 }

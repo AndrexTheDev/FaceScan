@@ -30,6 +30,7 @@ class FaceFrameAnalyzer(
             if (!active.get() || stopped) return
             diagnostics.frame(proxy.width, proxy.height, proxy.imageInfo.rotationDegrees)
             val timestamp = clock.nextTimestamp(proxy.imageInfo.timestamp, SystemClock.elapsedRealtime()) ?: return
+            val frameStartedAt = SystemClock.elapsedRealtime()
             if (runner == null) {
                 if (!modelFile.isFile) {
                     stopped = true
@@ -46,7 +47,7 @@ class FaceFrameAnalyzer(
             val bitmap = proxy.toBitmap()
             phase = "inference"
             val found = runner!!.hasFace(bitmap, proxy.imageInfo.rotationDegrees, timestamp)
-            diagnostics.result(found, SystemClock.elapsedRealtime() - startedAt)
+            diagnostics.result(found, SystemClock.elapsedRealtime() - startedAt, frameStartedAt)
             if (active.get()) onStatus(if (found) FaceStatus.FACE else FaceStatus.NO_FACE)
         } catch (e: Exception) {
             reportFailure(phase, e)

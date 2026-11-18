@@ -59,6 +59,7 @@ class FirstRunDeviceTest {
         compose.onNodeWithText("Modell: bereit", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (Pinhole-Projektion): bestanden", substring = true).assertExists()
         compose.onNodeWithText("Geräte-Selbsttest (MediaPipe auf Schwarzbild): bestanden", substring = true).assertExists()
+        compose.onNodeWithText("Geräte-Selbsttest (synthetisches Scan-Mesh und GLB): bestanden", substring = true).assertExists()
         compose.onNodeWithText(text(R.string.report_copy)).performScrollTo().performClick()
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val report = clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
@@ -86,6 +87,21 @@ class FirstRunDeviceTest {
         compose.onNodeWithText("Ausgewertete Frames:", substring = true).assertExists()
         assertTrue("Expected at least one analyzed frame",
             compose.onAllNodesWithText("Ausgewertete Frames: 0", substring = true).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test fun scanScreenProcessesEmulatedCameraAndReturns() {
+        awaitText(R.string.model_ready)
+        compose.onNodeWithText(text(R.string.scan_start)).performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 120_000) {
+            listOf(R.string.scan_face_ready, R.string.scan_face_wait, R.string.face_error, R.string.camera_error)
+                .any { compose.onAllNodesWithText(text(it)).fetchSemanticsNodes().isNotEmpty() }
+        }
+        compose.onNodeWithText(text(R.string.scan_expression)).assertIsNotEnabled()
+        compose.onNodeWithText(text(R.string.scan_neutral)).performScrollTo().performClick()
+        // Der Emulator zeigt kein echtes Gesicht, deshalb darf kein Scan entstehen.
+        compose.onNodeWithText(text(R.string.scan_wait_samples)).assertExists()
+        compose.onNodeWithText(text(R.string.common_cancel)).performScrollTo().performClick()
+        awaitText(R.string.model_ready)
     }
 
     @Test fun syntheticGeometryTestRunsAndAppearsInReport() {

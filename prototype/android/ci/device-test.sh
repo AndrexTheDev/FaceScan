@@ -59,6 +59,7 @@ run_case cachedModelStartsOffline
 run_case deniedPermissionShowsDisclosureAndReturn
 adb shell pm grant "$app" android.permission.CAMERA
 run_case cameraFramesReachTheLandmarkerAndReport
+run_case scanScreenProcessesEmulatedCameraAndReturns
 # System-Flag plus abgeschaltete WLAN/Mobilfunk-Schnittstellen simulieren
 # den Flugmodus; ein echter Gerätetest bleibt zusätzlich erforderlich.
 adb shell settings put global airplane_mode_on 1

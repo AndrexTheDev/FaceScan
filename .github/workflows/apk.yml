@@ -122,6 +122,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ ! -s "$RUNNER_TEMP/facescan-synthetic.glb" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-textured.glb" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-loop.glb" ] ||
+             [ ! -s "$RUNNER_TEMP/facescan-synthetic-partial.obj" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-partial-reference.json" ] ||
              [ ! -s "$RUNNER_TEMP/facescan-synthetic.obj" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-obj-reference.json" ]; then
             gradle --no-daemon :app:testDebugUnitTest --tests 'com.andrexthedev.facescan.scan.FaceScanTest' --rerun-tasks
           fi

@@ -257,6 +257,32 @@ class FaceScanTest {
         System.getenv("RUNNER_TEMP")?.let { File(it, "facescan-synthetic-textured.glb").writeBytes(glb) }
     }
 
+    @Test fun syntheticMultiviewPartialObjIsExportedForIndependentParsing() {
+        val clouds = (0 until FaceTopology.VERTEX_COUNT).map { i ->
+            if (i % 97 == 0) MultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.INSUFFICIENT_VIEWS)
+            else MultiViewTriangulation.Result.Point(
+                doubleArrayOf((i % 26 - 12.5) * 0.3, (i / 26 - 9.0) * 0.3, 1.0 + (i % 7) * 0.1), 8.0, 0.0, 0.0)
+        }
+        val cloud = MultiViewPointCloud.Result(clouds, clouds.count { it is MultiViewTriangulation.Result.Point })
+        val mesh = PartialFaceMesh.build(cloud).mesh
+        assertNotNull(mesh)
+        val bytes = PartialFaceMesh.writeObj(mesh!!)
+        System.getenv("RUNNER_TEMP")?.let { dir ->
+            File(dir, "facescan-synthetic-partial.obj").writeBytes(bytes)
+            val vertices = mesh.vertices.joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
+            val faces = mesh.triangles.toList().chunked(3).joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
+            File(dir, "facescan-synthetic-partial-reference.json").writeText(
+                "{\"vertices\":$vertices,\"faces\":$faces,\"sourceIndices\":${mesh.sourceIndices.toList()}}")
+        }
+        val obj = String(bytes, Charsets.UTF_8).lines()
+        assertEquals(mesh.vertices.size, obj.count { it.startsWith("v ") })
+        assertEquals(mesh.triangles.size / 3, obj.count { it.startsWith("f ") })
+        // Kollineare Gitterpunkte dürfen keine degenerierten Dreiecke erzeugen.
+        assertTrue(mesh.vertices.size in 400 until FaceTopology.VERTEX_COUNT)
+        assertTrue(mesh.triangles.isNotEmpty())
+        assertTrue(obj.any { it.contains("not validated") })
+    }
+
     @Test fun badTextureFailsAndObjHasOneBasedTrianglesAndNoPhoto() {
         val surface = recordSequence()
         for (texture in listOf(FaceTexture(byteArrayOf(1, 2), FloatArray(936)),

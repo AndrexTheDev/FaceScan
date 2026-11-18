@@ -406,6 +406,12 @@ fun MultiViewCaptureScreen(
                         MeshExportButton(ready, diagnostics, MeshExportFormat.GLB)
                         Text(stringResource(R.string.multiview_export_glb_note),
                             style = MaterialTheme.typography.bodySmall)
+                        // PLY trägt die Unsicherheit je Punkt als Grauwert.
+                        if (ready.referenceRotation != null && ready.referenceTranslation != null) {
+                            MeshExportButton(ready, diagnostics, MeshExportFormat.PLY)
+                            Text(stringResource(R.string.multiview_export_ply_note),
+                                style = MaterialTheme.typography.bodySmall)
+                        }
                     } else Text(stringResource(R.string.multiview_failed))
                     OutlinedButton(onClick = { result = null; onCancel() }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.multiview_close))
@@ -443,7 +449,10 @@ private fun MeshExportButton(result: MultiViewCapture.Result, diagnostics: TestD
         } else diagnostics.scanEvent(ScanEvent.EXPORT_CANCELLED)
     }
     Button(onClick = { launcher.launch(format.fileName) }, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(if (format == MeshExportFormat.OBJ) R.string.multiview_export_obj
-            else R.string.multiview_export_glb))
+        Text(stringResource(when (format) {
+            MeshExportFormat.OBJ -> R.string.multiview_export_obj
+            MeshExportFormat.GLB -> R.string.multiview_export_glb
+            MeshExportFormat.PLY -> R.string.multiview_export_ply
+        }))
     }
 }

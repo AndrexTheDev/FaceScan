@@ -1,5 +1,7 @@
 package com.andrexthedev.facescan.scan
 
+import com.andrexthedev.facescan.geometry.Mat3
+
 import com.andrexthedev.facescan.geometry.MultiViewPointCloud
 import com.andrexthedev.facescan.geometry.MultiViewTriangulation
 
@@ -337,6 +339,40 @@ class FaceScanTest {
                     "\"non_manifold_edges\":${topology.nonManifoldEdges},\"components\":${topology.components}," +
                     "\"largest_component_triangles\":${topology.largestComponentTriangles}}}")
         }
+    }
+
+    @Test fun syntheticMultiviewPartialPlyIsExportedForIndependentParsing() {
+        // Dieselbe künstliche Wolke wie beim OBJ, damit der PLY-Parser gegen
+        // dieselben Zahlen prüfen kann.
+        val clouds = (0 until FaceTopology.VERTEX_COUNT).map { i ->
+            if (i % 97 == 0) MultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.INSUFFICIENT_VIEWS)
+            else MultiViewTriangulation.Result.Point(
+                doubleArrayOf((i % 26 - 12.5) * 0.3, (i / 26 - 9.0) * 0.3, 1.0 + (i % 7) * 0.1), 8.0, 0.0, 0.0)
+        }
+        val cloud = MultiViewPointCloud.Result(clouds, clouds.count { it is MultiViewTriangulation.Result.Point })
+        val mesh = PartialFaceMesh.build(cloud).mesh!!
+        // Identitätspose als Referenz: Tiefe = z des Punktes, Parallaxe 8 Grad.
+        val rotation = Mat3(DoubleArray(9) { if (it % 4 == 0) 1.0 else 0.0 })
+        val colors = PartialPlyWriter.uncertaintyColors(mesh, cloud, rotation, doubleArrayOf(0.0, 0.0, 0.0), 760.0)
+        assertTrue("mindestens ein Punkt braucht eine Schätzung", colors.known > 0)
+        val bytes = PartialPlyWriter.write(mesh, colors)
+        val positions = FloatArray(mesh.vertices.size * 3) { i -> mesh.vertices[i / 3][i % 3].toFloat() }
+        val written = PartialGlbWriter.floatSafeTriangles(positions, mesh.triangles)
+        val topology = PartialMeshTopology.inspect(mesh.vertices.size, written)
+        System.getenv("RUNNER_TEMP")?.let { dir ->
+            File(dir, "facescan-synthetic-partial.ply").writeBytes(bytes)
+            val vertices = mesh.vertices.joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
+            val faces = written.toList().chunked(3).joinToString(",", "[", "]") { row -> row.joinToString(",", "[", "]") }
+            val colorRows = (0 until colors.vertexCount).joinToString(",", "[", "]") { i ->
+                "[${colors.colors[3 * i].toInt() and 0xff},${colors.colors[3 * i + 1].toInt() and 0xff},${colors.colors[3 * i + 2].toInt() and 0xff}]"
+            }
+            File(dir, "facescan-synthetic-partial-ply-reference.json").writeText(
+                "{\"vertices\":$vertices,\"faces\":$faces,\"colors\":$colorRows," +
+                    "\"topology\":{\"boundary_edges\":${topology.boundaryEdges}," +
+                    "\"non_manifold_edges\":${topology.nonManifoldEdges},\"components\":${topology.components}," +
+                    "\"largest_component_triangles\":${topology.largestComponentTriangles}}}")
+        }
+        assertTrue(String(bytes, Charsets.ISO_8859_1).contains("element face ${written.size / 3}"))
     }
 
     @Test fun badTextureFailsAndObjHasOneBasedTrianglesAndNoPhoto() {

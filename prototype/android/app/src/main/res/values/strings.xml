@@ -182,5 +182,7 @@
     <string name="multiview_export_obj">Teilnetz als OBJ exportieren</string>
     <string name="multiview_export_glb">Teilnetz als GLB exportieren (statisch)</string>
     <string name="multiview_export_glb_note">Die GLB-Datei enthält nur die triangulierten Punkte und Flächen mit Normalen: keine Animation und keine Fototextur.</string>
+    <string name="multiview_export_ply">Teilnetz als PLY exportieren (mit Unsicherheitsfarbe)</string>
+    <string name="multiview_export_ply_note">Die PLY-Datei enthält dieselben Punkte und Flächen. Jeder Punkt ist grau eingefärbt nach der geschätzten Tiefenunsicherheit (heller = unsicherer); schwarz bedeutet \"keine Schätzung\". Die Skala ist relativ zum unsichersten Punkt der Datei, also ein Vergleichswert und keine Genauigkeitsangabe.</string>
     <string name="multiview_close">Zurück zur Startseite</string>
 </resources>

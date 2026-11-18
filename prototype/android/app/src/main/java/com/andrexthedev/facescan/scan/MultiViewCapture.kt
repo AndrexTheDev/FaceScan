@@ -2,6 +2,7 @@ package com.andrexthedev.facescan.scan
 
 import com.andrexthedev.facescan.geometry.AnchoredMultiView
 import com.andrexthedev.facescan.geometry.CameraModel
+import com.andrexthedev.facescan.geometry.Mat3
 import com.andrexthedev.facescan.geometry.ValidatedAnchorPose
 
 /**
@@ -64,7 +65,10 @@ object MultiViewCapture {
         /** Struktur des Teilnetzes; keine Qualitäts- oder Genauigkeitsaussage. */
         val topology: PartialMeshTopology.Report = PartialMeshTopology.Report(0, 0, 0, 0, 0, 0),
         /** Zonenabdeckung und Tiefenunsicherheit erster Ordnung; keine validierte Genauigkeit. */
-        val completeness: MultiViewCompleteness.Report? = null
+        val completeness: MultiViewCompleteness.Report? = null,
+        /** Pose der Referenzansicht für Tiefenangaben; null, wenn keine vorliegt. */
+        val referenceRotation: Mat3? = null,
+        val referenceTranslation: DoubleArray? = null
     )
     sealed class Outcome {
         data class Reconstructed(val result: Result) : Outcome()
@@ -147,12 +151,12 @@ object MultiViewCapture {
         // Referenz für die Tiefenangabe ist die erste übernommene Ansicht; ihre
         // Pose ist bereits geprüft. Kein Bericht, wenn keine Pose vorliegt.
         val referenceIndex = anchored.acceptedViewIndices.firstOrNull()
-        val completeness = referenceIndex?.let { index ->
-            (anchored.poses[index] as? ValidatedAnchorPose.Result.Pose)?.let { pose ->
-                MultiViewCompleteness.analyze(cloud, pose.transform.rotation, pose.transform.translation, intrinsics.fx)
-            }
+        val referencePose = referenceIndex?.let { anchored.poses[it] as? ValidatedAnchorPose.Result.Pose }
+        val completeness = referencePose?.let { pose ->
+            MultiViewCompleteness.analyze(cloud, pose.transform.rotation, pose.transform.translation, intrinsics.fx)
         }
-        return Outcome.Reconstructed(Result(surface, accepted, cloud, intrinsics, worst, topology, completeness))
+        return Outcome.Reconstructed(Result(surface, accepted, cloud, intrinsics, worst, topology, completeness,
+            referencePose?.transform?.rotation, referencePose?.transform?.translation))
     }
 
     /**

@@ -181,5 +181,7 @@
     <string name="multiview_export_obj">Export partial mesh as OBJ</string>
     <string name="multiview_export_glb">Export partial mesh as GLB (static)</string>
     <string name="multiview_export_glb_note">The GLB file contains only the triangulated points and faces with normals: no animation and no photo texture.</string>
+    <string name="multiview_export_ply">Export partial mesh as PLY (with uncertainty colour)</string>
+    <string name="multiview_export_ply_note">The PLY file contains the same points and faces. Each point is shaded grey by its estimated depth uncertainty (lighter = less certain); black means \"no estimate\". The scale is relative to the least certain point in the file, so it is a comparison, not an accuracy statement.</string>
     <string name="multiview_close">Back to start</string>
 </resources>

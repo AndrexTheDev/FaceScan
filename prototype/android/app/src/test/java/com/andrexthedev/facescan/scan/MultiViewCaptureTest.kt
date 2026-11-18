@@ -388,6 +388,70 @@ class MultiViewCaptureTest {
         assertTrue(glb.contains("\"samples\":0"))
     }
 
+    @Test fun plyWriterEmitsBinaryTrianglesWithUncertaintyColours() {
+        val outcome = MultiViewCapture.reconstruct(listOf(view(0.0), view(-22.0), view(24.0)), intrinsics)
+            as MultiViewCapture.Outcome.Reconstructed
+        val result = outcome.result
+        val mesh = result.surface.mesh!!
+        val colors = PartialPlyWriter.uncertaintyColors(mesh, result.cloud,
+            result.referenceRotation!!, result.referenceTranslation!!, intrinsics.fx)
+        assertEquals(mesh.vertices.size, colors.vertexCount)
+        assertEquals(mesh.vertices.size, colors.known + colors.unknown)
+        // Graustufen im erlaubten Bereich; 0 ist für "keine Schätzung" reserviert.
+        for (i in 0 until colors.vertexCount) {
+            val r = colors.colors[3 * i].toInt() and 0xff
+            assertEquals(r, colors.colors[3 * i + 1].toInt() and 0xff)
+            assertEquals(r, colors.colors[3 * i + 2].toInt() and 0xff)
+            assertTrue(r == PartialPlyWriter.UNKNOWN_SHADE || r in 25..255)
+        }
+        val bytes = PartialPlyWriter.write(mesh, colors)
+        val text = String(bytes, Charsets.ISO_8859_1)
+        assertTrue(text.startsWith("ply\nformat binary_little_endian 1.0\n"))
+        assertTrue(text.contains("element vertex ${mesh.vertices.size}"))
+        assertTrue(text.contains("property uchar red"))
+        assertTrue(text.contains("uncertaintyKnown ${colors.known} uncertaintyUnknown ${colors.unknown}"))
+        val headerLength = text.indexOf("end_header\n") + "end_header\n".length
+        // 3 Float32 + 3 Byte je Vertex, 1 Byte Anzahl + 3 Int32 je Dreieck.
+        assertEquals(mesh.vertices.size * 15 + mesh.triangles.size / 3 * 13, bytes.size - headerLength)
+        assertEquals("application/octet-stream", MeshExportFormat.PLY.mimeType)
+        assertNotNull(result.encodeExport(MeshExportFormat.PLY))
+    }
+
+    @Test fun plyWithoutReferencePoseOmitsColoursInsteadOfInventingThem() {
+        val outcome = MultiViewCapture.reconstruct(listOf(view(0.0), view(-22.0)), intrinsics)
+            as MultiViewCapture.Outcome.Reconstructed
+        val mesh = outcome.result.surface.mesh!!
+        val bytes = PartialPlyWriter.write(mesh)
+        val text = String(bytes, Charsets.ISO_8859_1)
+        // Ohne Schätzung gibt es keine Farbkanäle und keinen erfundenen Wert.
+        assertTrue(text.contains("comment no colour channel: no uncertainty estimate available"))
+        assertTrue(!text.contains("property uchar red"))
+        val headerLength = text.indexOf("end_header\n") + "end_header\n".length
+        assertEquals(mesh.vertices.size * 12 + mesh.triangles.size / 3 * 13, bytes.size - headerLength)
+    }
+
+    @Test fun plyUncertaintyColoursScaleWithTheWorstPoint() {
+        val outcome = MultiViewCapture.reconstruct(listOf(view(0.0), view(-22.0), view(24.0)), intrinsics)
+            as MultiViewCapture.Outcome.Reconstructed
+        val result = outcome.result
+        val mesh = result.surface.mesh!!
+        val colors = PartialPlyWriter.uncertaintyColors(mesh, result.cloud,
+            result.referenceRotation!!, result.referenceTranslation!!, intrinsics.fx)
+        val shades = (0 until colors.vertexCount).map { colors.colors[3 * it].toInt() and 0xff }
+        if (colors.known > 1) {
+            // Relative Skala: der unsicherste Punkt ist weiß, keiner ist schwarz.
+            assertEquals(255, shades.max())
+            assertEquals(0, colors.unknown)
+            assertTrue("Sicherster Punkt muss mindestens 25 sein", shades.min()!! >= 25)
+        }
+        // Ohne gültige Brennweite gibt es keine Schätzung und damit keine Farbe.
+        val invalid = PartialPlyWriter.uncertaintyColors(mesh, result.cloud,
+            result.referenceRotation!!, result.referenceTranslation!!, Double.NaN)
+        assertEquals(0, invalid.known)
+        assertEquals(mesh.vertices.size, invalid.unknown)
+        assertTrue(invalid.colors.all { it == 0.toByte() })
+    }
+
     @Test fun topologyReportsBoundaryNonManifoldAndComponents() {
         // Ein einzelnes Dreieck hat drei Randkanten und eine Komponente.
         val single = PartialMeshTopology.inspect(3, intArrayOf(0, 1, 2))

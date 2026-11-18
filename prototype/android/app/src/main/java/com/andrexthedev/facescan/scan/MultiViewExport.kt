@@ -7,7 +7,9 @@ package com.andrexthedev.facescan.scan
  */
 enum class MeshExportFormat(val mimeType: String, val fileName: String) {
     OBJ("model/obj", "facescan-multiview.obj"),
-    GLB("model/gltf-binary", "facescan-multiview.glb")
+    GLB("model/gltf-binary", "facescan-multiview.glb"),
+    /** Binäres PLY mit Unsicherheit als Vertexfarbe; setzt eine Referenzpose voraus. */
+    PLY("application/octet-stream", "facescan-multiview.ply")
 }
 
 /**
@@ -19,5 +21,12 @@ fun MultiViewCapture.Result.encodeExport(format: MeshExportFormat): ByteArray? {
     return when (format) {
         MeshExportFormat.OBJ -> MultiViewCapture.writeObjWithHeader(this)
         MeshExportFormat.GLB -> PartialGlbWriter.write(mesh, completeness = completeness)
+        MeshExportFormat.PLY -> {
+            val rotation = referenceRotation
+            val translation = referenceTranslation
+            val colors = if (rotation != null && translation != null)
+                PartialPlyWriter.uncertaintyColors(mesh, cloud, rotation, translation, intrinsics.fx) else null
+            PartialPlyWriter.write(mesh, colors)
+        }
     }
 }

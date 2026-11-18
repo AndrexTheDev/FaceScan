@@ -11,16 +11,22 @@
     <string name="cd_start_scan">Start demo</string>
 
     <!-- Camera permission -->
-    <string name="camera_permission_title">Camera preview</string>
-    <string name="camera_permission_explanation">FaceScan needs camera access for the preview. In this demo images are neither saved nor processed for a face scan. You can decline and go back.</string>
+    <string name="camera_permission_title">Camera preview and face detection</string>
+    <string name="camera_permission_explanation">FaceScan needs camera access for the preview. If the model is present, the demo checks camera images for a face on this device only. Images and face points are not saved. You can decline and go back.</string>
     <string name="camera_permission_request">Allow camera</string>
     <string name="camera_permission_settings_hint">If the system prompt no longer appears, you can change the permission in app settings.</string>
     <string name="camera_permission_settings">Open app settings</string>
     <string name="camera_error">The front camera could not be started. Please check the permission and try again.</string>
 
+    <string name="face_waiting">Demo: Waiting for camera frames and detection.</string>
+    <string name="face_not_found">Demo: No face detected. No 3D model is created.</string>
+    <string name="face_found">Demo: Face detected. No 3D model is created yet.</string>
+    <string name="face_model_missing">Demo: Model missing – face detection is unavailable. Preview works without the model.</string>
+    <string name="face_error">Demo: Face detection failed. You can still use the preview and demo.</string>
+
     <!-- Capture -->
     <string name="capture_hint_default">Demo: face points are not captured yet.</string>
-    <string name="capture_done">Done</string>
+    <string name="capture_done">Continue demo</string>
     <string name="common_cancel">Cancel</string>
 
     <!-- Processing -->

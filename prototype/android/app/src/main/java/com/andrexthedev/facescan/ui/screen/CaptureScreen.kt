@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -20,8 +19,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -39,15 +39,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.camera.view.PreviewView
+import androidx.core.content.ContextCompat
+import android.os.SystemClock
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.delay
 import com.andrexthedev.facescan.R
 import com.andrexthedev.facescan.capture.CameraController
+import com.andrexthedev.facescan.perception.FaceFrameAnalyzer
+import com.andrexthedev.facescan.perception.FaceStatus
 import com.andrexthedev.facescan.ui.theme.FaceScanColors
 
 /**
  * Aufnahme-Assistent.
  *
- * Alles, was der Nutzer sieht: eine Kopf-Silhouette, ein Fortschrittsbogen und
- * EINE Ampel mit EINEM Satz. Keine Zahlen, keine Fachbegriffe (docs/07).
+ * Kamera-Vorschau mit experimenteller Gesichtserkennung. Es werden noch
+ * keine Daten für die spätere 3D-Rekonstruktion gesammelt.
  */
 @Composable
 fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
@@ -55,12 +61,50 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val controller = remember { CameraController(context) }
 
-    var progress by remember { mutableFloatStateOf(0.12f) }   // 0..1
     var cameraError by remember { mutableStateOf(false) }
-    val ampel = if (cameraError) Ampel.RED else Ampel.YELLOW
+    var faceStatus by remember { mutableStateOf(FaceStatus.WAITING) }
+    var lastObservation by remember { mutableLongStateOf(0L) }
+    val active = remember { AtomicBoolean(true) }
+    val mainExecutor = remember { ContextCompat.getMainExecutor(context) }
+    val analyzer = remember {
+        FaceFrameAnalyzer(context.applicationContext, active) { status ->
+            mainExecutor.execute {
+                if (active.get()) {
+                    faceStatus = status
+                    if (status == FaceStatus.FACE || status == FaceStatus.NO_FACE) {
+                        lastObservation = SystemClock.elapsedRealtime()
+                    }
+                }
+            }
+        }
+    }
+    // Alte Erkennungen nicht dauerhaft als aktuell anzeigen, z. B. wenn
+    // die Kamera pausiert oder keine Frames mehr liefert.
+    LaunchedEffect(faceStatus, lastObservation) {
+        if (faceStatus == FaceStatus.FACE || faceStatus == FaceStatus.NO_FACE) {
+            delay(2000)
+            faceStatus = FaceStatus.WAITING
+        }
+    }
+    val ampel = when {
+        cameraError || faceStatus == FaceStatus.ERROR -> Ampel.RED
+        faceStatus == FaceStatus.FACE -> Ampel.GREEN
+        else -> Ampel.YELLOW
+    }
+    val hint = when {
+        cameraError -> R.string.camera_error
+        faceStatus == FaceStatus.WAITING -> R.string.face_waiting
+        faceStatus == FaceStatus.NO_FACE -> R.string.face_not_found
+        faceStatus == FaceStatus.FACE -> R.string.face_found
+        faceStatus == FaceStatus.MISSING_MODEL -> R.string.face_model_missing
+        else -> R.string.face_error
+    }
 
-    DisposableEffect(Unit) {
-        onDispose { controller.shutdown() }
+    DisposableEffect(controller, analyzer) {
+        onDispose {
+            active.set(false)
+            controller.shutdown { analyzer.close() }
+        }
     }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -70,8 +114,7 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
             factory = { ctx ->
                 PreviewView(ctx).also { previewView ->
                     controller.bind(lifecycleOwner, previewView.surfaceProvider, onError = { cameraError = true }) { proxy ->
-                        // Demo: Frames werden noch nicht verarbeitet; CameraX muss sie freigeben.
-                        proxy.close()
+                        analyzer.analyse(proxy)
                     }
                 }
             }
@@ -89,17 +132,6 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
                 topLeft = Offset(centerX - radius * 0.78f, centerY - radius),
                 size = Size(radius * 1.56f, radius * 1.9f),
                 style = Stroke(width = 3.dp.toPx())
-            )
-
-            // Fortschrittsbogen (Gold)
-            drawArc(
-                color = FaceScanColors.JamaicaGold,
-                startAngle = -90f,
-                sweepAngle = 360f * progress,
-                useCenter = false,
-                topLeft = Offset(centerX - radius * 1.35f, centerY - radius * 1.35f),
-                size = Size(radius * 2.7f, radius * 2.7f),
-                style = Stroke(width = 10.dp.toPx())
             )
         }
 
@@ -128,7 +160,7 @@ fun CaptureScreen(onCancel: () -> Unit, onFinished: () -> Unit) {
                     )
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        text = stringResource(if (cameraError) R.string.camera_error else R.string.capture_hint_default),
+                        text = stringResource(hint),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )

@@ -166,9 +166,18 @@ class CameraController(private val context: Context) {
     }
 
     /** Verhindert auch ein verspätetes Binden nach Verlassen des Bildschirms. */
-    fun shutdown() {
+    fun shutdown(onAnalyzerClosed: () -> Unit = {}) {
         session.close {
             releaseUseCases()
+            // Nach allen bereits angenommenen Frames auf demselben Thread
+            // schließen, auf dem der Landmarker initialisiert wurde.
+            analyzerExecutor.execute {
+                try {
+                    onAnalyzerClosed()
+                } catch (e: Exception) {
+                    android.util.Log.e("FaceScan", "Analyzer konnte nicht geschlossen werden", e)
+                }
+            }
             analyzerExecutor.shutdown()
         }
     }

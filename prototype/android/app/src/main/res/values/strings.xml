@@ -12,16 +12,22 @@
     <string name="cd_start_scan">Demo starten</string>
 
     <!-- Camera permission -->
-    <string name="camera_permission_title">Kameravorschau</string>
-    <string name="camera_permission_explanation">Für die Vorschau benötigt FaceScan Zugriff auf deine Kamera. In dieser Demo werden die Bilder weder gespeichert noch für einen Gesichtsscan verarbeitet. Du kannst die Erlaubnis verweigern und zurückgehen.</string>
+    <string name="camera_permission_title">Kameravorschau und Gesichtserkennung</string>
+    <string name="camera_permission_explanation">Für die Vorschau benötigt FaceScan Zugriff auf deine Kamera. Falls das Modell vorhanden ist, prüft die Demo die Kamerabilder auf ein Gesicht – nur auf dem Gerät. Bilder und Gesichtspunkte werden nicht gespeichert. Du kannst ablehnen und zurückgehen.</string>
     <string name="camera_permission_request">Kamera erlauben</string>
     <string name="camera_permission_settings_hint">Wenn die Systemanfrage nicht mehr erscheint, kannst du die Erlaubnis in den App-Einstellungen ändern.</string>
     <string name="camera_permission_settings">App-Einstellungen öffnen</string>
     <string name="camera_error">Die Frontkamera konnte nicht gestartet werden. Bitte prüfe die Berechtigung und versuche es erneut.</string>
 
+    <string name="face_waiting">Demo: Warte auf Kamerabilder und Erkennung.</string>
+    <string name="face_not_found">Demo: Kein Gesicht erkannt. Es wird kein 3D-Modell erstellt.</string>
+    <string name="face_found">Demo: Gesicht erkannt. Es wird noch kein 3D-Modell erstellt.</string>
+    <string name="face_model_missing">Demo: Modell fehlt – Gesichtserkennung nicht verfügbar. Die Vorschau funktioniert ohne Modell.</string>
+    <string name="face_error">Demo: Gesichtserkennung fehlgeschlagen. Vorschau und Demo können weiter genutzt werden.</string>
+
     <!-- Capture -->
     <string name="capture_hint_default">Demo: Es werden noch keine Gesichtspunkte erfasst.</string>
-    <string name="capture_done">Fertig</string>
+    <string name="capture_done">Demo fortsetzen</string>
     <string name="common_cancel">Abbrechen</string>
 
     <!-- Processing -->

@@ -146,8 +146,9 @@
     <string name="multiview_limitations">This reconstruction uses a canonical average face as reference. It is not a measurement of your face: shape and scale differ per person and are not validated. It produces an open partial mesh with possible holes, no hair, back of head, photo or animation. No identity check: use one person in one calm session only.</string>
     <string name="multiview_status">Views: %1$d of at most %2$d; estimated head-turn spread %3$.0f degrees.</string>
     <string name="multiview_assumed_intrinsics">Assumed focal length: %1$.0f px (from a 60 degree vertical field of view; not a calibration).</string>
-    <string name="multiview_live_far">Pose is sufficiently different – capture possible.</string>
-    <string name="multiview_live_near">Please turn your head further.</string>
+    <string name="multiview_live_far">Estimated head turn %1$.0f degrees: sufficiently different, capture possible.</string>
+    <string name="multiview_live_near">Estimated head turn %1$.0f degrees, difference to the nearest view %2$.0f degrees – please turn further.</string>
+    <string name="multiview_live_first">Estimated head turn %1$.0f degrees. The first view defines the reference.</string>
     <string name="multiview_prepare">Prepare views</string>
     <string name="multiview_intrinsics_ready">Ready. Capture frontal first, then turn your head.</string>
     <string name="multiview_capture_view">Capture current head pose</string>

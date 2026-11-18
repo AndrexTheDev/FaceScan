@@ -116,8 +116,8 @@ fun MultiViewCaptureScreen(
                 if (current != null && !capturingRef.get()) {
                     // Grobe Live-Orientierung, gedrosselt; keine Messung.
                     val now = SystemClock.elapsedRealtime()
-                    if (now - lastGuidanceAt >= 600L) {
-                        lastGuidanceAt = now
+                    if (now - lastGuidanceAt.get() >= 600L) {
+                        lastGuidanceAt.set(now)
                         val guidance = try { current.guidance(frame.points, frame.width, frame.height) }
                             catch (_: Exception) { null }
                         if (guidance != null) mainExecutor.execute {

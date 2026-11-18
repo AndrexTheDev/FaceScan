@@ -1,6 +1,6 @@
 # FaceScan – Android-Test-App
 
-Die Test-App dient dazu, **Kameravorschau und experimentelle Gesichtserkennung auf einem echten Android-Gerät zu prüfen** und einen technischen Bericht freiwillig zu teilen. Sie erstellt noch kein 3D-Modell; Rekonstruktion, Animation und Export sind nicht implementiert. Der Erkennungsweg wurde bisher nicht auf einem Gerät verifiziert. Ein grüner CI-Build ersetzt diesen Test nicht.
+Die Test-App dient dazu, **Kameravorschau und experimentelle Gesichtserkennung auf einem echten Android-Gerät zu prüfen** und einen technischen Bericht freiwillig zu teilen. Sie erstellt noch kein 3D-Modell; Rekonstruktion, Animation und Export sind nicht implementiert. Der Erkennungsweg wurde auf einem Android-Emulator mit künstlichen Bildern geprüft, aber noch nicht auf einem echten Telefon. Ein grüner CI-Lauf ersetzt den Gerätetest nicht.
 
 ## Installation und erster Test
 
@@ -32,4 +32,8 @@ Der Workflow [`.github/workflows/apk.yml`](../../.github/workflows/apk.yml) test
 gh workflow run apk.yml --ref arena/ee31e880-facescan -f release=true
 ```
 
-Die Unit-Tests prüfen u. a. Cache-Wiederverwendung, fehlerhafte Prüfsummen, Größenbegrenzung, Download-Fehler, Frame-Timing und den Schutz vor verspäteter Kamera-Bindung. Ein Gerätetest für Download, Kamera, Gesichtserkennung und Teilen bleibt erforderlich.
+Die Unit-Tests prüfen u. a. Cache-Wiederverwendung, fehlerhafte Prüfsummen, Größenbegrenzung, Download-Fehler, Frame-Timing und den Schutz vor verspäteter Kamera-Bindung.
+
+Der separate Workflow [Android-Emulatortest](../../.github/workflows/android-device-test.yml) prüft auf Android 11 mit x86-Emulator: Erststart ohne Netz, tatsächlichen Download und Integrität, Inferenz auf einem schwarzen Testbild, Bericht und Kopierfunktion, Offline-Start mit Modell-Cache sowie Kameraframes aus der emulierten Frontkamera. Künstliche Bilder ersetzen weder ein menschliches Gesicht noch einen Test auf echter Hardware. Ein Gerätetest einschließlich Erkennungsqualität und manuellem Teilen bleibt erforderlich.
+
+MediaPipe 0.10.14 enthält native Bibliotheken für `arm64-v8a`, `armeabi-v7a` und `x86`, aber nicht für `x86_64`. Die APK ist deshalb auf diese drei ABIs begrenzt; ein x86-64-Gerät benötigt 32-Bit-x86-Unterstützung. Reine x86-64-Geräte ohne x86-Unterstützung werden nicht unterstützt. Ein CI-Check verhindert, dass eine nicht passende ABI-Auswahl versehentlich ausgeliefert wird.

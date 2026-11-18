@@ -106,7 +106,7 @@ jobs:
             echo "::notice title=Gradle-Versuch gescheitert::Versuch $versuch von 3 fehlgeschlagen; Ursache im Build-Protokoll prüfen"
             [ "$versuch" -lt 3 ] && sleep 30
           done
-          echo "::notice title=Testergebnis::$(grep -c 'PASSED' build.log 2>/dev/null) bestanden"
+          echo "::notice title=Testergebnis::Gradle-Exitcode $rc; Details im Testbericht-Artefakt"
           exit $rc
 
       - name: Testergebnis hochladen

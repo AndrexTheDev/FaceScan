@@ -1,11 +1,13 @@
 package com.andrexthedev.facescan.ui.screen
 
 import android.net.Uri
+import android.graphics.BitmapFactory
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -41,6 +44,7 @@ import com.andrexthedev.facescan.scan.FaceSurface
 import com.andrexthedev.facescan.scan.FaceTopology
 import com.andrexthedev.facescan.scan.FaceSequencePlayback
 import com.andrexthedev.facescan.scan.GlbWriter
+import com.andrexthedev.facescan.scan.ObjWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -68,26 +72,28 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
             }
         }
     }
-    val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/gltf-binary")) { uri: Uri? ->
-        if (uri != null && !writing) {
-            writing = true
-            scope.launch {
-                try {
-                    withContext(Dispatchers.IO) {
-                        val data = GlbWriter.write(surface)
-                        val stream = context.contentResolver.openOutputStream(uri, "w") ?: error("No output stream")
-                        stream.use { it.write(data) }
-                    }
-                    feedback = context.getString(R.string.scan_export_ok)
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    feedback = context.getString(R.string.scan_export_error)
-                } finally {
-                    writing = false
+    fun export(uri: Uri?, obj: Boolean) {
+        if (uri == null || writing) return
+        writing = true
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val data = if (obj) ObjWriter.write(surface) else GlbWriter.write(surface)
+                    val stream = context.contentResolver.openOutputStream(uri, "w") ?: error("No output stream")
+                    stream.use { it.write(data) }
                 }
-            }
+                feedback = context.getString(if (obj) R.string.scan_obj_ok else R.string.scan_export_ok)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                feedback = context.getString(R.string.scan_export_error)
+            } finally { writing = false }
         }
+    }
+    val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/gltf-binary")) { uri: Uri? -> export(uri, false) }
+    val saveObj = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/obj")) { uri: Uri? -> export(uri, true) }
+    val textureBitmap = remember(surface.texture) {
+        surface.texture?.jpeg?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
     }
     BackHandler { if (!writing) onClose() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -121,6 +127,11 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
             }
         }
         Text(stringResource(R.string.scan_preview_hint))
+        if (textureBitmap != null) {
+            Text(stringResource(R.string.scan_texture_preview))
+            Image(bitmap = textureBitmap, contentDescription = stringResource(R.string.scan_texture_description),
+                modifier = Modifier.fillMaxWidth().height(180.dp))
+        }
         Slider(value = weight, onValueChange = { playing = false; weight = it })
         Button(onClick = { playing = !playing }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(if (playing) R.string.scan_pause else R.string.scan_play))
@@ -128,6 +139,9 @@ fun ScanReviewScreen(surface: FaceSurface, onClose: () -> Unit) {
         Button(onClick = {
             try { save.launch("facescan.glb") } catch (_: Exception) { feedback = context.getString(R.string.scan_export_error) }
         }, enabled = !writing, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_export)) }
+        OutlinedButton(onClick = {
+            try { saveObj.launch("facescan-neutral.obj") } catch (_: Exception) { feedback = context.getString(R.string.scan_export_error) }
+        }, enabled = !writing, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_export_obj)) }
         if (feedback.isNotEmpty()) Text(feedback)
         OutlinedButton(onClick = onClose, enabled = !writing, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.scan_discard))

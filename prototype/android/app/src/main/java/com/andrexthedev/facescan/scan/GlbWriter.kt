@@ -18,6 +18,13 @@ object GlbWriter {
         val deltas = keys.drop(1).map { key ->
             FloatArray(n * 3) { key.points[it] - surface.neutral[it] }.also { require(it.all(Float::isFinite)) }
         }
+        val texture = surface.texture
+        if (texture != null) {
+            require(texture.jpeg.size in 1..FaceTextureCapture.MAX_JPEG_BYTES)
+            require(texture.jpeg.size >= 4 && texture.jpeg[0] == 0xff.toByte() && texture.jpeg[1] == 0xd8.toByte() &&
+                texture.jpeg[texture.jpeg.size - 2] == 0xff.toByte() && texture.jpeg.last() == 0xd9.toByte())
+            require(texture.uv.size == n * 2 && texture.uv.all { it.isFinite() && it in 0f..1f })
+        }
         val indices = FaceTopology.triangles
         require(indices.isNotEmpty() && indices.size % 3 == 0 && indices.all { it in 0 until n })
 
@@ -44,6 +51,8 @@ object GlbWriter {
         val weights = FloatArray(keys.size * targetCount)
         for (i in 1 until keys.size) weights[i * targetCount + i - 1] = 1f
         val weightsOffset = binary.size(); floats(weights); align()
+        val uvOffset = if (texture != null) binary.size().also { floats(texture.uv); align() } else null
+        val imageOffset = if (texture != null) binary.size().also { binary.write(texture.jpeg); align() } else null
         val bytes = binary.toByteArray()
         val (min, max) = bounds(surface.neutral)
         val views = mutableListOf(
@@ -65,16 +74,29 @@ object GlbWriter {
         accessors.add("{\"bufferView\":$timesAccessor,\"componentType\":5126,\"count\":${keys.size},\"type\":\"SCALAR\",\"min\":[0],\"max\":[${keys.last().seconds}]}")
         val weightsAccessor = accessors.size
         accessors.add("{\"bufferView\":$weightsAccessor,\"componentType\":5126,\"count\":${weights.size},\"type\":\"SCALAR\"}")
+        val textureAccessor = if (texture != null) {
+            val uvView = views.size
+            views.add("{\"buffer\":0,\"byteOffset\":$uvOffset,\"byteLength\":${n * 8},\"target\":34962}")
+            val imageView = views.size
+            views.add("{\"buffer\":0,\"byteOffset\":$imageOffset,\"byteLength\":${texture.jpeg.size}}")
+            val accessor = accessors.size
+            accessors.add("{\"bufferView\":$uvView,\"componentType\":5126,\"count\":$n,\"type\":\"VEC2\"}")
+            accessor to imageView
+        } else null
         val targetJson = deltas.indices.joinToString(",") { "{\"POSITION\":${it + 2}}" }
         val targetNames = deltas.indices.joinToString(",") { "\"frame_${it + 1}\"" }
         val zeros = deltas.indices.joinToString(",") { "0" }
+        val texAttr = textureAccessor?.let { ",\"TEXCOORD_0\":${it.first}" } ?: ""
+        val texData = textureAccessor?.let { ",\"images\":[{\"bufferView\":${it.second},\"mimeType\":\"image/jpeg\"}],\"textures\":[{\"source\":0,\"sampler\":0}],\"samplers\":[{\"wrapS\":33071,\"wrapT\":33071}]" } ?: ""
+        val baseColor = if (texture != null) "[1,1,1,1]" else "[0.75,0.62,0.55,1]"
+        val texMaterial = if (texture != null) ",\"baseColorTexture\":{\"index\":0}" else ""
         val json = """{
-"asset":{"version":"2.0","generator":"FaceScan prototype","extras":{"scale":"uncalibrated; one unit is eye distance","limitations":"single-view face surface; no texture, hair, back of head or validated metric accuracy"}},
+"asset":{"version":"2.0","generator":"FaceScan prototype","extras":{"scale":"uncalibrated; one unit is eye distance","limitations":"single-view face surface; optional single-view photograph, no hair, back of head or validated metric accuracy"}},
 "scene":0,"scenes":[{"nodes":[0]}],"nodes":[{"mesh":0,"name":"Face"}],
-"meshes":[{"name":"FaceSurface","weights":[$zeros],"extras":{"targetNames":[$targetNames]},"primitives":[{"attributes":{"POSITION":0},"indices":1,"material":0,"targets":[$targetJson]}]}],
-"materials":[{"name":"Face","doubleSided":true,"pbrMetallicRoughness":{"baseColorFactor":[0.75,0.62,0.55,1],"metallicFactor":0,"roughnessFactor":1}}],
+"meshes":[{"name":"FaceSurface","weights":[$zeros],"extras":{"targetNames":[$targetNames]},"primitives":[{"attributes":{"POSITION":0$texAttr},"indices":1,"material":0,"targets":[$targetJson]}]}],
+"materials":[{"name":"Face","doubleSided":true,"pbrMetallicRoughness":{"baseColorFactor":$baseColor,"metallicFactor":0,"roughnessFactor":1$texMaterial}}],
 "animations":[{"name":"RecordedExpression","samplers":[{"input":$timesAccessor,"output":$weightsAccessor,"interpolation":"LINEAR"}],"channels":[{"sampler":0,"target":{"node":0,"path":"weights"}}]}],
-"buffers":[{"byteLength":${bytes.size}}],"bufferViews":[${views.joinToString(",")}],"accessors":[${accessors.joinToString(",")}]}""".toByteArray(Charsets.UTF_8)
+"buffers":[{"byteLength":${bytes.size}}],"bufferViews":[${views.joinToString(",")}],"accessors":[${accessors.joinToString(",")}]$texData}""".toByteArray(Charsets.UTF_8)
         val jsonLength = (json.size + 3) and -4
         val total = 12 + 8 + jsonLength + 8 + bytes.size
         val out = ByteBuffer.allocate(total).order(ByteOrder.LITTLE_ENDIAN)

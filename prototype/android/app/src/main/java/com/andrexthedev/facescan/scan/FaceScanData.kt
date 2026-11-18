@@ -4,7 +4,8 @@ import kotlin.math.sqrt
 
 /** 468 ungespiegelte Landmarks auf dem aufrecht gedrehten Kamerabild, nur im RAM. */
 data class FaceFrame(val points: FloatArray, val width: Int, val height: Int, val atMs: Long)
-data class FaceSnapshot(val points: FloatArray, val width: Int, val height: Int, val jitterPx: Double, val samples: Int)
+data class FaceTexture(val jpeg: ByteArray, val uv: FloatArray)
+data class FaceSnapshot(val points: FloatArray, val width: Int, val height: Int, val jitterPx: Double, val samples: Int, val texture: FaceTexture? = null)
 data class FaceKeyframe(val seconds: Float, val points: FloatArray)
 data class FaceSurface(
     val neutral: FloatArray,
@@ -13,7 +14,8 @@ data class FaceSurface(
     val expressionJitterPx: Double,
     val sequence: List<FaceKeyframe> = emptyList(),
     // Interner Fit-Rest im Einheitsaugenabstand; kein 3D-Messfehler.
-    val maxAnchorRms: Double? = null
+    val maxAnchorRms: Double? = null,
+    val texture: FaceTexture? = null
 ) {
     /** Alte Zwei-Posen-Daten bleiben als explizite Übergangsanimation abspielbar. */
     fun keyframes(): List<FaceKeyframe> = if (sequence.isEmpty()) listOf(

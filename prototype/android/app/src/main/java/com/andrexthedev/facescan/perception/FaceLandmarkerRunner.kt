@@ -41,7 +41,7 @@ class FaceLandmarkerRunner(context: Context, modelFile: File) : AutoCloseable {
      * verlassen das Gerät nur beim ausdrücklich gewählten Export. MPImage.close()
      * gibt auch das Bitmap frei.
      */
-    fun detect(bitmap: Bitmap, rotationDegrees: Int, timestampMs: Long): FloatArray? {
+    fun detect(bitmap: Bitmap, rotationDegrees: Int, timestampMs: Long, onLandmarks: ((Bitmap, FloatArray) -> Unit)? = null): FloatArray? {
         val image = try {
             BitmapImageBuilder(bitmap).build()
         } catch (e: Exception) {
@@ -58,6 +58,7 @@ class FaceLandmarkerRunner(context: Context, modelFile: File) : AutoCloseable {
                         out[3 * i + 1] = point.y()
                         out[3 * i + 2] = point.z()
                     }
+                    onLandmarks?.invoke(bitmap, out)
                 }
             }
         }

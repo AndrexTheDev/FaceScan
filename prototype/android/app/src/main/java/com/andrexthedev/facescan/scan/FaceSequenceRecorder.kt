@@ -91,7 +91,7 @@ class FaceSequenceRecorder {
                     maxResidual = maxOf(maxResidual, aligned.anchorRms)
                     keys.add(FaceKeyframe((frame.atMs - startMs) / 1000f, aligned.points))
                 }
-                if (alignmentFailed) null else FaceSurface(neutralPoints, keys.last().points, neutral.jitterPx, 0.0, keys, maxResidual)
+                if (alignmentFailed) null else FaceSurface(neutralPoints, keys.last().points, neutral.jitterPx, 0.0, keys, maxResidual, neutral.texture)
             }
         } catch (_: IllegalArgumentException) { alignmentFailed = true; null }
         frames.clear(); dimensions = null

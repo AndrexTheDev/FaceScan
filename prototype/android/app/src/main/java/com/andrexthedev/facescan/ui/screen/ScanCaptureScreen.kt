@@ -44,6 +44,7 @@ import com.andrexthedev.facescan.scan.FaceFrameBuffer
 import com.andrexthedev.facescan.scan.FaceSnapshot
 import com.andrexthedev.facescan.scan.FaceSurface
 import com.andrexthedev.facescan.scan.FaceSequenceRecorder
+import com.andrexthedev.facescan.scan.FaceTextureRequest
 import com.andrexthedev.facescan.scan.NeutralCaptureQuality
 import kotlinx.coroutines.delay
 import java.io.File
@@ -57,6 +58,7 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
     val controller = remember { CameraController(context) }
     val buffer = remember { FaceFrameBuffer() }
     val recorder = remember { FaceSequenceRecorder() }
+    val textureRequest = remember { FaceTextureRequest() }
     val active = remember { AtomicBoolean(true) }
     val mainExecutor = remember { ContextCompat.getMainExecutor(context) }
     var status by remember { mutableStateOf(FaceStatus.WAITING) }
@@ -64,8 +66,22 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
     var neutral by remember { mutableStateOf<FaceSnapshot?>(null) }
     var feedback by remember { mutableStateOf("") }
     var recording by remember { mutableStateOf(false) }
+    var pendingTextureId by remember { mutableStateOf(0L) }
+    var pendingNeutral by remember { mutableStateOf<FaceSnapshot?>(null) }
     val analyzer = remember {
-        FaceFrameAnalyzer(context.applicationContext, modelFile, diagnostics, active, onFaceFrame = { frame -> buffer.add(frame); recorder.add(frame) }) { value ->
+        FaceFrameAnalyzer(context.applicationContext, modelFile, diagnostics, active,
+            onFaceFrame = { frame -> buffer.add(frame); recorder.add(frame) },
+            textureRequest = textureRequest,
+            onTexture = { id, texture -> mainExecutor.execute {
+                if (active.get() && id == pendingTextureId) {
+                    val base = pendingNeutral
+                    pendingTextureId = 0L; pendingNeutral = null
+                    if (base != null && texture != null) {
+                        neutral = base.copy(texture = texture)
+                        feedback = context.getString(R.string.scan_neutral_photo_saved, base.samples, base.jitterPx)
+                    } else feedback = context.getString(R.string.scan_photo_failed)
+                }
+            } }) { value ->
             mainExecutor.execute { if (active.get()) status = value }
         }
     }
@@ -74,6 +90,7 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
             active.set(false)
             buffer.add(null)
             recorder.cancel()
+            textureRequest.cancel()
             controller.shutdown { analyzer.close() }
         }
     }
@@ -81,6 +98,7 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) {
                 buffer.add(null)
+                textureRequest.cancel(); pendingTextureId = 0L; pendingNeutral = null
                 neutral = null
                 if (recording) {
                     recorder.cancel(); recording = false
@@ -90,6 +108,16 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
         }
         owner.lifecycle.addObserver(observer)
         onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(pendingTextureId) {
+        val id = pendingTextureId
+        if (id != 0L) {
+            delay(5000)
+            if (pendingTextureId == id) {
+                textureRequest.cancel(); pendingTextureId = 0L; pendingNeutral = null
+                feedback = context.getString(R.string.scan_photo_failed)
+            }
+        }
     }
     LaunchedEffect(recording) {
         if (recording) {
@@ -138,7 +166,24 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
                         neutral = sample
                         feedback = context.getString(R.string.scan_neutral_saved, sample.samples, sample.jitterPx)
                     }
-                }, enabled = !recording, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_neutral)) }
+                }, enabled = !recording && pendingTextureId == 0L, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_neutral)) }
+                OutlinedButton(onClick = {
+                    val sample = snapshot()
+                    if (sample == null) feedback = context.getString(R.string.scan_wait_samples)
+                    else if (!NeutralCaptureQuality.isUsable(sample)) {
+                        neutral = null; feedback = context.getString(R.string.scan_quality_retry)
+                    } else {
+                        neutral = null; pendingNeutral = sample
+                        pendingTextureId = textureRequest.request()
+                        feedback = context.getString(R.string.scan_photo_wait)
+                    }
+                }, enabled = !recording && pendingTextureId == 0L, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.scan_neutral_photo))
+                }
+                if (pendingTextureId != 0L) OutlinedButton(onClick = {
+                    textureRequest.cancel(); pendingTextureId = 0L; pendingNeutral = null
+                    feedback = context.getString(R.string.scan_photo_cancelled)
+                }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_photo_cancel)) }
                 Button(onClick = {
                     if (snapshot() == null) feedback = context.getString(R.string.scan_wait_samples)
                     else {
@@ -146,7 +191,7 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
                         recording = true
                         feedback = context.getString(R.string.scan_recording)
                     }
-                }, enabled = neutral != null && !recording, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_expression)) }
+                }, enabled = neutral != null && !recording && pendingTextureId == 0L, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_expression)) }
                 if (recording) OutlinedButton(onClick = {
                     recorder.cancel(); recording = false; feedback = context.getString(R.string.scan_record_cancelled)
                 }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_record_cancel)) }

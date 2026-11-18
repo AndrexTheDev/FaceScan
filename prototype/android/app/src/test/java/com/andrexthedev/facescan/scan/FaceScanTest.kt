@@ -3,6 +3,9 @@ package com.andrexthedev.facescan.scan
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
+import java.io.ByteArrayOutputStream
+import java.awt.image.BufferedImage
+import javax.imageio.ImageIO
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
@@ -170,4 +173,54 @@ class FaceScanTest {
         // unabhängigen Khronos glTF-Validator prüfen.
         System.getenv("RUNNER_TEMP")?.let { File(it, "facescan-synthetic.glb").writeBytes(glb) }
     }
+    @Test fun texturedGlbContainsEmbeddedJpegAndUvWithoutChangingMeshAnimation() {
+        val surface = recordSequence()
+        val image = BufferedImage(16, 16, BufferedImage.TYPE_INT_RGB)
+        for (y in 0 until 16) for (x in 0 until 16) image.setRGB(x, y, (x * 16 shl 16) or (y * 16 shl 8))
+        val jpeg = ByteArrayOutputStream().also { assertTrue(ImageIO.write(image, "jpg", it)) }.toByteArray()
+        val uv = FloatArray(468 * 2) { i -> if (i % 2 == 0) (i / 2 % 20) / 20f else (i / 2 / 20) / 24f }
+        val glb = GlbWriter.write(surface.copy(texture = FaceTexture(jpeg, uv)))
+        val input = ByteBuffer.wrap(glb).order(ByteOrder.LITTLE_ENDIAN)
+        assertEquals(0x46546c67, input.int); assertEquals(2, input.int); assertEquals(glb.size, input.int)
+        val jsonSize = input.int; assertEquals(0x4e4f534a, input.int)
+        val jsonBytes = ByteArray(jsonSize); input.get(jsonBytes)
+        val json = String(jsonBytes, Charsets.UTF_8)
+        assertTrue(json.contains("\"TEXCOORD_0\""))
+        assertTrue(json.contains("\"mimeType\":\"image/jpeg\""))
+        assertTrue(json.contains("\"baseColorTexture\""))
+        assertTrue(json.contains("\"animations\""))
+        val binarySize = input.int; assertEquals(0x004e4942, input.int); assertEquals(binarySize, input.remaining())
+        val binStart = input.position()
+        val trianglesBytes = FaceTopology.triangles.size * 2
+        val uvOffset = 468 * 12 + ((trianglesBytes + 3) and -4) + 16 * 468 * 12 + 17 * 4 + 272 * 4
+        for (i in uv.indices) assertEquals(uv[i], input.getFloat(binStart + uvOffset + i * 4), 0f)
+        val actualJpeg = ByteArray(jpeg.size)
+        input.position(binStart + uvOffset + uv.size * 4); input.get(actualJpeg)
+        assertArrayEquals(jpeg, actualJpeg)
+        System.getenv("RUNNER_TEMP")?.let { File(it, "facescan-synthetic-textured.glb").writeBytes(glb) }
+    }
+
+    @Test fun badTextureFailsAndObjHasOneBasedTrianglesAndNoPhoto() {
+        val surface = recordSequence()
+        for (texture in listOf(FaceTexture(byteArrayOf(1, 2), FloatArray(936)),
+            FaceTexture(byteArrayOf(-1, -40, -1, -39), FloatArray(936) { Float.NaN }))) {
+            try { GlbWriter.write(surface.copy(texture = texture)); fail("invalid texture accepted") } catch (_: IllegalArgumentException) { }
+        }
+        val obj = String(ObjWriter.write(surface), Charsets.UTF_8).lines()
+        assertEquals(468, obj.count { it.startsWith("v ") })
+        assertEquals(898, obj.count { it.startsWith("f ") })
+        val first = obj.first { it.startsWith("f ") }.split(" ").drop(1).map(String::toInt)
+        assertEquals(FaceTopology.triangles.take(3).map { it + 1 }, first)
+        assertTrue(obj.any { it.contains("Uncalibrated") })
+        assertFalse(obj.any { it.startsWith("mtllib ") })
+    }
+
+    @Test fun photoRequestIsExplicitOneShotAndCancellable() {
+        val request = FaceTextureRequest()
+        assertEquals(0L, request.take())
+        val id = request.request(); assertEquals(id, request.take()); assertEquals(0L, request.take())
+        val cancelled = request.request(); request.cancel(); assertEquals(0L, request.take())
+        assertTrue(request.request() > cancelled)
+    }
+
 }

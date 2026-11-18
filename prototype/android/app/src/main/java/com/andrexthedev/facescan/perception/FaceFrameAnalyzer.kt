@@ -10,6 +10,9 @@ import com.google.mediapipe.framework.MediaPipeException
 import java.io.File
 import com.andrexthedev.facescan.diagnostics.TestDiagnostics
 import com.andrexthedev.facescan.scan.FaceFrame
+import com.andrexthedev.facescan.scan.FaceTexture
+import com.andrexthedev.facescan.scan.FaceTextureCapture
+import com.andrexthedev.facescan.scan.FaceTextureRequest
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Statusanzeige der experimentellen Erkennung, kein Scan oder Qualitätsurteil. */
@@ -22,6 +25,8 @@ class FaceFrameAnalyzer(
     private val diagnostics: TestDiagnostics,
     private val active: AtomicBoolean,
     private val onFaceFrame: ((FaceFrame?) -> Unit)? = null,
+    private val textureRequest: FaceTextureRequest? = null,
+    private val onTexture: ((Long, FaceTexture?) -> Unit)? = null,
     private val onStatus: (FaceStatus) -> Unit
 ) : AutoCloseable {
     private val clock = FrameClock()
@@ -53,7 +58,13 @@ class FaceFrameAnalyzer(
             val width = bitmap.width
             val height = bitmap.height
             phase = "inference"
-            val points = runner!!.detect(bitmap, if (onFaceFrame == null) proxy.imageInfo.rotationDegrees else 0, timestamp)
+            val points = runner!!.detect(bitmap, if (onFaceFrame == null) proxy.imageInfo.rotationDegrees else 0, timestamp) { upright, landmarks ->
+                val id = textureRequest?.take() ?: 0L
+                if (id != 0L) {
+                    val texture = try { FaceTextureCapture.capture(upright, landmarks) } catch (_: Exception) { null }
+                    if (active.get()) onTexture?.invoke(id, texture)
+                }
+            }
             val found = points != null
             diagnostics.result(found, SystemClock.elapsedRealtime() - startedAt, frameStartedAt)
             if (active.get()) {

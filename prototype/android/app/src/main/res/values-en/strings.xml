@@ -38,7 +38,7 @@
 
     <string name="scan_start">Start experimental face scan</string>
     <string name="scan_capture_title">Capture face</string>
-    <string name="scan_capture_instruction">Hold phone and head steady, look straight ahead, and capture neutral first. Then start the four-second expression recording. Move your face, not your head. Images are not saved.</string>
+    <string name="scan_capture_instruction">Hold phone and head steady, look straight ahead, and capture neutral first. Optionally capture a face photo crop: it may contain background and is embedded in GLB export. Then start the four-second expression recording.</string>
     <string name="scan_face_ready">Face detected – hold still for capture.</string>
     <string name="scan_face_wait">Waiting for a face in the camera.</string>
     <string name="scan_wait_samples">Not enough recent face points yet. Hold still and try again.</string>
@@ -47,13 +47,13 @@
     <string name="scan_expression">2. Record expression for 4 seconds</string>
     <string name="scan_invalid">The face points cannot be used. Please capture again.</string>
     <string name="scan_review_title">Face surface (experimental)</string>
-    <string name="scan_limitations">Only the visible front-camera face surface: no texture, hair or back of head. Depth and scale are not metrically calibrated; absolute accuracy has not been measured. Experimental alignment cannot reliably separate head motion and perspective distortion from expression. The model stays in memory until export.</string>
+    <string name="scan_limitations">Only the visible front-camera face surface: no hair or back of head. Optional photo texture comes from one view and may include background and shadows. Depth and scale are not metrically calibrated; absolute accuracy has not been measured. Experimental alignment cannot reliably separate head motion and perspective from expression.</string>
     <string name="scan_jitter">Landmark variation during capture: neutral %1$.1f px, expression %2$.1f px. This is stability, not 3D accuracy.</string>
     <string name="scan_preview_hint">Drag to rotate. The slider follows the recorded sequence. Playback repeats the sequence and may jump at the end.</string>
     <string name="scan_play">Play sequence</string>
     <string name="scan_pause">Pause animation</string>
     <string name="scan_export">Export animated GLB</string>
-    <string name="scan_export_ok">GLB saved. It contains face data – share it deliberately.</string>
+    <string name="scan_export_ok">GLB saved. It contains face data and, if selected, the photo crop – share it deliberately.</string>
     <string name="scan_export_error">Export failed. An incomplete file may remain at the chosen destination; please check and try again.</string>
     <string name="scan_discard">Discard model and go back</string>
 
@@ -69,6 +69,17 @@
     <string name="scan_alignment_retry">Alignment failed: keep your head and phone steady, fit your face fully in view, and try recording again. This check is only a heuristic.</string>
     <string name="scan_alignment_residual">Largest alignment residual across 13 anchors: %1$.3f eye distances. Internal agreement, not measured 3D error.</string>
 
+    <string name="scan_neutral_photo">1. Capture neutral with photo crop</string>
+    <string name="scan_photo_wait">Waiting for the next detected face to capture the photo crop …</string>
+    <string name="scan_photo_failed">Photo crop failed. Try again or continue without a photo.</string>
+    <string name="scan_photo_cancel">Cancel photo capture</string>
+    <string name="scan_photo_cancelled">Photo capture cancelled.</string>
+    <string name="scan_neutral_photo_saved">Neutral and photo crop captured (%1$d frames, variation %2$.1f px). Ready to record expression.</string>
+    <string name="scan_texture_preview">Photo crop for GLB export (may show background):</string>
+    <string name="scan_texture_description">Captured face photo crop</string>
+    <string name="scan_export_obj">Export neutral surface as OBJ (no photo or animation)</string>
+    <string name="scan_obj_ok">OBJ saved. It contains face geometry – share it deliberately.</string>
+
     <!-- Home -->
     <string name="home_start_scan">START DEMO</string>
     <string name="home_open_project">Open project</string>
@@ -79,7 +90,7 @@
 
     <!-- Camera permission -->
     <string name="camera_permission_title">Camera preview and face detection</string>
-    <string name="camera_permission_explanation">FaceScan needs camera access for preview and scanning. Images are not saved. Face points and the model stay in memory during use; a file is written only if you explicitly export it. You can decline and go back.</string>
+    <string name="camera_permission_explanation">FaceScan needs camera access for preview and scanning. Face points and the model stay in memory during use. Only if you explicitly choose the photo option is a face photo crop captured in memory and embedded in GLB export. Data is saved only when you explicitly export. You can decline and go back.</string>
     <string name="camera_permission_request">Allow camera</string>
     <string name="camera_permission_settings_hint">If the system prompt no longer appears, you can change the permission in app settings.</string>
     <string name="camera_permission_settings">Open app settings</string>

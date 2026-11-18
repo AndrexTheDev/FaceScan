@@ -23,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +49,9 @@ import com.andrexthedev.facescan.scan.FaceTextureRequest
 import com.andrexthedev.facescan.scan.FaceTextureMatch
 import com.andrexthedev.facescan.scan.NeutralCaptureQuality
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -61,12 +65,14 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
     val recorder = remember { FaceSequenceRecorder() }
     val textureRequest = remember { FaceTextureRequest() }
     val active = remember { AtomicBoolean(true) }
+    val scope = rememberCoroutineScope()
     val mainExecutor = remember { ContextCompat.getMainExecutor(context) }
     var status by remember { mutableStateOf(FaceStatus.WAITING) }
     var cameraError by remember { mutableStateOf(false) }
     var neutral by remember { mutableStateOf<FaceSnapshot?>(null) }
     var feedback by remember { mutableStateOf("") }
     var recording by remember { mutableStateOf(false) }
+    var processingNeutral by remember { mutableStateOf(false) }
     var pendingTextureId by remember { mutableStateOf(0L) }
     var pendingNeutral by remember { mutableStateOf<FaceSnapshot?>(null) }
     val analyzer = remember {
@@ -124,15 +130,40 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
         if (recording) {
             delay(FaceSequenceRecorder.DURATION_MS + 300)
             val base = neutral
-            val result = if (base != null) recorder.finish(SystemClock.elapsedRealtime(), base) else null
+            val result = if (base != null) withContext(Dispatchers.Default) {
+                recorder.finish(SystemClock.elapsedRealtime(), base)
+            } else null
             recording = false
             if (result != null) onComplete(result)
             else feedback = context.getString(if (recorder.wasAlignmentFailure()) R.string.scan_alignment_retry else R.string.scan_record_interrupted)
         }
     }
-    fun snapshot(): FaceSnapshot? {
-        if (cameraError || status != FaceStatus.FACE) return null
-        return buffer.snapshot(SystemClock.elapsedRealtime())
+    fun captureNeutral(withPhoto: Boolean) {
+        if (processingNeutral) return
+        if (cameraError || status != FaceStatus.FACE) {
+            feedback = context.getString(R.string.scan_wait_samples)
+            return
+        }
+        processingNeutral = true
+        feedback = context.getString(R.string.scan_processing_neutral)
+        scope.launch {
+            try {
+                val sample = withContext(Dispatchers.Default) { buffer.snapshot(SystemClock.elapsedRealtime()) }
+                if (!active.get() || !owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@launch
+                if (cameraError || status != FaceStatus.FACE || sample == null) {
+                    neutral = null; feedback = context.getString(R.string.scan_wait_samples)
+                } else if (!NeutralCaptureQuality.isUsable(sample)) {
+                    neutral = null; feedback = context.getString(R.string.scan_quality_retry)
+                } else if (withPhoto) {
+                    neutral = null; pendingNeutral = sample
+                    pendingTextureId = textureRequest.request()
+                    feedback = context.getString(R.string.scan_photo_wait)
+                } else {
+                    neutral = sample
+                    feedback = context.getString(R.string.scan_neutral_saved, sample.samples, sample.jitterPx)
+                }
+            } finally { processingNeutral = false }
+        }
     }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(modifier = Modifier.fillMaxSize(), factory = { ctx ->
@@ -157,42 +188,25 @@ fun ScanCaptureScreen(modelFile: File, diagnostics: TestDiagnostics, onCancel: (
                     else -> R.string.scan_face_wait
                 }))
                 if (feedback.isNotEmpty()) Text(feedback, style = MaterialTheme.typography.bodyMedium)
-                Button(onClick = {
-                    val sample = snapshot()
-                    if (sample == null) feedback = context.getString(R.string.scan_wait_samples)
-                    else if (!NeutralCaptureQuality.isUsable(sample)) {
-                        neutral = null
-                        feedback = context.getString(R.string.scan_quality_retry)
-                    } else {
-                        neutral = sample
-                        feedback = context.getString(R.string.scan_neutral_saved, sample.samples, sample.jitterPx)
-                    }
-                }, enabled = !recording && pendingTextureId == 0L, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_neutral)) }
-                OutlinedButton(onClick = {
-                    val sample = snapshot()
-                    if (sample == null) feedback = context.getString(R.string.scan_wait_samples)
-                    else if (!NeutralCaptureQuality.isUsable(sample)) {
-                        neutral = null; feedback = context.getString(R.string.scan_quality_retry)
-                    } else {
-                        neutral = null; pendingNeutral = sample
-                        pendingTextureId = textureRequest.request()
-                        feedback = context.getString(R.string.scan_photo_wait)
-                    }
-                }, enabled = !recording && pendingTextureId == 0L, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.scan_neutral_photo))
-                }
+                Button(onClick = { captureNeutral(false) },
+                    enabled = !recording && !processingNeutral && pendingTextureId == 0L,
+                    modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_neutral)) }
+                OutlinedButton(onClick = { captureNeutral(true) },
+                    enabled = !recording && !processingNeutral && pendingTextureId == 0L,
+                    modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_neutral_photo)) }
                 if (pendingTextureId != 0L) OutlinedButton(onClick = {
                     textureRequest.cancel(); pendingTextureId = 0L; pendingNeutral = null
                     feedback = context.getString(R.string.scan_photo_cancelled)
                 }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_photo_cancel)) }
                 Button(onClick = {
-                    if (snapshot() == null) feedback = context.getString(R.string.scan_wait_samples)
+                    if (cameraError || status != FaceStatus.FACE || !buffer.hasRecentFace(SystemClock.elapsedRealtime()))
+                        feedback = context.getString(R.string.scan_wait_samples)
                     else {
                         recorder.start(SystemClock.elapsedRealtime())
                         recording = true
                         feedback = context.getString(R.string.scan_recording)
                     }
-                }, enabled = neutral != null && !recording && pendingTextureId == 0L, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_expression)) }
+                }, enabled = neutral != null && !recording && !processingNeutral && pendingTextureId == 0L, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_expression)) }
                 if (recording) OutlinedButton(onClick = {
                     recorder.cancel(); recording = false; feedback = context.getString(R.string.scan_record_cancelled)
                 }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.scan_record_cancel)) }

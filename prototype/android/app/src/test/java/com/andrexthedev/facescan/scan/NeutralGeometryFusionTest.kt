@@ -43,6 +43,27 @@ class NeutralGeometryFusionTest {
         assertNotNull(NeutralGeometryFusion.fuse(listOf(base, base, bad, base)))
     }
 
+    @Test fun medianReducesIndependentSyntheticLandmarkNoiseOnAverage() {
+        val base = shape()
+        val random = kotlin.random.Random(734)
+        var singleSquared = 0.0
+        var fusionSquared = 0.0
+        for (trial in 0 until 8) {
+            val samples = List(5) {
+                FloatArray(base.size) { i -> base[i] + (random.nextFloat() - 0.5f) * 0.03f }
+            }
+            val fusion = NeutralGeometryFusion.fuse(samples)!!
+            val first = FaceAlignment.align(base, samples.first()).points
+            val combined = FaceAlignment.align(base, fusion.points).points
+            for (i in base.indices) {
+                val a = (first[i] - base[i]).toDouble()
+                val b = (combined[i] - base[i]).toDouble()
+                singleSquared += a * a; fusionSquared += b * b
+            }
+        }
+        assertTrue("synthetic fusion error $fusionSquared should be below one-frame error $singleSquared", fusionSquared < singleSquared)
+    }
+
     @Test fun bufferRejectsStaleFaceAndOutOfOrderTimestamps() {
         val points = FloatArray(468 * 3) { i ->
             when (i % 3) {
@@ -56,6 +77,8 @@ class NeutralGeometryFusionTest {
         }
         val buffer = FaceFrameBuffer()
         for (t in listOf(100L, 200L, 300L)) buffer.add(FaceFrame(points, 640, 480, t))
+        assertTrue(buffer.hasRecentFace(300))
+        assertFalse(buffer.hasRecentFace(2801))
         val sample = buffer.snapshot(300)!!
         assertEquals(3, sample.samples)
         assertNotNull(sample.fusedPoints)
@@ -63,6 +86,7 @@ class NeutralGeometryFusionTest {
         assertNull(buffer.snapshot(2801))
         buffer.add(FaceFrame(points, 640, 480, 250))
         assertNull(buffer.snapshot(300))
+        assertFalse(buffer.hasRecentFace(300))
     }
 
     @Test fun invalidFusedGeometryIsNotUsedForScan() {

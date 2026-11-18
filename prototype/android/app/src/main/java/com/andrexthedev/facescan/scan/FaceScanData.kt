@@ -33,21 +33,32 @@ data class FaceSurface(
 /** Kleines Rolling Window; Ausfall oder veraltete Frames ergeben keinen Scan. */
 class FaceFrameBuffer {
     private val frames = ArrayDeque<FaceFrame>()
+    // Nach Gesichtsverlust oder Dimensionswechsel dürfen laufende Berechnungen
+    // kein Ergebnis aus der alten Aufnahmesitzung zurückgeben.
+    private var epoch = 0L
 
     @Synchronized fun add(frame: FaceFrame?) {
-        if (frame == null) { frames.clear(); return }
+        if (frame == null) { frames.clear(); epoch++; return }
         if (frame.points.size < FaceTopology.VERTEX_COUNT * 3 || frame.width <= 0 || frame.height <= 0 ||
             frame.points.take(FaceTopology.VERTEX_COUNT * 3).any { !it.isFinite() }) {
-            frames.clear(); return
+            frames.clear(); epoch++; return
         }
         if (frames.isNotEmpty() && (frames.last().width != frame.width || frames.last().height != frame.height ||
-                frame.atMs <= frames.last().atMs)) frames.clear()
+                frame.atMs <= frames.last().atMs)) { frames.clear(); epoch++ }
         frames.addLast(frame.copy(points = frame.points.copyOf(FaceTopology.VERTEX_COUNT * 3)))
         while (frames.size > 5) frames.removeFirst()
     }
 
-    @Synchronized fun snapshot(nowMs: Long): FaceSnapshot? {
+    @Synchronized fun hasRecentFace(nowMs: Long): Boolean {
         val recent = frames.filter { nowMs >= it.atMs && nowMs - it.atMs <= 5000 }
+        return recent.size >= 3 && nowMs - recent.last().atMs <= 2500 &&
+            NeutralCaptureQuality.inFrame(recent.last().points, recent.last().width, recent.last().height)
+    }
+
+    fun snapshot(nowMs: Long): FaceSnapshot? {
+        val (recent, capturedEpoch) = synchronized(this) {
+            frames.filter { nowMs >= it.atMs && nowMs - it.atMs <= 5000 } to epoch
+        }
         if (recent.size < 3 || nowMs - recent.last().atMs > 2500) return null
         val size = FaceTopology.VERTEX_COUNT * 3
         val valid = recent.filter { NeutralCaptureQuality.inFrame(it.points, it.width, it.height) }
@@ -70,8 +81,9 @@ class FaceFrameBuffer {
             val dy = (f.points[3 * i + 1] - mean[3 * i + 1]) * height
             sq += dx * dx + dy * dy
         }
-        return FaceSnapshot(mean, width, height, sqrt(sq / (accepted.size * FaceTopology.VERTEX_COUNT)),
+        val snapshot = FaceSnapshot(mean, width, height, sqrt(sq / (accepted.size * FaceTopology.VERTEX_COUNT)),
             accepted.size, fusedPoints = fusion.points, fusionAnchorRms = fusion.maxAnchorRms)
+        return synchronized(this) { if (epoch == capturedEpoch) snapshot else null }
     }
 }
 

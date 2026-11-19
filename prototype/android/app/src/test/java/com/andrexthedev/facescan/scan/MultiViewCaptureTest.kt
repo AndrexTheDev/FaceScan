@@ -530,6 +530,79 @@ class MultiViewCaptureTest {
             .contains("# redundancy "))
     }
 
+    @Test fun pointLossAttributesEveryMissingPointToExactlyOneCause() {
+        // Sechs Slots: zwei trianguliert, vier abgelehnt mit unterschiedlichem Grund.
+        val points = listOf(
+            MultiViewTriangulation.Result.Point(doubleArrayOf(0.0, 0.0, 1.0), 5.0, 0.1, 0.2),
+            MultiViewTriangulation.Result.Point(doubleArrayOf(1.0, 0.0, 1.0), 5.0, 0.1, 0.2),
+            MultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.INSUFFICIENT_VIEWS),
+            MultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.INSUFFICIENT_PARALLAX),
+            MultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.BEHIND_CAMERA),
+            MultiViewTriangulation.Result.Rejected(MultiViewTriangulation.Failure.REPROJECTION_ERROR)
+        )
+        // Nur ein Punkt wurde in weniger als zwei Ansichten beobachtet.
+        val report = MultiViewPointLoss.analyze(points, intArrayOf(3, 3, 1, 3, 3, 3))
+        assertEquals(2, report.triangulated)
+        assertEquals(4, report.missing)
+        assertEquals(4, report.categorized)
+        assertTrue(report.complete)
+        assertEquals(1, report.count(MultiViewPointLoss.TOO_FEW_VIEWS))
+        assertEquals(1, report.count(MultiViewPointLoss.INSUFFICIENT_PARALLAX))
+        assertEquals(1, report.count(MultiViewPointLoss.BEHIND_CAMERA))
+        assertEquals(1, report.count(MultiViewPointLoss.UNSTABLE))
+        assertEquals(0, report.count(MultiViewPointLoss.NO_CONSENSUS))
+        assertEquals(0, report.count(MultiViewPointLoss.UNKNOWN))
+        // "zu wenige Ansichten" hat Vorrang vor dem geometrischen Grund: ohne
+        // zwei Beobachtungen trianguliert man nicht.
+        assertEquals(MultiViewPointLoss.TOO_FEW_VIEWS,
+            MultiViewPointLoss.reasonOf(MultiViewTriangulation.Failure.INSUFFICIENT_PARALLAX, 1))
+        // Unbekannte Gründe bleiben unbekannt statt plausibel geraten.
+        assertEquals(MultiViewPointLoss.UNKNOWN,
+            MultiViewPointLoss.reasonOf(MultiViewTriangulation.Failure.INVALID_INPUT, 4))
+        assertEquals(4, report.nonEmpty().size)
+        assertTrue(MultiViewPointLoss.describe(report).contains("triangulated=2/6 missing=4"))
+        assertTrue(MultiViewPointLoss.describe(report).contains("complete=true"))
+    }
+
+    @Test fun pointLossIgnoresTriangulatedPointsAndEmptyReportsStayHonest() {
+        val allGood = listOf(MultiViewTriangulation.Result.Point(doubleArrayOf(0.0, 0.0, 1.0), 5.0, 0.1, 0.2))
+        val good = MultiViewPointLoss.analyze(allGood, intArrayOf(3))
+        assertEquals(0, good.missing)
+        assertTrue(good.complete)
+        assertTrue(good.nonEmpty().isEmpty())
+        val empty = MultiViewPointLoss.analyze(emptyList(), IntArray(0))
+        assertEquals(0, empty.totalSlots)
+        assertTrue(empty.complete)
+    }
+
+    @Test fun captureReportsMissingCausesAndWritesThemToBothExports() {
+        // Eine Ansicht ohne zwei Beobachtungen: der Punkt außerhalb des Bildes
+        // wird in beiden Ansichten nicht gesehen und muss als "zu wenige
+        // Ansichten" auftauchen.
+        val outcome = MultiViewCapture.reconstruct(
+            listOf(view(0.0, hole = 5), view(-22.0, hole = 5), view(24.0, hole = 5)), intrinsics)
+            as MultiViewCapture.Outcome.Reconstructed
+        val report = outcome.result.pointLoss!!
+        assertEquals(CanonicalAnchors.LANDMARK_COUNT, report.totalSlots)
+        assertEquals(outcome.result.cloud.acceptedCount, report.triangulated)
+        assertTrue(report.missing > 0)
+        assertTrue(report.complete)
+        assertEquals(report.missing, report.count(MultiViewPointLoss.TOO_FEW_VIEWS))
+        val obj = String(MultiViewCapture.writeObjWithHeader(outcome.result)!!, Charsets.UTF_8)
+        assertTrue(obj.contains("# pointLoss triangulated="))
+        assertTrue(obj.contains("tooFewViews=${report.missing}"))
+        val glb = String(PartialGlbWriter.write(outcome.result.surface.mesh!!, pointLoss = report), Charsets.ISO_8859_1)
+        assertTrue(glb.contains("\"pointLoss\":{\"triangulated\":${report.triangulated}"))
+        assertTrue(glb.contains("\"tooFewViews\":${report.missing}"))
+        assertTrue(glb.contains("rejection reasons of missing landmarks, one category each"))
+        // Vollständiges Ergebnis: kein PunktLoss-Block im OBJ-Kopf.
+        val clean = MultiViewCapture.reconstruct(listOf(view(0.0), view(-22.0), view(24.0)), intrinsics)
+            as MultiViewCapture.Outcome.Reconstructed
+        assertEquals(0, clean.result.pointLoss!!.missing)
+        assertFalse(String(MultiViewCapture.writeObjWithHeader(clean.result)!!, Charsets.UTF_8)
+            .contains("# pointLoss "))
+    }
+
     @Test fun topologyReportsBoundaryNonManifoldAndComponents() {
         // Ein einzelnes Dreieck hat drei Randkanten und eine Komponente.
         val single = PartialMeshTopology.inspect(3, intArrayOf(0, 1, 2))

@@ -68,6 +68,8 @@ object MultiViewCapture {
         val completeness: MultiViewCompleteness.Report? = null,
         /** Wie viele Ansichten welchen Punkt stützen; keine Genauigkeitsaussage. */
         val redundancy: MultiViewRedundancy.Report? = null,
+        /** Ablehnungsgründe der fehlenden Punkte; jede Stelle genau einmal. */
+        val pointLoss: MultiViewPointLoss.Report? = null,
         /** Pose der Referenzansicht für Tiefenangaben; null, wenn keine vorliegt. */
         val referenceRotation: Mat3? = null,
         val referenceTranslation: DoubleArray? = null
@@ -119,6 +121,7 @@ object MultiViewCapture {
         // strenge Reprojektionsprüfung. Kein Konsens erfindet Punkte: nicht
         // bestätigte Landmarks fehlen im Ergebnis.
         var redundancy: MultiViewRedundancy.Report? = null
+        var seenByArray = IntArray(0)
         val cloud = if (robust && anchored.acceptedViewIndices.size >= 3) {
             // Nur die akzeptierten Posen dürfen in die robuste Triangulation.
             val calibratedViews = anchored.acceptedViewIndices.map { index ->
@@ -137,6 +140,7 @@ object MultiViewCapture {
                 }
             }
             redundancy = MultiViewRedundancy.analyzeRobust(robustCloud, usedByPoint)
+            seenByArray = robustCloud.seenByViewCount
             val converted = robustCloud.points.map { value ->
                 when (value) {
                     is com.andrexthedev.facescan.geometry.RobustMultiViewTriangulation.Result.Point -> value.fit
@@ -149,6 +153,9 @@ object MultiViewCapture {
         } else anchored.cloud
         if (cloud == null) return reject(Failure.POSE_REJECTED)
         if (redundancy == null) redundancy = MultiViewRedundancy.analyze(cloud.points, IntArray(cloud.points.size))
+        // Warum fehlt ein Punkt? Die Zahl der Beobachtungen stammt aus dem
+        // robusten Pfad; ohne ihn ist sie unbekannt und bleibt es auch.
+        val pointLoss = MultiViewPointLoss.analyze(cloud.points, seenByArray)
         val surface = PartialFaceMesh.build(cloud, maxEdgeCm)
         if (surface.mesh == null) return reject(Failure.EMPTY_CLOUD)
         val accepted = anchored.acceptedViewIndices.map { i ->
@@ -169,7 +176,7 @@ object MultiViewCapture {
             MultiViewCompleteness.analyze(cloud, pose.transform.rotation, pose.transform.translation, intrinsics.fx)
         }
         return Outcome.Reconstructed(Result(surface, accepted, cloud, intrinsics, worst, topology, completeness,
-            redundancy, referencePose?.transform?.rotation, referencePose?.transform?.translation))
+            redundancy, pointLoss, referencePose?.transform?.rotation, referencePose?.transform?.translation))
     }
 
     /**
@@ -197,7 +204,8 @@ object MultiViewCapture {
             "assumedFocalPx=${"%.1f".format(java.util.Locale.ROOT, result.intrinsics.fx)}\n" +
             "# Canonical average anchors in centimetres, not a measurement of the subject.\n" +
             (result.completeness?.let { "# completeness ${MultiViewCompleteness.describe(it)}\n" } ?: "") +
-            (result.redundancy?.takeIf { it.hasInlierData }?.let { "# redundancy ${MultiViewRedundancy.describe(it)}\n" } ?: "")
+            (result.redundancy?.takeIf { it.hasInlierData }?.let { "# redundancy ${MultiViewRedundancy.describe(it)}\n" } ?: "") +
+            (result.pointLoss?.takeIf { it.missing > 0 }?.let { "# pointLoss ${MultiViewPointLoss.describe(it)}\n" } ?: "")
         return header.toByteArray(Charsets.UTF_8) + base
     }
 }

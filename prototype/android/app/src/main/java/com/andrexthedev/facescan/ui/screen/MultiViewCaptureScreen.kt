@@ -57,6 +57,7 @@ import com.andrexthedev.facescan.scan.FaceViewRequest
 import com.andrexthedev.facescan.scan.ImageQuality
 import com.andrexthedev.facescan.scan.MeshExportFormat
 import com.andrexthedev.facescan.scan.MultiViewCapture
+import com.andrexthedev.facescan.scan.MultiViewPointLoss
 import com.andrexthedev.facescan.scan.MultiViewQualityGate
 import com.andrexthedev.facescan.scan.MultiViewSession
 import com.andrexthedev.facescan.scan.encodeExport
@@ -368,6 +369,22 @@ fun MultiViewCaptureScreen(
                             ready.topology.nonManifoldEdges, ready.topology.components,
                             ready.topology.largestComponentTriangles),
                             style = MaterialTheme.typography.bodySmall)
+                        ready.pointLoss?.takeIf { it.missing > 0 }?.let { report ->
+                            // Feste Reihenfolge wie im Bericht; nur echte Kategorien.
+                            val text = report.nonEmpty().joinToString(", ") { (key, value) ->
+                                val label = when (key) {
+                                    MultiViewPointLoss.TOO_FEW_VIEWS -> R.string.multiview_loss_few_views
+                                    MultiViewPointLoss.INSUFFICIENT_PARALLAX -> R.string.multiview_loss_parallax
+                                    MultiViewPointLoss.BEHIND_CAMERA -> R.string.multiview_loss_behind
+                                    MultiViewPointLoss.UNSTABLE -> R.string.multiview_loss_unstable
+                                    MultiViewPointLoss.NO_CONSENSUS -> R.string.multiview_loss_consensus
+                                    else -> R.string.multiview_loss_unknown
+                                }
+                                "$value x ${context.getString(label)}"
+                            }
+                            Text(stringResource(R.string.multiview_point_loss, text),
+                                style = MaterialTheme.typography.bodySmall)
+                        }
                         ready.redundancy?.takeIf { it.hasInlierData }?.let { report ->
                             val median = report.medianUsedViews
                             val fraction = report.fractionWithThreeOrMore

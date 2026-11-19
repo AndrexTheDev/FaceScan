@@ -7,6 +7,7 @@ import com.andrexthedev.facescan.geometry.MultiViewTriangulation
 import com.andrexthedev.facescan.geometry.ValidatedAnchorPose
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
 import kotlin.math.abs
 
 class MultiViewCaptureTest {

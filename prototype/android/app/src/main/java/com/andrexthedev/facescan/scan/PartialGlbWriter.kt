@@ -82,7 +82,7 @@ object PartialGlbWriter {
         val agreeingViews = focalConsistency?.let { MultiViewFocalConsistency.agreeingViews(it) } ?: 0
         val focalConsistent = focalConsistency?.consistent?.toString() ?: "null"
         val viewUseReasons = AnchorPoseDropReason.entries.joinToString(",") { reason ->
-            q + reason.key + q + ":" + (viewUse?.reason(reason) ?: 0)
+            "\"" + reason.key + "\":" + (viewUse?.reason(reason) ?: 0)
         }
         val viewUseComplete = viewUse?.complete?.toString() ?: "null"
 

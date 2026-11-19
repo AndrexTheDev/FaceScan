@@ -127,11 +127,18 @@ jobs:
              [ ! -s "$RUNNER_TEMP/facescan-synthetic-partial.obj" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-partial-reference.json" ] ||
              [ ! -s "$RUNNER_TEMP/facescan-synthetic-partial.glb" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-partial-glb-reference.json" ] ||
              [ ! -s "$RUNNER_TEMP/facescan-synthetic-partial.ply" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-partial-ply-reference.json" ] ||
-             [ ! -s "$RUNNER_TEMP/facescan-synthetic.obj" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-obj-reference.json" ]; then
-            gradle --no-daemon :app:testDebugUnitTest --tests 'com.andrexthedev.facescan.scan.FaceScanTest' --rerun-tasks
+             [ ! -s "$RUNNER_TEMP/facescan-synthetic.obj" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-obj-reference.json" ] || \
+             [ ! -s "$RUNNER_TEMP/facescan-synthetic-multiview-metadata.glb" ] || [ ! -s "$RUNNER_TEMP/facescan-synthetic-multiview-metadata.json" ]; then
+            # Beide Klassen: die Metadatendatei entsteht im Mehransichten-Test.
+            gradle --no-daemon :app:testDebugUnitTest \
+              --tests 'com.andrexthedev.facescan.scan.FaceScanTest' \
+              --tests 'com.andrexthedev.facescan.scan.MultiViewCaptureTest' --rerun-tasks
           fi
           npm install --prefix "$RUNNER_TEMP/facescan-validator" --no-save --no-audit --no-fund gltf-validator@2.0.0-dev.3.10
           node ci/validate-glb.js
+          python3 ci/validate-glb-metadata.py \
+            "$RUNNER_TEMP/facescan-synthetic-multiview-metadata.glb" \
+            "$RUNNER_TEMP/facescan-synthetic-multiview-metadata.json"
 
       - name: Referenz-Vergleich und OBJ synthetisch prüfen
         run: |
@@ -139,6 +146,9 @@ jobs:
           python3 -m pip install --user numpy trimesh==4.7.4
           python3 -m unittest discover -s prototype/reference/validation -v
           python3 prototype/android/ci/validate-obj.py
+          # Der Metadatenpruefer braucht einen eigenen Selbsttest: ein Pruefer,
+          # der nie anschlaegt, waere schlimmer als keiner.
+          python3 prototype/android/ci/test_validate_glb_metadata.py -v
       - name: Mehransichten-Referenz synthetisch prüfen
         run: python3 -m unittest -v prototype/reference/validation/test_multiview_probe.py
 

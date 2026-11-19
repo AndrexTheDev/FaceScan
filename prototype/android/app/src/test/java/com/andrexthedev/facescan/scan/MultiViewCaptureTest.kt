@@ -738,6 +738,53 @@ class MultiViewCaptureTest {
         assertEquals(0, session.attempts())
     }
 
+    @Test fun syntheticMetadataGlbIsWrittenForIndependentVerification() {
+        // Ein kuenstliches Ergebnis mit allen Metadatenbloecken, damit ein
+        // unabhaengiger Parser die Zahlen nachzaehlen kann: Die Datei darf
+        // keine Behauptung enthalten, die nicht aus den Daten folgt.
+        val session = MultiViewSession(intrinsics)
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, session.add(view(0.0).points, w, h))
+        assertEquals(MultiViewSession.AddResult.INSUFFICIENT_YAW_DIFFERENCE,
+            session.add(view(3.0).points, w, h))
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, session.add(view(-22.0).points, w, h))
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, session.add(view(24.0).points, w, h))
+        val outcome = session.reconstruct() as MultiViewCapture.Outcome.Reconstructed
+        val result = outcome.result
+        val glb = PartialGlbWriter.write(result.surface.mesh!!, completeness = result.completeness,
+            redundancy = result.redundancy, pointLoss = result.pointLoss,
+            focalConsistency = result.focalConsistency, viewUse = result.viewUse)
+        // JSON-Kopf aus der GLB-Datei schneiden und nur als Text pruefen.
+        val buffer = java.nio.ByteBuffer.wrap(glb).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        assertEquals(0x46546c67, buffer.int)
+        assertEquals(2, buffer.int)
+        buffer.int
+        val jsonLength = buffer.int
+        buffer.int
+        val json = String(glb, 20, jsonLength, Charsets.UTF_8).trimEnd(' ')
+        System.getenv("RUNNER_TEMP")?.let { dir ->
+            File(dir, "facescan-synthetic-multiview-metadata.glb").writeBytes(glb)
+            val use = result.viewUse!!
+            val reasons = AnchorPoseDropReason.entries.joinToString(",") { "\"${it.key}\":${use.reason(it)}" }
+            val focal = result.focalConsistency!!
+            File(dir, "facescan-synthetic-multiview-metadata.json").writeText(
+                "{\"views\":${result.acceptedViews.size}," +
+                    "\"pointLoss\":{\"triangulated\":${result.pointLoss!!.triangulated}," +
+                    "\"missing\":${result.pointLoss!!.missing}}," +
+                    "\"focalConsistency\":{\"views\":${focal.viewCount}," +
+                    "\"consistent\":${focal.consistent}}," +
+                    "\"viewUse\":{\"stored\":${use.storedViews},\"used\":${use.usedViews}," +
+                    "\"notStored\":${use.attemptsNotStored}," +
+                    "\"reasons\":{$reasons}}," +
+                    "\"zones\":\"" + result.completeness!!.zoneCoverages.joinToString(",") {
+                        "${it.name}=${it.anchorsTriangulated}/${it.anchorsInZone}"
+                    } + "\"}")
+        }
+        // Ohne diese Bloecke darf die Datei nicht als geprueft gelten.
+        assertTrue(json.contains("\"pointLoss\":"))
+        assertTrue(json.contains("\"focalConsistency\":"))
+        assertTrue(json.contains("\"viewUse\":"))
+    }
+
     @Test fun topologyReportsBoundaryNonManifoldAndComponents() {
         // Ein einzelnes Dreieck hat drei Randkanten und eine Komponente.
         val single = PartialMeshTopology.inspect(3, intArrayOf(0, 1, 2))

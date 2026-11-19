@@ -21,7 +21,8 @@ fun MultiViewCapture.Result.encodeExport(format: MeshExportFormat): ByteArray? {
     return when (format) {
         MeshExportFormat.OBJ -> MultiViewCapture.writeObjWithHeader(this)
         MeshExportFormat.GLB -> PartialGlbWriter.write(
-            mesh, completeness = completeness, redundancy = redundancy, pointLoss = pointLoss)
+            mesh, completeness = completeness, redundancy = redundancy, pointLoss = pointLoss,
+            focalConsistency = focalConsistency)
         MeshExportFormat.PLY -> {
             val rotation = referenceRotation
             val translation = referenceTranslation

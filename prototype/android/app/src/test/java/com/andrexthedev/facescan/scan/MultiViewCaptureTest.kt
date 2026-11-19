@@ -613,6 +613,66 @@ class MultiViewCaptureTest {
         assertTrue(glb.contains("rejection reasons of missing landmarks, one category each"))
     }
 
+    @Test fun focalConsistencyNeedsTwoEstimatesAndReportsSpreadHonestly() {
+        // Eine einzelne Schätzung sagt nichts über Streuung.
+        assertNull(MultiViewFocalConsistency.analyze(listOf(760.0)))
+        assertNull(MultiViewFocalConsistency.analyze(listOf(760.0, Double.NaN, -5.0)))
+        // Drei fast gleiche Schätzungen: Median 760, Spanne 2/760.
+        val tight = MultiViewFocalConsistency.analyze(listOf(759.0, 760.0, 761.0), assumedFocalPx = 760.0)!!
+        assertEquals(3, tight.viewCount)
+        assertEquals(760.0, tight.medianFocalPx, 1e-9)
+        assertEquals(2.0 / 760.0, tight.relativeSpread!!, 1e-12)
+        assertEquals(0.0, tight.deviationFromAssumed!!, 1e-12)
+        assertTrue(tight.consistent)
+        assertEquals(3, MultiViewFocalConsistency.agreeingViews(tight))
+        // Weit auseinander: 500 und 1000 widersprechen sich deutlich.
+        val wide = MultiViewFocalConsistency.analyze(listOf(500.0, 1000.0), assumedFocalPx = 760.0)!!
+        assertEquals(750.0, wide.medianFocalPx, 1e-9)
+        assertFalse(wide.consistent)
+        assertEquals((750.0 - 760.0) / 760.0, wide.deviationFromAssumed!!, 1e-12)
+        // Median 750: 1000 weicht um 33 % ab, 500 um 33 % – keine Einigkeit.
+        assertEquals(0, MultiViewFocalConsistency.agreeingViews(wide))
+        // Ohne Annahme gibt es keine Abweichung; nichts wird erfunden.
+        assertNull(MultiViewFocalConsistency.analyze(listOf(500.0, 1000.0))!!.deviationFromAssumed)
+        val text = MultiViewFocalConsistency.describe(tight)
+        assertTrue(text.contains("views=3 medianFocalPx=760.0 assumedFocalPx=760.0"))
+        assertTrue(text.contains("consistent=true"))
+        assertTrue(text.contains("self-consistency, not calibration"))
+        // Ohne Annahme steht ausdrücklich n/a, keine Zahl.
+        assertTrue(MultiViewFocalConsistency.describe(MultiViewFocalConsistency.analyze(listOf(500.0, 1000.0))!!)
+            .contains("assumedFocalPx=n/a"))
+    }
+
+    @Test fun sessionReportsFocalSpreadAndExportsItWithoutCalibrationClaim() {
+        // Künstliche Ansichten mit exakt bekannter Brennweite: die Schätzungen
+        // müssen eng beieinander liegen, ein Fit allein ist aber kein Beweis
+        // für Kalibrierung.
+        val session = MultiViewSession(intrinsics)
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, session.add(view(0.0).points, w, h))
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, session.add(view(-22.0).points, w, h))
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, session.add(view(24.0).points, w, h))
+        val outcome = session.reconstruct() as MultiViewCapture.Outcome.Reconstructed
+        val report = outcome.result.focalConsistency!!
+        assertEquals(3, report.viewCount)
+        assertEquals(intrinsics.fx, report.assumedFocalPx!!, 1e-9)
+        // Der Fit trifft die künstliche Kamera; genau das prüft der Bericht.
+        assertTrue(report.consistent)
+        assertTrue(report.relativeSpread!! < MultiViewFocalConsistency.TOLERANCE)
+        val obj = String(MultiViewCapture.writeObjWithHeader(outcome.result)!!, Charsets.UTF_8)
+        assertTrue(obj.contains("# focalConsistency views=3"))
+        assertTrue(obj.contains("(self-consistency, not calibration)"))
+        val glb = String(PartialGlbWriter.write(outcome.result.surface.mesh!!,
+            focalConsistency = report), Charsets.ISO_8859_1)
+        assertTrue(glb.contains("\"focalConsistency\":{\"views\":3"))
+        assertTrue(glb.contains("\"consistent\":true"))
+        assertTrue(glb.contains("self-consistency, not camera calibration"))
+        // Eine einzelne Ansicht ergibt keine Rekonstruktion – und keinen Bericht.
+        val single = MultiViewSession(intrinsics)
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, single.add(view(0.0).points, w, h))
+        assertTrue(single.reconstruct() is MultiViewCapture.Outcome.Rejected)
+        assertEquals(1, single.stored().size)
+    }
+
     @Test fun topologyReportsBoundaryNonManifoldAndComponents() {
         // Ein einzelnes Dreieck hat drei Randkanten und eine Komponente.
         val single = PartialMeshTopology.inspect(3, intArrayOf(0, 1, 2))

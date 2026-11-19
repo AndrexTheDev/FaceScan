@@ -72,7 +72,9 @@ object MultiViewCapture {
         val pointLoss: MultiViewPointLoss.Report? = null,
         /** Pose der Referenzansicht für Tiefenangaben; null, wenn keine vorliegt. */
         val referenceRotation: Mat3? = null,
-        val referenceTranslation: DoubleArray? = null
+        val referenceTranslation: DoubleArray? = null,
+        /** Streuung der je Ansicht geschätzten Brennweite; keine Kalibrierung. */
+        val focalConsistency: MultiViewFocalConsistency.Report? = null
     )
     sealed class Outcome {
         data class Reconstructed(val result: Result) : Outcome()
@@ -85,7 +87,8 @@ object MultiViewCapture {
      * kanten können optional verworfen werden (Einheit: Zentimeter der Anker).
      */
     fun reconstruct(views: List<View>, intrinsics: Intrinsics, maxEdgeCm: Double? = null,
-                    robust: Boolean = true): Outcome {
+                    robust: Boolean = true,
+                    focalConsistency: MultiViewFocalConsistency.Report? = null): Outcome {
         fun reject(reason: Failure): Outcome = Outcome.Rejected(reason)
         if (views.size !in 2..MAX_VIEWS) return reject(if (views.size > MAX_VIEWS) Failure.TOO_MANY_VIEWS else Failure.INVALID_VIEW)
         val width = views.first().width
@@ -176,7 +179,8 @@ object MultiViewCapture {
             MultiViewCompleteness.analyze(cloud, pose.transform.rotation, pose.transform.translation, intrinsics.fx)
         }
         return Outcome.Reconstructed(Result(surface, accepted, cloud, intrinsics, worst, topology, completeness,
-            redundancy, pointLoss, referencePose?.transform?.rotation, referencePose?.transform?.translation))
+            redundancy, pointLoss, referencePose?.transform?.rotation, referencePose?.transform?.translation,
+            focalConsistency))
     }
 
     /**
@@ -205,7 +209,8 @@ object MultiViewCapture {
             "# Canonical average anchors in centimetres, not a measurement of the subject.\n" +
             (result.completeness?.let { "# completeness ${MultiViewCompleteness.describe(it)}\n" } ?: "") +
             (result.redundancy?.takeIf { it.hasInlierData }?.let { "# redundancy ${MultiViewRedundancy.describe(it)}\n" } ?: "") +
-            (result.pointLoss?.takeIf { it.missing > 0 }?.let { "# pointLoss ${MultiViewPointLoss.describe(it)}\n" } ?: "")
+            (result.pointLoss?.takeIf { it.missing > 0 }?.let { "# pointLoss ${MultiViewPointLoss.describe(it)}\n" } ?: "") +
+            (result.focalConsistency?.let { "# focalConsistency ${MultiViewFocalConsistency.describe(it)}\n" } ?: "")
         return header.toByteArray(Charsets.UTF_8) + base
     }
 }

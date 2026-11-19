@@ -77,7 +77,14 @@ object MultiViewSessionSelfTest {
                 if (kotlin.math.abs(mesh.vertices[i][axis] - expected[axis]) > 0.05) return false
             }
         }
+        // Brennweitenschätzung je Ansicht: künstlich bekannt, müssen also eng
+        // beieinander liegen. Das prüft die Rechnung, nicht die Kalibrierung.
+        val focal = reconstructed.result.focalConsistency ?: return false
+        if (focal.viewCount != 3 || !focal.consistent) return false
+        if (focal.assumedFocalPx == null || kotlin.math.abs(focal.assumedFocalPx - FOCAL_PIXELS) > 1e-6) return false
+        if (focal.relativeSpread == null || focal.relativeSpread > MultiViewFocalConsistency.TOLERANCE) return false
         val text = String(MultiViewCapture.writeObjWithHeader(reconstructed.result) ?: return false, Charsets.UTF_8)
+        if (!text.contains("# focalConsistency views=3")) return false
         if (!text.contains("f ") || !text.contains("not validated") || !text.contains("views=3")) return false
         // Normalen müssen vorhanden und endlich sein; sie sind kein Messwert.
         if (text.lineSequence().none { it.startsWith("vn ") }) return false

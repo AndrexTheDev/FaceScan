@@ -177,6 +177,7 @@
     <string name="multiview_depth_uncertainty">Rough depth uncertainty (first order, from reprojection residual and parallax): median %1$.2f cm, 90th percentile %2$.2f cm over %3$d points. Not a validated accuracy.</string>
     <string name="multiview_redundancy">View support: median %1$.1f views per point; %2$.0f %% of points are supported by at least three views, %3$d by only two. This describes redundancy of the calculation, not accuracy.</string>
     <string name="multiview_point_loss">Missing points by cause: %1$s. Each missing point is counted exactly once; unknown causes stay unknown.</string>
+    <string name="multiview_focal_consistency">Focal length from %1$d views: median %2$.0f px, deviation from the field-of-view assumption %3$.1f %%, spread between views %4$.1f %%; %5$d views close to the median. This checks agreement of the estimates only, not camera calibration.</string>
     <string name="multiview_loss_few_views">too few views</string>
     <string name="multiview_loss_parallax">too shallow angle</string>
     <string name="multiview_loss_behind">behind camera</string>

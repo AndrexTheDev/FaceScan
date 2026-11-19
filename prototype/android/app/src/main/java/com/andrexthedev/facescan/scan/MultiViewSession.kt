@@ -114,7 +114,12 @@ class MultiViewSession(
             else (focals[focals.size / 2 - 1] + focals[focals.size / 2]) / 2.0
         val camera = if (median.isFinite() && median > 0.0)
             MultiViewCapture.Intrinsics(median, median, intrinsics.cx, intrinsics.cy) else intrinsics
-        return MultiViewCapture.reconstruct(views.map { it.view }, camera, maxEdgeCm)
+        // Wie einig sind sich die Ansichten über die Brennweite? Eine einzelne
+        // Zahl sagt nichts über Streuung; der Bericht entfällt dann.
+        val consistency = MultiViewFocalConsistency.analyze(
+            views.map { it.estimatedIntrinsics.fx }, assumedFocalPx = intrinsics.fx)
+        return MultiViewCapture.reconstruct(views.map { it.view }, camera, maxEdgeCm,
+            focalConsistency = consistency)
     }
 
     /**

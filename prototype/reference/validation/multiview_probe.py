@@ -168,6 +168,79 @@ def depth_uncertainty_cm(depth_cm, rms_px, parallax_deg, focal_px):
     return rms_px / (focal_px * sine) * depth_cm
 
 
+def search_focal(pixels, cx, cy, max_rms_px):
+    """Grobe Brennweitensuche wie in der App: festes Raster plus Feinsuche.
+
+    Liefert die Brennweite des besten akzeptierten Ankerfits oder None. Das ist
+    KEINE Kalibrierung; ohne Perspektivwechsel ist die Brennweite kaum
+    bestimmt und die Suche liefert oft einen Randwert.
+    """
+    width, height = 2.0 * cx, 2.0 * cy
+    if not (math.isfinite(width) and math.isfinite(height) and width > 0 and height > 0):
+        return None
+    reference = max(width, height)
+    best = None
+    best_rms = math.inf
+
+    def consider(factor):
+        nonlocal best, best_rms
+        focal = factor * reference
+        estimate = estimate_pose(ANCHOR_POINTS, pixels, focal, focal, cx, cy)
+        if estimate is None:
+            return
+        _rotation, _translation, rms = estimate
+        if rms > max_rms_px:
+            return
+        if rms < best_rms:
+            best_rms = rms
+            best = focal
+
+    coarse = 16
+    for step in range(coarse + 1):
+        consider(0.6 + (2.5 - 0.6) * step / coarse)
+    if best is None:
+        return None
+    center = best / reference
+    spacing = (2.5 - 0.6) / coarse
+    for step in range(-10, 11):
+        consider(min(max(center + spacing * step / 10.0, 0.6), 2.5))
+    return best
+
+
+FOCAL_TOLERANCE = 0.15
+
+
+def focal_consistency(per_view_focals, assumed=None, tolerance=FOCAL_TOLERANCE):
+    """Streuung der je Ansicht geschaetzten Brennweite.
+
+    Unabhaengige Umsetzung des Kotlin-Berichts: nur brauchbare Werte zaehlen,
+    unter zwei Werten gibt es keinen Bericht. Das ist eine Aussage ueber die
+    Selbstkonsistenz der Schaetzungen, NICHT ueber die Kalibrierung der Kamera.
+    """
+    if not math.isfinite(tolerance) or tolerance <= 0:
+        raise ValueError("Toleranz muss positiv und endlich sein")
+    valid = [float(v) for v in per_view_focals if math.isfinite(v) and v > 1.0]
+    if len(valid) < 2:
+        return None
+    ordered = sorted(valid)
+    n = len(ordered)
+    median = ordered[n // 2] if n % 2 else (ordered[n // 2 - 1] + ordered[n // 2]) / 2
+    if not math.isfinite(median) or median <= 1.0:
+        return None
+    spread = (ordered[-1] - ordered[0]) / median
+    assumed_value = assumed if assumed is not None and math.isfinite(assumed) and assumed > 1.0 else None
+    agreeing = sum(1 for f in valid if abs(f - median) / median <= tolerance / 2)
+    return {
+        "views": n,
+        "medianFocalPx": median,
+        "assumedFocalPx": assumed_value,
+        "relativeSpread": spread,
+        "deviationFromAssumed": None if assumed_value is None else (median - assumed_value) / assumed_value,
+        "agreeingViews": agreeing,
+        "consistent": spread <= tolerance,
+    }
+
+
 def triangulate(observations, fx, fy, cx, cy):
     """Kleinste Quadrate zu den Strahlen; None bei ungueltiger Geometrie."""
     a = np.zeros((3, 3))
@@ -235,6 +308,15 @@ def main():
         poses.append((rotation, translation, landmarks))
     if len(poses) < 2:
         raise SystemExit("Weniger als zwei akzeptierte Ansichten")
+    # Brennweite je Ansicht wie in der App: die Suche tastet einen festen
+    # Faktorbereich der laengeren Bildkante ab und nimmt den besten Ankerfit.
+    per_view_focals = []
+    for view in views:
+        landmarks = np.asarray(view["landmarks"], dtype=np.float64).reshape(-1, 3)
+        pixels = landmarks[ANCHOR_INDICES, :2] * np.array([width, height]) - 0.5
+        searched = search_focal(pixels, width / 2.0, height / 2.0, args.max_rms_px)
+        if searched is not None:
+            per_view_focals.append(searched)
     report = {"views": len(views), "accepted": len(poses), "points": {},
               "points_by_zone": {}}
     uncertainties = []
@@ -267,6 +349,11 @@ def main():
                 uncertainties.append(uncertainty)
         if truth is not None and str(index) in truth:
             errors.append(float(np.linalg.norm(np.asarray(truth[str(index)]) - point)))
+    consistency = focal_consistency(per_view_focals, assumed=fx)
+    if consistency is not None:
+        consistency["note"] = ("Streuung der Brennweitenschaetzung je Ansicht; "
+                               "Selbstkonsistenz der Schaetzung, keine Kalibrierung.")
+        report["focal_consistency"] = consistency
     if uncertainties:
         values = np.sort(np.asarray(uncertainties, dtype=np.float64))
         report["depth_uncertainty_cm"] = {

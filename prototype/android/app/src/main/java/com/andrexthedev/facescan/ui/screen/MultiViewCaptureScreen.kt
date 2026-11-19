@@ -57,6 +57,7 @@ import com.andrexthedev.facescan.scan.FaceViewRequest
 import com.andrexthedev.facescan.scan.ImageQuality
 import com.andrexthedev.facescan.scan.MeshExportFormat
 import com.andrexthedev.facescan.scan.MultiViewCapture
+import com.andrexthedev.facescan.scan.MultiViewFocalConsistency
 import com.andrexthedev.facescan.scan.MultiViewPointLoss
 import com.andrexthedev.facescan.scan.MultiViewQualityGate
 import com.andrexthedev.facescan.scan.MultiViewSession
@@ -392,6 +393,20 @@ fun MultiViewCaptureScreen(
                                 Text(stringResource(R.string.multiview_redundancy,
                                     median, fraction * 100.0, report.supportedByTwoViews),
                                     style = MaterialTheme.typography.bodySmall)
+                        }
+                        ready.focalConsistency?.let { report ->
+                            // Streuung der Brennweitenschätzung: beschreibt die
+                            // Einigkeit der Ansichten, nicht die Kalibrierung.
+                            val spread = report.relativeSpread
+                            val deviation = report.deviationFromAssumed
+                            if (spread != null && deviation != null)
+                                Text(stringResource(R.string.multiview_focal_consistency,
+                                    report.viewCount, report.medianFocalPx, deviation * 100.0,
+                                    spread * 100.0,
+                                    MultiViewFocalConsistency.agreeingViews(report)),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (report.consistent) MaterialTheme.colorScheme.onSurface
+                                        else MaterialTheme.colorScheme.error)
                         }
                         ready.completeness?.let { report ->
                             val zones = report.zoneCoverages

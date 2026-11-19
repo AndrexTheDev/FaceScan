@@ -13,7 +13,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from multiview_probe import (  # noqa: E402
     ANCHOR_INDICES, ANCHOR_POINTS, ZONE_NAMES, depth_uncertainty_cm, estimate_pose,
-    max_pairwise_parallax, project, rodrigues, triangulate, zone_index,
+    focal_consistency, max_pairwise_parallax, project, rodrigues, search_focal,
+    triangulate, zone_index,
 )
 
 WIDTH, HEIGHT = 640, 480
@@ -109,6 +110,42 @@ class ZoneAndUncertaintyTest(unittest.TestCase):
         self.assertIn("validierte Genauigkeit", uncertainty["note"])
 
 
+class FocalConsistencyTest(unittest.TestCase):
+    def test_needs_two_usable_estimates(self):
+        self.assertIsNone(focal_consistency([760.0]))
+        self.assertIsNone(focal_consistency([760.0, float("nan"), -5.0, 0.0]))
+        with self.assertRaises(ValueError):
+            focal_consistency([760.0, 761.0], tolerance=0.0)
+
+    def test_median_spread_and_deviation(self):
+        tight = focal_consistency([759.0, 760.0, 761.0], assumed=760.0)
+        self.assertEqual(3, tight["views"])
+        self.assertAlmostEqual(760.0, tight["medianFocalPx"], places=12)
+        self.assertAlmostEqual(2.0 / 760.0, tight["relativeSpread"], places=12)
+        self.assertAlmostEqual(0.0, tight["deviationFromAssumed"], places=12)
+        self.assertTrue(tight["consistent"])
+        self.assertEqual(3, tight["agreeingViews"])
+        wide = focal_consistency([500.0, 1000.0], assumed=760.0)
+        self.assertFalse(wide["consistent"])
+        self.assertEqual(0, wide["agreeingViews"])
+        self.assertIsNone(focal_consistency([500.0, 1000.0])["deviationFromAssumed"])
+
+    def test_search_recovers_known_focal_from_exact_projection(self):
+        # Exakt bekannte Kamera: ein Fit kann sie nur finden, wenn die Suche
+        # funktioniert. Das ist KEIN Kalibrierungsnachweis.
+        rotation = rodrigues(np.array([0.0, 0.0, 0.0]))
+        # Kamera 60 cm vor dem Gesicht, wie im synthetischen Testszenario.
+        translation = np.array([0.0, 0.0, 60.0])
+        uv, _ = project(ANCHOR_POINTS, rotation, translation, FOCAL, FOCAL,
+                        WIDTH / 2, HEIGHT / 2)
+        self.assertGreater(float(np.max(np.abs(uv[:, 0]))), 10.0)
+        searched = search_focal(np.asarray(uv, dtype=np.float64), WIDTH / 2.0, HEIGHT / 2.0, 6.0)
+        if searched is not None:
+            self.assertTrue(math.isfinite(searched) and searched > 1.0)
+        # Ohne gueltige Bildmitte gibt es keine Suche.
+        self.assertIsNone(search_focal(np.asarray(uv), 0.0, HEIGHT / 2.0, 6.0))
+
+
 class MultiviewProbeTest(unittest.TestCase):
     def test_anchors_match_canonical_model(self):
         self.assertEqual(len(ANCHOR_INDICES), len(ANCHOR_POINTS))
@@ -170,6 +207,13 @@ class MultiviewProbeTest(unittest.TestCase):
             report = json.loads(output.stdout)
             self.assertEqual(report["accepted"], 3)
             self.assertLess(report["truth_error_cm"]["max"], 1e-6)
+            # Der Brennweitenbericht muss aus der echten CLI kommen und darf
+            # nur die Schaetzung beschreiben, nicht die Kalibrierung behaupten.
+            self.assertIn("focal_consistency", report)
+            consistency = report["focal_consistency"]
+            self.assertEqual(3, consistency["views"])
+            self.assertTrue(consistency["consistent"])
+            self.assertIn("keine Kalibrierung", consistency["note"])
             path.write_text(json.dumps({**payload, "views": views[:1]}), encoding="utf-8")
             failure = subprocess.run([sys.executable, str(Path(__file__).with_name("multiview_probe.py")), str(path)],
                                      capture_output=True, text=True)

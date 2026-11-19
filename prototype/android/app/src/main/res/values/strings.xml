@@ -177,6 +177,13 @@
     <string name="multiview_completeness_empty">Nicht belegte Zonen: %1$s. Dort gibt es keine Fläche; das wird nicht aufgefüllt.</string>
     <string name="multiview_depth_uncertainty">Grobe Tiefenunsicherheit (erste Ordnung, aus Reprojektionsrest und Parallaxe): Median %1$.2f cm, 90-%-Wert %2$.2f cm bei %3$d Punkten. Keine validierte Genauigkeit.</string>
     <string name="multiview_redundancy">Stützung durch Ansichten: Median %1$.1f Ansichten je Punkt; %2$.0f %% der Punkte werden von mindestens drei Ansichten gestützt, %3$d nur von zwei. Das beschreibt die Redundanz der Rechnung, nicht die Genauigkeit.</string>
+    <string name="multiview_point_loss">Fehlende Punkte nach Ursache: %1$s. Jeder fehlende Punkt zählt genau einmal; unbekannte Ursachen bleiben unbekannt.</string>
+    <string name="multiview_loss_few_views">zu wenige Ansichten</string>
+    <string name="multiview_loss_parallax">zu flacher Blickwinkel</string>
+    <string name="multiview_loss_behind">hinter der Kamera</string>
+    <string name="multiview_loss_unstable">instabile Geometrie oder zu großer Rest</string>
+    <string name="multiview_loss_consensus">kein Mehrheitskonsens</string>
+    <string name="multiview_loss_unknown">Ursache unbekannt</string>
     <string name="multiview_result_preview">Vorschau des rekonstruierten Teilnetzes. Zum Drehen wischen. Offene Ränder und Löcher sind erwartet und werden nicht aufgefüllt.</string>
     <string name="multiview_result_limits">Einheit und Skala folgen den kanonischen Durchschnittsankern, nicht deiner Person. Der Reprojektionsrest sagt nichts über die reale 3D-Genauigkeit. Löcher, Ausreißer und falsche Tiefe sind möglich; es gibt keine Animation, keine Fototextur und keine Vollständigkeitsgarantie.</string>
     <string name="multiview_result_weak_pose">Mindestens eine Ansicht hatte einen großen Ankerrest. Behandle die Form mit besonderer Vorsicht.</string>

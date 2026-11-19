@@ -40,11 +40,17 @@ class MultiViewSession(
 
     private val views = mutableListOf<Stored>()
     private var dimensions: Pair<Int, Int>? = null
+    // Zaehlt jeden Speicherversuch, auch die abgewiesenen. Nur so laesst sich
+    // spaeter sagen, wie viele Aufnahmen gar nicht erst zur Ansicht wurden.
+    private var attempts = 0
 
     @Synchronized fun size(): Int = views.size
     @Synchronized fun isEmpty(): Boolean = views.isEmpty()
     @Synchronized fun stored(): List<Stored> = views.toList()
-    @Synchronized fun clear() { views.clear(); dimensions = null }
+    @Synchronized fun clear() { views.clear(); dimensions = null; attempts = 0 }
+
+    /** Bisherige Speicherversuche inklusive der abgewiesenen. */
+    @Synchronized fun attempts(): Int = attempts
 
     /**
      * Vorprüfung einer Ansicht ohne sie zu übernehmen. Null, wenn Anker fehlen
@@ -73,6 +79,8 @@ class MultiViewSession(
 
     @Synchronized fun add(points: FloatArray, width: Int, height: Int, atMs: Long = 0L): AddResult {
         if (views.size >= maxViews) return AddResult.FULL
+        // Ab hier ist es ein echter Versuch mit pruefbaren Daten.
+        attempts++
         if (points.size < CanonicalAnchors.LANDMARK_COUNT * 3 || points.any { !it.isFinite() }) return AddResult.INVALID_VIEW
         if (width <= 0 || height <= 0) return AddResult.INVALID_VIEW
         val dim = width to height
@@ -119,7 +127,7 @@ class MultiViewSession(
         val consistency = MultiViewFocalConsistency.analyze(
             views.map { it.estimatedIntrinsics.fx }, assumedFocalPx = intrinsics.fx)
         return MultiViewCapture.reconstruct(views.map { it.view }, camera, maxEdgeCm,
-            focalConsistency = consistency)
+            focalConsistency = consistency, attemptedViews = attempts)
     }
 
     /**

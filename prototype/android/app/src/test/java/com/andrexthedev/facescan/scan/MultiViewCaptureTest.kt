@@ -673,6 +673,71 @@ class MultiViewCaptureTest {
         assertEquals(1, single.stored().size)
     }
 
+    @Test fun viewUseSeparatesStoredUsedAndNeverStoredViews() {
+        fun pose(rms: Double) = ValidatedAnchorPose.Result.Pose(
+            com.andrexthedev.facescan.geometry.RigidTransform(Mat3.identity(),
+                doubleArrayOf(0.0, 0.0, 60.0)), rms, 1.0)
+        val poses = listOf(
+            pose(0.4),
+            ValidatedAnchorPose.Result.Rejected(ValidatedAnchorPose.Failure.HIGH_RESIDUAL),
+            ValidatedAnchorPose.Result.Rejected(ValidatedAnchorPose.Failure.HIGH_RESIDUAL),
+            ValidatedAnchorPose.Result.Rejected(ValidatedAnchorPose.Failure.BEHIND_CAMERA)
+        )
+        val report = MultiViewViewUse.analyze(storedViews = 4, attemptedViews = 5, poses = poses)
+        assertEquals(1, report.usedViews)
+        assertEquals(3, report.storedNotUsed)
+        assertEquals(1, report.attemptsNotStored)
+        assertEquals(2, report.reason(AnchorPoseDropReason.HIGH_RESIDUAL))
+        assertEquals(1, report.reason(AnchorPoseDropReason.BEHIND_CAMERA))
+        assertEquals(0, report.reason(AnchorPoseDropReason.DEGENERATE_ANCHORS))
+        // Jede verworfene Ansicht hat genau einen Grund.
+        assertTrue(report.complete)
+        // Eine einzige beitragende Pose reicht nicht fuer eine Rekonstruktion.
+        assertFalse(report.sufficient)
+        assertEquals(2, report.dropReasons().size)
+        val text = MultiViewViewUse.describe(report)
+        assertTrue(text.contains("stored=4 used=1 notStored=1 dropped=3"))
+        assertTrue(text.contains("highResidual=2"))
+        assertTrue(text.contains("complete=true"))
+        assertTrue(text.contains("not accuracy"))
+        // Ohne Posenlisten wird keine Ursache erfunden.
+        val blind = MultiViewViewUse.analyze(4, 5, null)
+        assertEquals(0, blind.usedViews)
+        assertFalse(blind.hasPoseData)
+        assertFalse(blind.complete)
+        assertTrue(blind.dropReasons().isEmpty())
+        assertTrue(MultiViewViewUse.describe(blind).contains("complete=false"))
+    }
+
+    @Test fun captureCountsAttemptsAndReportsWhichViewsContributed() {
+        val session = MultiViewSession(intrinsics)
+        // Erst eine abgewiesene Aufnahme (zu aehnliche Haltung), dann drei echte.
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, session.add(view(0.0).points, w, h))
+        assertEquals(MultiViewSession.AddResult.INSUFFICIENT_YAW_DIFFERENCE,
+            session.add(view(3.0).points, w, h))
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, session.add(view(-22.0).points, w, h))
+        assertEquals(MultiViewSession.AddResult.ACCEPTED, session.add(view(24.0).points, w, h))
+        assertEquals(4, session.attempts())
+        val outcome = session.reconstruct() as MultiViewCapture.Outcome.Reconstructed
+        val use = outcome.result.viewUse!!
+        assertEquals(3, use.storedViews)
+        assertEquals(4, use.attemptedViews)
+        assertEquals(1, use.attemptsNotStored)
+        assertEquals(3, use.usedViews)
+        assertEquals(0, use.storedNotUsed)
+        assertTrue(use.complete)
+        assertTrue(use.sufficient)
+        val obj = String(MultiViewCapture.writeObjWithHeader(outcome.result)!!, Charsets.UTF_8)
+        assertTrue(obj.contains("# viewUse stored=3 used=3 notStored=1"))
+        val glb = String(PartialGlbWriter.write(outcome.result.surface.mesh!!,
+            viewUse = use), Charsets.ISO_8859_1)
+        assertTrue(glb.contains("\"viewUse\":{\"stored\":3,\"used\":3,\"notStored\":1,\"dropped\":0"))
+        assertTrue(glb.contains("which captured views contributed, not accuracy"))
+        // Zuruecksetzen muss auch die Versuche zuruecksetzen.
+        session.clear()
+        assertEquals(0, session.attempts())
+    }
+
     @Test fun topologyReportsBoundaryNonManifoldAndComponents() {
         // Ein einzelnes Dreieck hat drei Randkanten und eine Komponente.
         val single = PartialMeshTopology.inspect(3, intArrayOf(0, 1, 2))

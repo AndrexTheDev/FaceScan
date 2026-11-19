@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from multiview_probe import (  # noqa: E402
     ANCHOR_INDICES, ANCHOR_POINTS, ZONE_NAMES, depth_uncertainty_cm, estimate_pose,
     focal_consistency, max_pairwise_parallax, project, rodrigues, search_focal,
-    triangulate, zone_index,
+    triangulate, view_use, zone_index,
 )
 
 WIDTH, HEIGHT = 640, 480
@@ -146,6 +146,30 @@ class FocalConsistencyTest(unittest.TestCase):
         self.assertIsNone(search_focal(np.asarray(uv), 0.0, HEIGHT / 2.0, 6.0))
 
 
+class ViewUseTest(unittest.TestCase):
+    def test_counts_stored_used_and_never_stored(self):
+        report = view_use(4, 5, accepted_poses=1,
+                          rejected_reasons=["highResidual", "highResidual", "behindCamera"])
+        self.assertEqual(1, report["used"])
+        self.assertEqual(3, report["dropped"])
+        self.assertEqual(1, report["notStored"])
+        self.assertEqual(2, report["reasons"]["highResidual"])
+        self.assertEqual(1, report["reasons"]["behindCamera"])
+        self.assertEqual(0, report["reasons"]["degenerateAnchors"])
+        self.assertTrue(report["complete"])
+        self.assertIn("keine Genauigkeitsaussage", report["note"])
+
+    def test_incomplete_and_invalid_input(self):
+        partial = view_use(3, 3, accepted_poses=1, rejected_reasons=["invalidInput"])
+        self.assertFalse(partial["complete"])
+        with self.assertRaises(ValueError):
+            view_use(2, 1)
+        with self.assertRaises(ValueError):
+            view_use(2, 2, accepted_poses=3)
+        with self.assertRaises(ValueError):
+            view_use(2, 2, rejected_reasons=["gibtsNicht"])
+
+
 class MultiviewProbeTest(unittest.TestCase):
     def test_anchors_match_canonical_model(self):
         self.assertEqual(len(ANCHOR_INDICES), len(ANCHOR_POINTS))
@@ -214,6 +238,10 @@ class MultiviewProbeTest(unittest.TestCase):
             self.assertEqual(3, consistency["views"])
             self.assertTrue(consistency["consistent"])
             self.assertIn("keine Kalibrierung", consistency["note"])
+            # Welche Ansichten beigetragen haben, zaehlt der CLI-Bericht mit.
+            self.assertEqual(3, report["view_use"]["stored"])
+            self.assertEqual(3, report["view_use"]["used"])
+            self.assertTrue(report["view_use"]["complete"])
             path.write_text(json.dumps({**payload, "views": views[:1]}), encoding="utf-8")
             failure = subprocess.run([sys.executable, str(Path(__file__).with_name("multiview_probe.py")), str(path)],
                                      capture_output=True, text=True)

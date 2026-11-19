@@ -48,6 +48,12 @@ object MultiViewSessionSelfTest {
         return out
     }
 
+    /** Kopfzeile des OBJ pruefen, ohne den Rest der Datei zu lesen. */
+    private fun textContainsViewUse(result: MultiViewCapture.Result): Boolean {
+        val text = String(MultiViewCapture.writeObjWithHeader(result) ?: return false, Charsets.UTF_8)
+        return text.contains("# viewUse stored=3 used=3 notStored=1")
+    }
+
     fun run(): Boolean {
         val intrinsics = MultiViewCapture.Intrinsics(FOCAL_PIXELS, FOCAL_PIXELS, WIDTH / 2.0, HEIGHT / 2.0)
         val session = MultiViewSession(intrinsics)
@@ -77,6 +83,11 @@ object MultiViewSessionSelfTest {
                 if (kotlin.math.abs(mesh.vertices[i][axis] - expected[axis]) > 0.05) return false
             }
         }
+        // Jede versuchte Aufnahme wird gezaehlt, auch die abgewiesene.
+        val use = reconstructed.result.viewUse ?: return false
+        if (use.storedViews != 3 || use.usedViews != 3 || use.attemptsNotStored != 1 || !use.complete) return false
+        if (!use.sufficient) return false
+        if (!textContainsViewUse(reconstructed.result)) return false
         // Brennweitenschätzung je Ansicht: künstlich bekannt, müssen also eng
         // beieinander liegen. Das prüft die Rechnung, nicht die Kalibrierung.
         val focal = reconstructed.result.focalConsistency ?: return false

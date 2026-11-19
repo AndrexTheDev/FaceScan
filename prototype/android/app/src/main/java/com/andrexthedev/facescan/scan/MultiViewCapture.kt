@@ -74,7 +74,9 @@ object MultiViewCapture {
         val referenceRotation: Mat3? = null,
         val referenceTranslation: DoubleArray? = null,
         /** Streuung der je Ansicht geschätzten Brennweite; keine Kalibrierung. */
-        val focalConsistency: MultiViewFocalConsistency.Report? = null
+        val focalConsistency: MultiViewFocalConsistency.Report? = null,
+        /** Welche aufgenommenen Ansichten tatsächlich beigetragen haben. */
+        val viewUse: MultiViewViewUse.Report? = null
     )
     sealed class Outcome {
         data class Reconstructed(val result: Result) : Outcome()
@@ -88,7 +90,8 @@ object MultiViewCapture {
      */
     fun reconstruct(views: List<View>, intrinsics: Intrinsics, maxEdgeCm: Double? = null,
                     robust: Boolean = true,
-                    focalConsistency: MultiViewFocalConsistency.Report? = null): Outcome {
+                    focalConsistency: MultiViewFocalConsistency.Report? = null,
+                    attemptedViews: Int = views.size): Outcome {
         fun reject(reason: Failure): Outcome = Outcome.Rejected(reason)
         if (views.size !in 2..MAX_VIEWS) return reject(if (views.size > MAX_VIEWS) Failure.TOO_MANY_VIEWS else Failure.INVALID_VIEW)
         val width = views.first().width
@@ -178,9 +181,12 @@ object MultiViewCapture {
         val completeness = referencePose?.let { pose ->
             MultiViewCompleteness.analyze(cloud, pose.transform.rotation, pose.transform.translation, intrinsics.fx)
         }
+        // Welche der aufgenommenen Ansichten haben beigetragen? Die Posenliste
+        // deckt jede gespeicherte Ansicht ab; Ablehnungen bleiben Ablehnungen.
+        val viewUse = MultiViewViewUse.analyze(views.size, maxOf(attemptedViews, views.size), anchored.poses)
         return Outcome.Reconstructed(Result(surface, accepted, cloud, intrinsics, worst, topology, completeness,
             redundancy, pointLoss, referencePose?.transform?.rotation, referencePose?.transform?.translation,
-            focalConsistency))
+            focalConsistency, viewUse))
     }
 
     /**
@@ -210,7 +216,8 @@ object MultiViewCapture {
             (result.completeness?.let { "# completeness ${MultiViewCompleteness.describe(it)}\n" } ?: "") +
             (result.redundancy?.takeIf { it.hasInlierData }?.let { "# redundancy ${MultiViewRedundancy.describe(it)}\n" } ?: "") +
             (result.pointLoss?.takeIf { it.missing > 0 }?.let { "# pointLoss ${MultiViewPointLoss.describe(it)}\n" } ?: "") +
-            (result.focalConsistency?.let { "# focalConsistency ${MultiViewFocalConsistency.describe(it)}\n" } ?: "")
+            (result.focalConsistency?.let { "# focalConsistency ${MultiViewFocalConsistency.describe(it)}\n" } ?: "") +
+            (result.viewUse?.let { "# viewUse ${MultiViewViewUse.describe(it)}\n" } ?: "")
         return header.toByteArray(Charsets.UTF_8) + base
     }
 }

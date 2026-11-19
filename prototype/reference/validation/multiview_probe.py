@@ -168,6 +168,41 @@ def depth_uncertainty_cm(depth_cm, rms_px, parallax_deg, focal_px):
     return rms_px / (focal_px * sine) * depth_cm
 
 
+POSE_DROP_REASONS = ("invalidInput", "degenerateAnchors", "estimationFailed",
+                     "behindCamera", "highResidual")
+
+
+def view_use(stored, attempted, accepted_poses=(), rejected_reasons=()):
+    """Welche aufgenommenen Ansichten beigetragen haben.
+
+    Unabhaengige Umsetzung des Kotlin-Berichts: `stored` ist die Zahl der
+    gespeicherten, `attempted` die der versuchten Aufnahmen. Jede gespeicherte
+    Ansicht ist entweder beigetragen (accepted_poses) oder verworfen
+    (rejected_reasons). Das ist eine Aussage ueber den Ablauf, NICHT ueber
+    Qualitaet oder Genauigkeit.
+    """
+    if stored < 0 or attempted < stored:
+        raise ValueError("unplausible Anzahlen")
+    reasons = {key: 0 for key in POSE_DROP_REASONS}
+    for reason in rejected_reasons:
+        if reason not in reasons:
+            raise ValueError("unbekannter Grund: %r" % (reason,))
+        reasons[reason] += 1
+    used = int(accepted_poses)
+    if used < 0 or used > stored:
+        raise ValueError("mehr beigetragene Ansichten als gespeicherte")
+    dropped = stored - used
+    return {
+        "stored": int(stored),
+        "used": used,
+        "notStored": int(attempted - stored),
+        "dropped": dropped,
+        "reasons": reasons,
+        "complete": sum(reasons.values()) == dropped,
+        "note": "welche Aufnahmen beigetragen haben, keine Genauigkeitsaussage",
+    }
+
+
 def search_focal(pixels, cx, cy, max_rms_px):
     """Grobe Brennweitensuche wie in der App: festes Raster plus Feinsuche.
 
@@ -317,8 +352,15 @@ def main():
         searched = search_focal(pixels, width / 2.0, height / 2.0, args.max_rms_px)
         if searched is not None:
             per_view_focals.append(searched)
+    accepted_indices = [i for i, view in enumerate(views)
+                        if estimate_pose(ANCHOR_POINTS,
+                                         np.asarray(view["landmarks"], dtype=np.float64).reshape(-1, 3)[ANCHOR_INDICES, :2]
+                                         * np.array([width, height]) - 0.5,
+                                         fx, fy, cx, cy) is not None]
     report = {"views": len(views), "accepted": len(poses), "points": {},
               "points_by_zone": {}}
+    report["view_use"] = view_use(stored=len(views), attempted=len(views),
+                                  accepted_poses=len(accepted_indices))
     uncertainties = []
     truth = data.get("truth")
     errors = []

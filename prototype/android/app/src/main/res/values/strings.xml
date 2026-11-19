@@ -179,6 +179,13 @@
     <string name="multiview_redundancy">Stützung durch Ansichten: Median %1$.1f Ansichten je Punkt; %2$.0f %% der Punkte werden von mindestens drei Ansichten gestützt, %3$d nur von zwei. Das beschreibt die Redundanz der Rechnung, nicht die Genauigkeit.</string>
     <string name="multiview_point_loss">Fehlende Punkte nach Ursache: %1$s. Jeder fehlende Punkt zählt genau einmal; unbekannte Ursachen bleiben unbekannt.</string>
     <string name="multiview_focal_consistency">Brennweite aus %1$d Ansichten: Median %2$.0f px, Abweichung von der Sichtfeld-Annahme %3$.1f %%, Streuung zwischen den Ansichten %4$.1f %%; %5$d Ansichten nahe am Median. Das prüft nur die Einigkeit der Schätzung, nicht die Kalibrierung.</string>
+    <string name="multiview_view_use">Ansichten: %1$d gespeichert, %2$d haben beigetragen; %3$d Aufnahmeversuche ohne Ansicht. Verworfene Posen: %4$s. Das beschreibt nur, welche Ansichten beigetragen haben, nicht die Genauigkeit.</string>
+    <string name="multiview_view_use_no_reasons">keine</string>
+    <string name="multiview_view_drop_invalid">ungültige Eingabe</string>
+    <string name="multiview_view_drop_degenerate">unbrauchbare Ankerlage</string>
+    <string name="multiview_view_drop_failed">Pose nicht berechenbar</string>
+    <string name="multiview_view_drop_behind">Punkt hinter der Kamera</string>
+    <string name="multiview_view_drop_residual">zu großer Ankerrest</string>
     <string name="multiview_loss_few_views">zu wenige Ansichten</string>
     <string name="multiview_loss_parallax">zu flacher Blickwinkel</string>
     <string name="multiview_loss_behind">hinter der Kamera</string>

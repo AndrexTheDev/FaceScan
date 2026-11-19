@@ -56,6 +56,7 @@ import com.andrexthedev.facescan.scan.FaceMeshRenderer
 import com.andrexthedev.facescan.scan.FaceViewRequest
 import com.andrexthedev.facescan.scan.ImageQuality
 import com.andrexthedev.facescan.scan.MeshExportFormat
+import com.andrexthedev.facescan.scan.AnchorPoseDropReason
 import com.andrexthedev.facescan.scan.MultiViewCapture
 import com.andrexthedev.facescan.scan.MultiViewFocalConsistency
 import com.andrexthedev.facescan.scan.MultiViewPointLoss
@@ -393,6 +394,26 @@ fun MultiViewCaptureScreen(
                                 Text(stringResource(R.string.multiview_redundancy,
                                     median, fraction * 100.0, report.supportedByTwoViews),
                                     style = MaterialTheme.typography.bodySmall)
+                        }
+                        ready.viewUse?.let { report ->
+                            // Welche Aufnahmen beigetragen haben; die Gruende
+                            // der verworfenen Posen in fester Reihenfolge.
+                            val reasons = report.dropReasons().joinToString(", ") { (key, value) ->
+                                val label = when (key) {
+                                    AnchorPoseDropReason.INVALID_INPUT -> R.string.multiview_view_drop_invalid
+                                    AnchorPoseDropReason.DEGENERATE_ANCHORS -> R.string.multiview_view_drop_degenerate
+                                    AnchorPoseDropReason.ESTIMATION_FAILED -> R.string.multiview_view_drop_failed
+                                    AnchorPoseDropReason.BEHIND_CAMERA -> R.string.multiview_view_drop_behind
+                                    AnchorPoseDropReason.HIGH_RESIDUAL -> R.string.multiview_view_drop_residual
+                                }
+                                "$value x ${context.getString(label)}"
+                            }
+                            Text(stringResource(R.string.multiview_view_use,
+                                report.storedViews, report.usedViews, report.attemptsNotStored,
+                                reasons.ifEmpty { context.getString(R.string.multiview_view_use_no_reasons) }),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (report.sufficient) MaterialTheme.colorScheme.onSurface
+                                    else MaterialTheme.colorScheme.error)
                         }
                         ready.focalConsistency?.let { report ->
                             // Streuung der Brennweitenschätzung: beschreibt die

@@ -59,6 +59,7 @@ import com.andrexthedev.facescan.scan.MeshExportFormat
 import com.andrexthedev.facescan.scan.AnchorPoseDropReason
 import com.andrexthedev.facescan.scan.MultiViewCapture
 import com.andrexthedev.facescan.scan.MultiViewFocalConsistency
+import com.andrexthedev.facescan.scan.MultiViewOutcomeText
 import com.andrexthedev.facescan.scan.MultiViewPointLoss
 import com.andrexthedev.facescan.scan.MultiViewQualityGate
 import com.andrexthedev.facescan.scan.MultiViewSession

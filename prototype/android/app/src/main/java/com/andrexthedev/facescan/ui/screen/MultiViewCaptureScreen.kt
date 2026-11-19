@@ -257,7 +257,15 @@ fun MultiViewCaptureScreen(
                 }
                 is MultiViewCapture.Outcome.Rejected -> {
                     diagnostics.scanEvent(ScanEvent.MULTIVIEW_FAILED)
-                    feedback = context.getString(R.string.multiview_failed)
+                    // Der Grund steht so in der Ablehnung; er wird nur
+                    // uebersetzt und nicht neu interpretiert. Zusaetzlich
+                    // landet der Schluessel im lokalen Bericht, ohne Bilder.
+                    diagnostics.multiviewFailure(
+                        MultiViewOutcomeText.describe(outcome.reason))
+                    feedback = context.getString(
+                        R.string.multiview_failed_reason,
+                        context.getString(reasonLabel(outcome.reason)),
+                        context.getString(actionLabel(outcome.reason)))
                 }
                 is MultiViewCapture.Outcome.Reconstructed -> {
                     diagnostics.scanEvent(ScanEvent.MULTIVIEW_ACCEPTED)
@@ -491,6 +499,28 @@ object FaceViewGeometry {
     fun remember(width: Int, height: Int) { if (width > 0 && height > 0) last.set(width to height) }
     fun remembered(): Pair<Int, Int>? = last.get()
     fun clear() { last.set(null) }
+}
+
+/** Uebersetzbarer Name des Ablehnungsgrunds; reine Zuordnung, keine Deutung. */
+internal fun reasonLabel(failure: MultiViewCapture.Failure): Int = when (failure) {
+    MultiViewCapture.Failure.INVALID_VIEW -> R.string.multiview_reason_invalid_view
+    MultiViewCapture.Failure.INCONSISTENT_DIMENSIONS -> R.string.multiview_reason_dimensions
+    MultiViewCapture.Failure.ANCHORS_OUT_OF_FRAME -> R.string.multiview_reason_anchors
+    MultiViewCapture.Failure.POSE_REJECTED -> R.string.multiview_reason_pose
+    MultiViewCapture.Failure.INSUFFICIENT_ACCEPTED_VIEWS -> R.string.multiview_reason_views
+    MultiViewCapture.Failure.EMPTY_CLOUD -> R.string.multiview_reason_empty
+    MultiViewCapture.Failure.TOO_MANY_VIEWS -> R.string.multiview_reason_too_many
+}
+
+/** Handlungsvorschlag zum Grund; eine Empfehlung, kein Ursachennachweis. */
+internal fun actionLabel(failure: MultiViewCapture.Failure): Int = when (failure) {
+    MultiViewCapture.Failure.INVALID_VIEW -> R.string.multiview_action_smooth
+    MultiViewCapture.Failure.INCONSISTENT_DIMENSIONS -> R.string.multiview_action_restart
+    MultiViewCapture.Failure.ANCHORS_OUT_OF_FRAME -> R.string.multiview_action_center
+    MultiViewCapture.Failure.POSE_REJECTED -> R.string.multiview_action_turn
+    MultiViewCapture.Failure.INSUFFICIENT_ACCEPTED_VIEWS -> R.string.multiview_action_turn
+    MultiViewCapture.Failure.EMPTY_CLOUD -> R.string.multiview_action_add
+    MultiViewCapture.Failure.TOO_MANY_VIEWS -> R.string.multiview_action_restart
 }
 
 @Composable

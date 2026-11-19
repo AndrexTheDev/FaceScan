@@ -786,6 +786,42 @@ class MultiViewCaptureTest {
         assertTrue(json.contains("\"viewUse\":"))
     }
 
+    @Test fun everyRejectionReasonGetsItsOwnKeyAndAdvice() {
+        // Jeder Grund hat genau einen Schluessel und einen Vorschlag; nichts
+        // faellt auf einen stillen Standardwert zurueck.
+        val keys = MultiViewCapture.Failure.entries.map { MultiViewOutcomeText.key(it) }
+        assertEquals(keys.size, keys.distinct().size)
+        assertEquals(MultiViewCapture.Failure.entries.size, MultiViewOutcomeText.order.size)
+        assertEquals(MultiViewCapture.Failure.entries.toSet(), MultiViewOutcomeText.order.toSet())
+        assertTrue(keys.all { it.isNotEmpty() && it.first().isLowerCase() })
+        assertEquals("invalidView", MultiViewOutcomeText.key(MultiViewCapture.Failure.INVALID_VIEW))
+        assertEquals("insufficientAcceptedViews",
+            MultiViewOutcomeText.key(MultiViewCapture.Failure.INSUFFICIENT_ACCEPTED_VIEWS))
+        // Verwandte Gruende duerfen denselben Rat geben, aber nicht denselben Namen.
+        assertEquals(MultiViewOutcomeText.actionKey(MultiViewCapture.Failure.POSE_REJECTED),
+            MultiViewOutcomeText.actionKey(MultiViewCapture.Failure.INSUFFICIENT_ACCEPTED_VIEWS))
+        val text = MultiViewOutcomeText.describe(MultiViewCapture.Failure.ANCHORS_OUT_OF_FRAME)
+        assertTrue(text.contains("anchorsOutOfFrame action=centerFace"))
+        assertTrue(text.contains("reason as reported by the reconstruction"))
+    }
+
+    @Test fun realRejectionsMatchTheirAdvertisedReason() {
+        // Die Zuordnung behauptet, welcher Grund bei welcher Eingabe kommt.
+        // Diese Tests pruefen, dass die Behauptung stimmt.
+        fun reasonOf(outcome: MultiViewCapture.Outcome): MultiViewCapture.Failure =
+            (outcome as MultiViewCapture.Outcome.Rejected).reason
+        assertEquals(MultiViewCapture.Failure.INCONSISTENT_DIMENSIONS,
+            reasonOf(MultiViewCapture.reconstruct(listOf(view(0.0), view(20.0).copy(width = 320)), intrinsics)))
+        assertEquals(MultiViewCapture.Failure.TOO_MANY_VIEWS,
+            reasonOf(MultiViewCapture.reconstruct(List(9) { view(it * 15.0) }, intrinsics)))
+        assertEquals(MultiViewCapture.Failure.INVALID_VIEW,
+            reasonOf(MultiViewCapture.reconstruct(listOf(view(0.0), view(20.0)), intrinsics, maxEdgeCm = -1.0)))
+        // Zwei fast identische Ansichten: keine brauchbare Parallaxe.
+        val tiny = reasonOf(MultiViewCapture.reconstruct(listOf(view(0.0), view(0.05)), intrinsics))
+        assertTrue(tiny == MultiViewCapture.Failure.EMPTY_CLOUD || tiny == MultiViewCapture.Failure.POSE_REJECTED)
+        assertTrue(MultiViewOutcomeText.describe(tiny).isNotEmpty())
+    }
+
     @Test fun topologyReportsBoundaryNonManifoldAndComponents() {
         // Ein einzelnes Dreieck hat drei Randkanten und eine Komponente.
         val single = PartialMeshTopology.inspect(3, intArrayOf(0, 1, 2))

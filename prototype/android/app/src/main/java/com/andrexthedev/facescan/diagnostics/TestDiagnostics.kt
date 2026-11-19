@@ -26,6 +26,9 @@ class TestDiagnostics {
     private val scanEvents = ScanEventCounters()
     private var selfTests: DeviceSelfTest.Results? = null
     private var calibration = CalibrationAvailability.UNKNOWN
+    // Letzter Ablehnungsgrund der Mehransichten-Rekonstruktion: nur ein kurzer
+    // Schluessel, keine Bilder, keine Koordinaten.
+    private var multiviewFailure = "-"
 
     @Synchronized fun model(state: String, error: String = "-") { modelState = state; modelError = error }
     @Synchronized fun frame(width: Int, height: Int, rotation: Int) {
@@ -48,6 +51,7 @@ class TestDiagnostics {
     @Synchronized fun calibrationInfo(value: CalibrationAvailability) { calibration = value }
     @Synchronized fun scanEvent(event: ScanEvent) { scanEvents.record(event) }
     @Synchronized fun cameraError(error: String) { cameraError = error }
+    @Synchronized fun multiviewFailure(reason: String) { multiviewFailure = reason }
     @Synchronized fun inferenceError(error: String) { inferenceError = error }
 
     @Synchronized fun report(context: Context): String {
@@ -83,6 +87,7 @@ Geräte-Selbsttest (synthetisches Scan-Mesh und GLB): ${selfTests?.scanExport ?:
 Geräte-Selbsttest (synthetische Bildhinweise): ${selfTests?.imageQuality ?: "nicht ausgeführt"}
 Geräte-Selbsttest (synthetisches Foto/UV und OBJ): ${selfTests?.textureExport ?: "nicht ausgeführt"}
 Geräte-Selbsttest (synthetische Mehransichten aus kanonischen Ankern): ${selfTests?.multiView ?: "nicht ausgeführt"}
+Letzter Mehransichten-Fehlschlag (Grund): $multiviewFailure
 Geräte-Selbsttest (MediaPipe auf Schwarzbild): ${selfTests?.landmarker ?: "nicht ausgeführt"}
 Frontkamera laut System: ${selfTests?.frontCamera ?: "nicht geprüft"}
 Metadaten der zuletzt gebundenen Kamera: Intrinsics ${calibration.intrinsics.label}; Verzeichnung ${calibration.distortion.label}; Sensorbereich ${calibration.activeArray.label}. Nur statische Angaben, keine validierte Kalibrierung oder Frame-Zuordnung.

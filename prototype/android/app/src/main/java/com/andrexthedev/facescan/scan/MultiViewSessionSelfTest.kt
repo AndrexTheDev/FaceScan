@@ -109,7 +109,10 @@ object MultiViewSessionSelfTest {
         if (session.add(syntheticLandmarks(0.0), WIDTH, HEIGHT) != MultiViewSession.AddResult.ACCEPTED) return false
         if (session.add(syntheticLandmarks(25.0), WIDTH / 2, HEIGHT / 2) !=
             MultiViewSession.AddResult.INCONSISTENT_DIMENSIONS) return false
-        if (session.reconstruct() !is MultiViewCapture.Outcome.Rejected) return false
+        val rejected = session.reconstruct() as? MultiViewCapture.Outcome.Rejected ?: return false
+        // Der Grund muss benannt werden koennen, nicht nur "fehlgeschlagen".
+        if (MultiViewOutcomeText.key(rejected.reason) != "insufficientAcceptedViews") return false
+        if (MultiViewOutcomeText.actionKey(rejected.reason) != "turnFurther") return false
         return true
     }
 }
